@@ -27,3 +27,5 @@ verselight/neutralinojs.log
 Thumbs.db
 *.log
 node_modules/
+verselight/installer/app/
+verselight/installer/*.exe

@@ -71,10 +71,24 @@ jobs:
           name: MyVerse-${{ steps.v.outputs.version }}-Windows
           path: out/MyVerse
 
+      - name: Installateur Windows (NSIS)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq nsis
+          rm -rf verselight/installer/app && cp -r out/MyVerse verselight/installer/app
+          cd verselight/installer && makensis -V2 -DVERSION=${{ steps.v.outputs.version }} MyVerse.nsi
+          mv MyVerse-Setup-*.exe ../../
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MyVerse-Setup-${{ steps.v.outputs.version }}
+          path: MyVerse-Setup-*.exe
+
       - uses: actions/upload-artifact@v4
         with:
           name: windows-zip
-          path: MyVerse-*-Windows.zip
+          path: |
+            MyVerse-*-Windows.zip
+            MyVerse-Setup-*.exe
           retention-days: 3
 
   android:
@@ -177,5 +191,6 @@ jobs:
         with:
           files: |
             dl/windows-zip/*.zip
+            dl/windows-zip/*.exe
             dl/MyVerse/MyVerse.apk
             dl/MyVerse-debug/MyVerse-debug.apk

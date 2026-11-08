@@ -57,3 +57,7 @@ cd Verselight
 git tag v2.1.0 && git push origin v2.1.0     # crée la Release
 gh run download --repo capmaster2023/Verselight --name MyVerse --dir ~/storage/downloads
 ```
+
+## Installateur Windows
+
+L'artifact **MyVerse-Setup-x.y.z** contient `MyVerse-Setup-x.y.z.exe` : il installe MyVerse dans `%LOCALAPPDATA%\Programs\MyVerse` (sans droits administrateur), crée les raccourcis Bureau et menu Démarrer, et ajoute **MyVerse** dans Paramètres › Applications pour le désinstaller. Pour mettre à jour, relancez simplement le nouvel installateur. La désinstallation garde les chants, réglages et téléphones jumelés.
