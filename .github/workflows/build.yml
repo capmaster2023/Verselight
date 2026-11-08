@@ -132,13 +132,36 @@ jobs:
           name: VerseLight-Remote-debug
           path: apk/VerseLight-Remote-debug.apk
 
-      - name: Journal d'erreur (branche ci-logs)
-        if: failure() && github.event_name == 'push'
-        run: |
-          tail -c 60000 ci-android.log > /tmp/android.log 2>/dev/null || echo "pas de journal" > /tmp/android.log
+      - name: Journal Android
+        if: always()
+        run: echo "${{ job.status }}" > ci-android.status
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ci-android-log
+          path: |
+            ci-android.log
+            ci-android.status
+          retention-days: 3
+
+  report:
+    name: Rapport (branche ci-logs)
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [windows, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ci-android-log
+          path: /tmp/a
+        continue-on-error: true
+      - run: |
+          { echo "commit ${GITHUB_SHA}"; echo "windows=${{ needs.windows.result }}"; echo "android=${{ needs.android.result }}"; } > /tmp/status.txt
+          tail -c 60000 /tmp/a/ci-android.log > /tmp/android.log 2>/dev/null || echo "-" > /tmp/android.log
           git config user.name "github-actions"; git config user.email "actions@github.com"
-          git checkout --orphan ci-logs && git rm -rqf . && cp /tmp/android.log android.log
-          git add android.log && git commit -qm "Journal CI ${GITHUB_SHA}" && git push -f origin ci-logs
+          git checkout --orphan ci-logs && git rm -rqf . && cp /tmp/status.txt status.txt && cp /tmp/android.log android.log
+          git add status.txt android.log && git commit -qm "CI ${GITHUB_SHA}" && git push -f origin ci-logs
 
   release:
     name: GitHub Release
