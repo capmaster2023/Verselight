@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VerseLight — Bible et chants</title>
+<link rel="stylesheet" href="css/commun.css">
+<link rel="stylesheet" href="css/regie.css">
+</head>
+<body>
+<header class="barre">
+  <div class="marque"><span class="eclat" aria-hidden="true"></span><b>VerseLight</b><span class="sous">Bible et chants</span></div>
+  <nav class="onglets" role="tablist">
+    <button class="on" data-onglet="bible" role="tab">Bible</button>
+    <button data-onglet="chants" role="tab">Chants</button>
+  </nav>
+  <div class="actions">
+    <select id="theme" title="Fond de l'écran">
+      <option value="nuit">Fond nuit</option><option value="aube">Fond aube</option>
+      <option value="noir">Fond noir</option><option value="vert">Fond vert (incrustation)</option><option value="transparent">Transparent (OBS)</option>
+    </select>
+    <button id="tel-btn" class="btn" title="Télécommande Android"><span class="obs-etat">Téléphone</span></button>
+    <button id="obs-btn" class="btn" title="Piloter OBS"><span id="obs-etat" class="obs-etat">OBS</span></button>
+    <button id="ouvrir" class="btn or">Écran de projection ▾</button>
+  </div>
+</header>
+
+<main>
+  <!-- ==================== BIBLE ==================== -->
+  <section id="p-bible" class="panneau">
+    <div class="recherche">
+      <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="jn 3 16 · ps 23 · rm 8.28 · ou des mots : « bon berger »">
+      <div id="livres" class="livres"></div>
+    </div>
+    <div id="titre-chap" class="titre-chap"></div>
+    <div id="versets" class="liste"></div>
+    <div class="barre-envoi">
+      <button class="btn or envoi-afficher" title="Entrée">Afficher</button>
+      <button class="btn envoi-prec" title="Flèche gauche">‹ Précédent</button>
+      <button class="btn envoi-suiv" title="Flèche droite ou espace">Suivant ›</button>
+      <button class="btn rouge envoi-retirer" title="Échap">Retirer</button>
+      <select class="envoi-mode" title="Présentation"><option value="plein">Plein écran</option><option value="bandeau">En bandeau</option></select>
+    </div>
+  </section>
+
+  <!-- ==================== CHANTS ==================== -->
+  <section id="p-chants" class="panneau cache">
+    <div class="chants">
+      <aside class="biblio">
+        <div class="ligne-outils">
+          <select id="recueil" title="Recueil"><option value="">Tous les recueils</option></select>
+          <input id="qc" type="search" placeholder="Chercher un chant" autocomplete="off">
+          <button id="importer" class="btn" title="VideoPsalm, OpenLyrics, OpenSong, ChordPro, SongSelect, ProPresenter 6, texte">Importer</button>
+          <button id="nouveau" class="btn">Nouveau</button>
+        </div>
+        <div id="liste-chants" class="liste"></div>
+        <input id="fichiers" type="file" multiple hidden>
+      </aside>
+      <div class="chant-ouvert">
+        <div class="ligne-outils"><h2 id="chant-titre">Aucun chant choisi</h2><span class="grow"></span>
+          <button id="modifier" class="btn petit" disabled>Modifier</button><button id="supprimer" class="btn petit danger" disabled>Supprimer</button></div>
+        <div id="sections" class="sections"></div>
+        <div class="barre-envoi">
+          <button class="btn or envoi-afficher" title="Entrée">Afficher</button>
+          <button class="btn envoi-prec" title="Flèche gauche">‹ Précédent</button>
+          <button class="btn envoi-suiv" title="Flèche droite ou espace">Suivant ›</button>
+          <button class="btn rouge envoi-retirer" title="Échap">Retirer</button>
+          <select class="envoi-mode" title="Présentation"><option value="plein">Plein écran</option><option value="bandeau">En bandeau</option></select>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== À L'ÉCRAN ==================== -->
+  <aside class="colonne">
+    <div class="moniteur"><div id="apercu" class="apercu theme-nuit"><div class="t"></div><div class="r"></div></div><span id="etat-ecran" class="pastille">Écran fermé</span></div>
+    <div class="commandes">
+      <button id="prec" class="btn" title="Flèche gauche">‹ Précédent</button>
+      <button id="suiv" class="btn" title="Flèche droite ou espace">Suivant ›</button>
+      <button id="effacer" class="btn rouge" title="Échap">Effacer</button>
+    </div>
+    <label class="taille">Taille du texte <input id="taille" type="range" min="0.6" max="1.2" step="0.05" value="1"></label>
+    <div class="aide">
+      <b>Raccourcis</b>
+      <span><kbd>Entrée</kbd> afficher</span><span><kbd>→</kbd> <kbd>Espace</kbd> suivant</span>
+      <span><kbd>←</kbd> précédent</span><span><kbd>Échap</kbd> effacer</span><span><kbd>/</kbd> chercher</span>
+    </div>
+  </aside>
+</main>
+
+<dialog id="editeur">
+  <form method="dialog">
+    <h2>Chant</h2>
+    <label>Titre<input id="ed-titre" required></label>
+    <label>Paroles <small>Laissez une ligne vide entre les strophes. Écrivez [Refrain] ou [Couplet 2] au début d'une strophe pour la nommer.</small>
+      <textarea id="ed-texte" rows="16"></textarea></label>
+    <div class="ligne-outils"><span class="grow"></span><button value="annuler" class="btn">Annuler</button><button id="ed-ok" value="ok" class="btn or">Enregistrer</button></div>
+  </form>
+</dialog>
+<dialog id="import">
+  <form method="dialog">
+    <h2>Importer des chants</h2>
+    <button type="button" class="btn choix" data-imp="fichiers"><b>Fichiers de chants</b><small>VideoPsalm, OpenLyrics, OpenSong, ChordPro, SongSelect, ProPresenter 6, texte</small></button>
+    <button type="button" class="btn choix" data-imp="pdf"><b>Recueil en PDF</b><small>Un livre de cantiques numérotés (ex. cantiques en kirundi)</small></button>
+    <label class="choix-web"><b>Depuis un site web</b><small>Collez le lien d'un chant ou d'une page qui liste les chants (ex. indirimbo.com/agakiza)</small>
+      <span class="ligne-outils"><input id="imp-url" type="url" placeholder="https://…"><button type="button" class="btn or" data-imp="web">Importer</button></span></label>
+    <p class="muet" id="imp-etat"></p>
+    <div class="ligne-outils"><span class="grow"></span><button value="fermer" class="btn">Fermer</button></div>
+  </form>
+</dialog>
+<dialog id="obs-dlg">
+  <form method="dialog">
+    <h2>OBS</h2>
+    <p class="muet">Afficher allume l'œil de la source dans OBS, Retirer l'éteint. Dans OBS : Outils › Paramètres du serveur WebSocket › cocher « Activer le serveur WebSocket ».</p>
+    <label class="ligne-outils"><input id="obs-actif" type="checkbox"> Piloter l'œil de la source dans OBS</label>
+    <label>Nom de la source dans OBS<input id="obs-source" placeholder="BIBLE"></label>
+    <label>Port du serveur<input id="obs-port" type="number" value="4455"></label>
+    <label>Mot de passe du serveur<input id="obs-mdp" type="password" autocomplete="off"></label>
+    <div class="ligne-outils"><span class="grow"></span><button value="annuler" class="btn">Annuler</button><button value="ok" class="btn or">Enregistrer</button></div>
+  </form>
+</dialog>
+<dialog id="tel-dlg">
+  <form method="dialog">
+    <h2>Télécommande Android</h2>
+    <div class="tel">
+      <div class="tel-qr-boite"><div id="tel-qr" class="tel-qr"></div><p id="tel-info" class="muet"></p></div>
+      <div class="tel-texte">
+        <p>Dans l’app <b>VerseLight Remote</b>, touchez <b>Scanner le code QR</b>. Une seule fois : ensuite le téléphone se reconnecte tout seul, même si l’adresse du PC change.</p>
+        <p class="muet">Le code n’est valable que tant que cette fenêtre est ouverte. Le téléphone et le PC doivent être sur le même Wi-Fi.</p>
+        <h3>Téléphones jumelés</h3>
+        <ul id="tel-liste" class="tel-liste"></ul>
+        <p id="tel-pf" class="muet"></p>
+        <button id="tel-pf-btn" type="button" class="btn petit" hidden>Autoriser dans le pare-feu</button>
+      </div>
+    </div>
+    <div class="ligne-outils"><span class="grow"></span><button value="fermer" class="btn">Fermer</button></div>
+  </form>
+</dialog>
+<input id="pdf" type="file" accept=".pdf,application/pdf" hidden>
+<div id="toast" class="toast"></div>
+
+<script src="js/neutralino.js"></script>
+<script src="js/bible-lsg1910.js"></script>
+<script src="js/bible.js"></script>
+<script src="js/chants-formats.js"></script>
+<script src="js/pdf.min.js"></script>
+<script src="js/chants-inclus.js"></script>
+<script src="js/regie.js"></script>
+<script src="js/import-recueils.js"></script>
+<script src="js/obs.js"></script>
+<script src="js/qrcode.js"></script>
+<script src="js/remote.js"></script>
+</body>
+</html>

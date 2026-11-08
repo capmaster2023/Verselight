@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.VerseLight" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/nuit</item>
+        <item name="android:statusBarColor">@color/encre</item>
+        <item name="android:navigationBarColor">@color/encre</item>
+    </style>
+    <color name="encre">#0A1028</color>
+    <color name="nuit">#10183A</color>
+    <color name="or">#E4AF41</color>
+</resources>

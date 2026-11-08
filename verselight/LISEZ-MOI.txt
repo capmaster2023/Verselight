@@ -1,0 +1,24 @@
+VERSELIGHT — Bible et chants pour la projection
+Double-cliquez sur VerseLight.exe (garder resources.neu à côté). Aucune installation, fonctionne sans Internet.
+Nécessite Microsoft Edge WebView2 (déjà présent sur Windows 10 à jour et Windows 11).
+
+- « Ouvrir l'écran » (ou « Afficher ») : l'écran de projection s'ouvre tout seul en plein écran
+  sur le 2e écran (projecteur, télé). S'il n'y a qu'un écran, il s'ouvre dans une fenêtre :
+  double-cliquez dedans pour le plein écran.
+- Bible Louis Segond 1910 : « jn 3 16 », « ps 23 », « rm 8.28 » ou des mots, puis Entrée.
+- Chants : Importer (VideoPsalm, OpenLyrics, OpenSong, ChordPro, SongSelect, ProPresenter 6, texte)
+  ou Nouveau. Touches 1 à 9 = strophe.
+- Importer : fichiers de chants, recueil PDF de cantiques numérotés, ou lien d'un site
+  (une page de chant, ou une page qui liste les chants : tout est importé).
+- Les raccourcis marchent aussi depuis la fenêtre de projection (et les télécommandes de présentation).
+- Raccourcis : → / Espace suivant, ← précédent, Échap retirer, / chercher.
+Windows peut afficher « Windows a protégé votre ordinateur » (logiciel non signé) :
+Informations complémentaires › Exécuter quand même.
+
+TÉLÉCOMMANDE ANDROID (VerseLight Remote)
+- Le dossier extensions\bridge doit rester à côté de VerseLight.exe.
+- Au premier lancement, Windows demande une autorisation (pare-feu) : acceptez.
+  Le Wi-Fi du PC doit être en réseau « Privé ».
+- Bouton « Téléphone » : un code QR s'affiche. Dans l'app, « Scanner le code QR ».
+  Une seule fois : ensuite le téléphone se reconnecte tout seul (même Wi-Fi).
+- Dans la même fenêtre : liste des téléphones jumelés et bouton « Révoquer ».

@@ -1,0 +1,12 @@
+@font-face { font-family: 'Literata'; src: url(../fonts/literata-latin-400-normal.woff2) format('woff2'); font-weight: 400; }
+@font-face { font-family: 'Literata'; src: url(../fonts/literata-latin-400-italic.woff2) format('woff2'); font-weight: 400; font-style: italic; }
+@font-face { font-family: 'Literata'; src: url(../fonts/literata-latin-600-normal.woff2) format('woff2'); font-weight: 600; }
+@font-face { font-family: 'Atkinson'; src: url(../fonts/atkinson-hyperlegible-next-latin-400-normal.woff2) format('woff2'); font-weight: 400; }
+@font-face { font-family: 'Atkinson'; src: url(../fonts/atkinson-hyperlegible-next-latin-700-normal.woff2) format('woff2'); font-weight: 700; }
+@font-face { font-family: 'Unbounded'; src: url(../fonts/unbounded-latin-700-normal.woff2) format('woff2'); font-weight: 700; }
+:root {
+  --encre: #0A1028; --nuit: #10183A; --nuit2: #172252; --nuit3: #22306A; --brume: #B9C2E6; --brume2: #7F8AB8;
+  --or: #E4AF41; --or2: #F6D68A; --rouge: #FF3B4E; --vert: #2BD67B; --blanc: #F7F4EC;
+  --serif: 'Literata', Georgia, 'Times New Roman', serif; --sans: 'Atkinson', 'Segoe UI', system-ui, sans-serif;
+}
+* { box-sizing: border-box; }

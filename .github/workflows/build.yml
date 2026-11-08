@@ -1,0 +1,158 @@
+name: Build VerseLight
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Bridge + VerseLight Windows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version
+        id: v
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then V="${GITHUB_REF#refs/tags/v}"; else V=$(jq -r .version verselight/neutralino.config.json); fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Tests du bridge
+        working-directory: bridge
+        run: |
+          go vet ./...
+          go test -count=1 ./... 2>&1 | tee ../ci-bridge.log
+
+      - name: Compilation de verselight-bridge.exe
+        working-directory: bridge
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+        run: |
+          mkdir -p ../verselight/extensions/bridge
+          go build -trimpath -ldflags "-s -w -X main.version=${{ steps.v.outputs.version }}" -o ../verselight/extensions/bridge/verselight-bridge.exe .
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: neu build (resources.neu)
+        working-directory: verselight
+        run: |
+          npm install -g @neutralinojs/neu@11.8.0
+          neu build 2>&1 | tee ../ci-neu.log
+          test -f dist/VerseLight/resources.neu
+
+      - name: Paquet Windows
+        run: |
+          V=${{ steps.v.outputs.version }}
+          P=out/VerseLight
+          mkdir -p $P/extensions/bridge
+          cp verselight/dist/VerseLight/VerseLight-win_x64.exe $P/VerseLight.exe
+          cp verselight/dist/VerseLight/resources.neu $P/resources.neu
+          cp verselight/extensions/bridge/verselight-bridge.exe $P/extensions/bridge/
+          cp verselight/LISEZ-MOI.txt $P/LISEZ-MOI.txt
+          (cd out && zip -r -9 ../VerseLight-$V-Windows.zip VerseLight)
+          ls -la out/VerseLight VerseLight-$V-Windows.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VerseLight-${{ steps.v.outputs.version }}-Windows
+          path: out/VerseLight
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-zip
+          path: VerseLight-*-Windows.zip
+          retention-days: 3
+
+  android:
+    name: APK Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Keystore de production (si les secrets existent)
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KS" ]; then
+            echo "$KS" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+            echo "Signature : keystore de production"
+          else
+            echo "Signature : keystore de debug du dépôt (secrets absents)"
+          fi
+
+      - name: Compilation des APK
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          VERSION_CODE: ${{ github.run_number }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then export VERSION_NAME="${GITHUB_REF#refs/tags/v}"; fi
+          chmod +x gradlew
+          set -o pipefail
+          ./gradlew --no-daemon assembleDebug assembleRelease 2>&1 | tee ../ci-android.log
+          mkdir -p ../apk
+          cp app/build/outputs/apk/release/app-release.apk ../apk/VerseLight-Remote.apk
+          cp app/build/outputs/apk/debug/app-debug.apk ../apk/VerseLight-Remote-debug.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VerseLight-Remote
+          path: apk/VerseLight-Remote.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VerseLight-Remote-debug
+          path: apk/VerseLight-Remote-debug.apk
+
+      - name: Journal d'erreur (branche ci-logs)
+        if: failure() && github.event_name == 'push'
+        run: |
+          tail -c 60000 ci-android.log > /tmp/android.log 2>/dev/null || echo "pas de journal" > /tmp/android.log
+          git config user.name "github-actions"; git config user.email "actions@github.com"
+          git checkout --orphan ci-logs && git rm -rqf . && cp /tmp/android.log android.log
+          git add android.log && git commit -qm "Journal CI ${GITHUB_SHA}" && git push -f origin ci-logs
+
+  release:
+    name: GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dl
+      - run: find dl -type f
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dl/windows-zip/*.zip
+            dl/VerseLight-Remote/VerseLight-Remote.apk
+            dl/VerseLight-Remote-debug/VerseLight-Remote-debug.apk

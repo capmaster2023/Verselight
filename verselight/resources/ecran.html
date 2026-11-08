@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>VerseLight — écran</title>
+<link rel="stylesheet" href="css/commun.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; cursor: none; }
+  body { font-size: calc(100vh / 108); color: var(--blanc); font-family: var(--serif); }
+  #fond { position: fixed; inset: 0; transition: opacity .6s; }
+  .theme-nuit #fond { background: radial-gradient(120% 90% at 50% 10%, #22306A 0%, #10183A 45%, #050817 100%); }
+  .theme-noir #fond { background: #000; }
+  .theme-aube #fond { background: radial-gradient(110% 90% at 50% 100%, #5A3A12 0%, #2A1A0A 45%, #0A0604 100%); }
+  .theme-vert #fond { background: #00B140; }
+  .theme-transparent #fond { background: transparent; }
+  html.obs, html.obs body { background: transparent; }
+  html.obs #msg { display: none; }
+  #scene { position: fixed; inset: 6vh 7vw; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; transition: opacity .45s ease; }
+  #scene.cache { opacity: 0; }
+  #texte { font-size: 6rem; line-height: 1.32; max-width: 100%; text-wrap: balance; text-shadow: 0 .3rem 1.6rem rgba(0,0,0,.55); }
+  #texte .ligne { display: block; }
+  #ref { margin-top: 3.2rem; font-family: var(--sans); font-weight: 700; font-size: 3.2rem; letter-spacing: .04em; color: var(--or2); }
+  #ref:empty { display: none; }
+  .mode-verset #texte { font-style: normal; }
+  .mode-chant #texte { font-family: var(--sans); font-weight: 700; line-height: 1.25; }
+  /* bandeau : texte en bas de l'écran (pratique avec le fond vert) */
+  .pres-bandeau #scene { inset: auto 5vw 5vh 5vw; height: 30vh; justify-content: center; background: rgba(10,16,40,.88); border-radius: 2rem; padding: 3vh 4vw; box-shadow: 0 1rem 4rem rgba(0,0,0,.5); }
+  .pres-bandeau #ref { margin-top: 1.4rem; font-size: 2.6rem; }
+  #msg { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); font: 2.4rem var(--sans); color: var(--brume2); opacity: .7; cursor: default; text-align: center; }
+  body.vivant #msg { display: none; }
+</style>
+</head>
+<body class="theme-nuit">
+<div id="fond"></div>
+<div id="scene" class="cache"><div id="texte"></div><div id="ref"></div></div>
+<div id="msg">Écran VerseLight<br><small>Double-cliquez pour le plein écran (ou F11).<br>Placez cette fenêtre sur le projecteur.</small></div>
+<script>
+const scene = document.getElementById('scene'), texte = document.getElementById('texte'), refEl = document.getElementById('ref');
+let courant = null;
+function ajuster() {
+  // plus grande taille qui tient dans l'écran
+  let lo = 2, hi = 11, best = 2;
+  const maxH = scene.clientHeight - (refEl.textContent ? refEl.offsetHeight + 40 : 0);
+  for (let i = 0; i < 14; i++) {
+    const mid = (lo + hi) / 2;
+    texte.style.fontSize = mid + 'rem';
+    if (texte.scrollHeight <= maxH + 2 && texte.scrollWidth <= scene.clientWidth + 2) { best = mid; lo = mid; } else hi = mid;
+  }
+  texte.style.fontSize = best + 'rem';
+}
+function afficher(e) {
+  document.body.className = 'theme-' + (e.theme || 'nuit') + ' vivant mode-' + (e.mode || 'vide') + ' pres-' + (e.presentation || 'plein');
+  const vide = !e.mode || e.mode === 'vide';
+  const cle = JSON.stringify([e.mode, e.lignes, e.ref, e.taille, e.presentation]);
+  if (cle === courant) return;
+  courant = cle;
+  scene.classList.add('cache');
+  setTimeout(() => {
+    texte.textContent = '';
+    for (const l of e.lignes || []) { const s = document.createElement('span'); s.className = 'ligne'; s.textContent = l; texte.appendChild(s); }
+    refEl.textContent = e.ref || '';
+    ajuster();
+    if (e.taille) texte.style.fontSize = (parseFloat(texte.style.fontSize) * e.taille) + 'rem';
+    if (!vide) scene.classList.remove('cache');
+  }, courant && !vide ? 380 : 0);
+}
+window.addEventListener('message', (ev) => { if (ev.data && ev.data.verselight) afficher(ev.data.etat); });
+// raccourcis depuis l'écran de projection (clavier, télécommande de présentation)
+document.addEventListener('keydown', (ev) => {
+  const k = { ArrowRight: 'suiv', ArrowDown: 'suiv', PageDown: 'suiv', ' ': 'suiv', Enter: 'suiv', ArrowLeft: 'prec', ArrowUp: 'prec', PageUp: 'prec', Backspace: 'prec', Escape: 'retirer', Delete: 'retirer', b: 'retirer', B: 'retirer' }[ev.key];
+  if (!k) return;
+  ev.preventDefault();
+  try { localStorage.setItem('verselight-cmd', JSON.stringify({ k, t: Date.now() + Math.random() })); } catch (x) {}
+  if (window.opener) try { window.opener.postMessage({ verselightCmd: k }, '*'); } catch (x) {}
+});
+// OBS (source navigateur, fichier local) : lit l'état écrit par VerseLight dans etat.json
+if (location.protocol !== 'http:' || location.hostname === 'absolute' || /[?&]obs\b/.test(location.search) || location.protocol === 'file:') {
+  if (location.hostname !== '127.0.0.1') {
+    document.documentElement.classList.add('obs');
+    let dernier = '';
+    setInterval(async () => {
+      try {
+        const t = await (await fetch('etat.json?' + Date.now(), { cache: 'no-store' })).text();
+        if (t && t !== dernier) { dernier = t; afficher(JSON.parse(t)); }
+      } catch (x) {}
+    }, 200);
+  }
+}
+// la régie écrit aussi l'état dans le stockage local : l'écran suit même si la régie est rechargée
+window.addEventListener('storage', (ev) => { if (ev.key === 'verselight-etat' && ev.newValue) try { afficher(JSON.parse(ev.newValue)); } catch (x) {} });
+try { const s = localStorage.getItem('verselight-etat'); if (s) afficher(JSON.parse(s)); } catch (x) {}
+window.addEventListener('resize', () => { if (courant) ajuster(); });
+document.addEventListener('dblclick', () => { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {}); });
+document.addEventListener('mousemove', () => { document.body.style.cursor = 'default'; clearTimeout(window._c); window._c = setTimeout(() => (document.body.style.cursor = 'none'), 2000); });
+// demande l'état actuel à la régie (ouverture ou rechargement)
+if (window.opener) try { window.opener.postMessage({ verselightDemande: true }, '*'); } catch (e) {}
+</script>
+</body>
+</html>
