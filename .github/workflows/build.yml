@@ -128,6 +128,7 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           VERSION_CODE: ${{ github.run_number }}
         run: |
+          export VERSION_NAME=$(jq -r .version ../verselight/neutralino.config.json)
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then export VERSION_NAME="${GITHUB_REF#refs/tags/v}"; fi
           chmod +x gradlew
           set -o pipefail
@@ -178,19 +179,27 @@ jobs:
           git add status.txt android.log && git commit -qm "CI ${GITHUB_SHA}" && git push -f origin ci-logs
 
   release:
-    name: GitHub Release
-    if: startsWith(github.ref, 'refs/tags/v')
+    name: Publication (GitHub Release)
+    if: github.event_name == 'push'
     needs: [windows, android]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: dl
-      - run: find dl -type f
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dl/windows-zip/*.zip
-            dl/windows-zip/*.exe
-            dl/MyVerse/MyVerse.apk
-            dl/MyVerse-debug/MyVerse-debug.apk
+      - name: Publier la version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=$(jq -r .version verselight/neutralino.config.json)
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then V="${GITHUB_REF#refs/tags/v}"; fi
+          TAG="v$V"
+          FILES=(dl/windows-zip/*.zip dl/windows-zip/*.exe dl/MyVerse/MyVerse.apk dl/MyVerse-debug/MyVerse-debug.apk)
+          ls -la "${FILES[@]}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${FILES[@]}" --clobber
+          else
+            gh release create "$TAG" "${FILES[@]}" --target "$GITHUB_SHA" --title "MyVerse $V" \
+              --notes "MyVerse $V : installateur Windows (MyVerse-Setup), dossier portable et APK Android (MyVerse.apk)."
+          fi

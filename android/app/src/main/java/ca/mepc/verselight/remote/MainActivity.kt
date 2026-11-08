@@ -1,6 +1,8 @@
 package ca.mepc.verselight.remote
 
 import android.Manifest
+import android.content.Intent
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.KeyEvent
@@ -120,6 +122,7 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         remote.start()
+        remote.checkUpdate()
     }
 
     override fun onStop() {
@@ -222,6 +225,7 @@ private fun MainScreen(
 ) {
     val context = LocalContext.current
     val pc by remote.pcName.collectAsState()
+    val update by remote.update.collectAsState()
     var tab by rememberSaveable { mutableStateOf(0) }
     var settings by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
@@ -235,6 +239,18 @@ private fun MainScreen(
             Spacer(Modifier.width(10.dp))
             Text(pc, color = Brume, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             TextButton(onClick = { settings = true }) { Text("Réglages", color = Or2) }
+        }
+        update?.let { (version, url) ->
+            Button(
+                onClick = {
+                    try {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Aucun navigateur pour télécharger la mise à jour.", Toast.LENGTH_LONG).show()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            ) { Text("Mise à jour $version disponible : télécharger", fontWeight = FontWeight.Bold) }
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("Bible", "Chants").forEachIndexed { i, label ->

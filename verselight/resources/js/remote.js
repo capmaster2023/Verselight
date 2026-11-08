@@ -136,7 +136,38 @@
       L.appendChild(li);
     }
   }
+  // ------------------------------------------------------------ mises à jour (GitHub Releases, via le bridge)
+  const toast = (t) => window.VL && window.VL.toast(t);
+  let maj = null;
+  const vb = $('#version-btn'), mb = $('#maj-btn');
+  vb.textContent = 'v' + (window.NL_APPVERSION || '');
+  vb.hidden = false;
+  function verifierMaj(manuel) {
+    if (!pret) { if (manuel) toast('Module réseau pas encore prêt, réessayez dans quelques secondes.'); return; }
+    if (manuel) toast('Recherche de mise à jour…');
+    versBridge('update.check', { current: window.NL_APPVERSION || '0', manual: !!manuel });
+  }
+  vb.addEventListener('click', () => verifierMaj(true));
+  mb.addEventListener('click', () => {
+    if (!maj || !confirm(`Installer MyVerse ${maj.version} ? MyVerse va se fermer puis se rouvrir tout seul (vos chants et réglages sont gardés).`)) return;
+    mb.disabled = true;
+    mb.textContent = 'Téléchargement…';
+    versBridge('update.install', { url: maj.url });
+  });
+  function evenementMaj(d) {
+    if (d.state === 'download') { mb.textContent = 'Téléchargement… ' + d.pct + ' %'; return; }
+    if (d.state === 'installing') { mb.textContent = 'Installation…'; toast('Installation de la mise à jour… MyVerse va redémarrer.'); return; }
+    if (d.state === 'error') { mb.disabled = false; mb.textContent = 'Mettre à jour'; toast(d.message); return; }
+    if (d.available) {
+      maj = d;
+      mb.hidden = false; mb.disabled = false;
+      mb.textContent = 'Mettre à jour (' + d.version + ')';
+      if (d.manual) toast('MyVerse ' + d.version + ' est disponible.');
+    } else if (d.manual) toast(d.error || 'MyVerse est à jour (' + (window.NL_APPVERSION || '') + ').');
+  }
+
   function evenement(d) {
+    if (d.type === 'update') { evenementMaj(d); return; }
     if (d.firewall) { parefeu = d.firewall; majParefeu(); }
     if (d.type === 'pairInfo') {
       const q = qrcode(0, 'M');
@@ -189,7 +220,9 @@
     pousser(true);
     majBouton();
     if (dlg.open) { $('#tel-info').textContent = ''; qrAttente(); versBridge('pairStart'); versBridge('devices'); }
+    if (!majVerifiee) { majVerifiee = true; setTimeout(() => verifierMaj(false), 8000); }
   }
+  let majVerifiee = false;
   // le bridge s'est arrêté ou n'a pas démarré : MyVerse le relance lui-même
   let relances = 0, minuterieRelance = null;
   function planifierRelance(ms) { clearTimeout(minuterieRelance); minuterieRelance = setTimeout(relancerBridge, ms); }

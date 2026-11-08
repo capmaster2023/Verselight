@@ -44,6 +44,8 @@ class Remote(private val context: Context, val store: Store) {
     val screen = MutableStateFlow<JSONObject?>(null)   // dernier « state » reçu
     val events = MutableSharedFlow<JSONObject>(extraBufferCapacity = 64) // preview, songs, song, error
     val pcName = MutableStateFlow(store.pairing()?.pcName ?: "")
+    val update = MutableStateFlow<Pair<String, String>?>(null) // nouvelle version : (numéro, lien de l'APK)
+    private var updateChecked = false
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val client = OkHttpClient.Builder()
@@ -324,6 +326,49 @@ class Remote(private val context: Context, val store: Store) {
         } catch (e: Exception) {
         }
         return ips.sortedBy { ip -> if (mine.contains(ip.substringBeforeLast('.'))) 0 else 1 }
+    }
+
+    // ---------------------------------------------------------------- mise à jour (GitHub Releases)
+
+    fun checkUpdate() {
+        if (updateChecked) return
+        updateChecked = true
+        scope.launch {
+            try {
+                val current = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0"
+                val req = Request.Builder()
+                    .url("https://api.github.com/repos/capmaster2023/Verselight/releases/latest")
+                    .header("User-Agent", "MyVerse-Android")
+                    .header("Accept", "application/vnd.github+json")
+                    .build()
+                val http = client.newBuilder().readTimeout(15, TimeUnit.SECONDS).build()
+                http.newCall(req).execute().use { r ->
+                    if (!r.isSuccessful) return@launch
+                    val o = JSONObject(r.body?.string() ?: return@launch)
+                    val latest = o.optString("tag_name").removePrefix("v")
+                    val assets = o.optJSONArray("assets") ?: return@launch
+                    for (i in 0 until assets.length()) {
+                        val a = assets.getJSONObject(i)
+                        if (a.optString("name") == "MyVerse.apk" && newer(latest, current)) {
+                            update.value = latest to a.optString("browser_download_url")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+            }
+        }
+    }
+
+    private fun versionParts(v: String): List<Int> {
+        val p = v.removePrefix("v").split(".").take(3).map { s -> s.takeWhile { it.isDigit() }.toIntOrNull() ?: 0 }
+        return p + List(3 - p.size) { 0 }
+    }
+
+    private fun newer(a: String, b: String): Boolean {
+        val pa = versionParts(a)
+        val pb = versionParts(b)
+        for (i in 0 until 3) if (pa[i] != pb[i]) return pa[i] > pb[i]
+        return false
     }
 
     // ---------------------------------------------------------------- outils

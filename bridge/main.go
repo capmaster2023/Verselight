@@ -312,6 +312,19 @@ func (b *bridge) fromRegie(event string, data json.RawMessage) {
 			b.mu.Unlock()
 			b.sendDevices()
 		}
+	case "update.check":
+		var r struct {
+			Current string `json:"current"`
+			Manual  bool   `json:"manual"`
+		}
+		json.Unmarshal(data, &r)
+		go b.checkUpdate(r.Current, r.Manual)
+	case "update.install":
+		var r struct {
+			URL string `json:"url"`
+		}
+		json.Unmarshal(data, &r)
+		go b.installUpdate(r.URL)
 	case "firewall":
 		go b.checkFirewall(true)
 	case "ecranPid":

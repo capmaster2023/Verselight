@@ -58,6 +58,9 @@ git tag v2.1.0 && git push origin v2.1.0     # crée la Release
 gh run download --repo capmaster2023/Verselight --name MyVerse --dir ~/storage/downloads
 ```
 
-## Installateur Windows
+## Installateur et mises à jour
 
-L'artifact **MyVerse-Setup-x.y.z** contient `MyVerse-Setup-x.y.z.exe` : il installe MyVerse dans `%LOCALAPPDATA%\Programs\MyVerse` (sans droits administrateur), crée les raccourcis Bureau et menu Démarrer, et ajoute **MyVerse** dans Paramètres › Applications pour le désinstaller. Pour mettre à jour, relancez simplement le nouvel installateur. La désinstallation garde les chants, réglages et téléphones jumelés.
+- **Windows :** `MyVerse-Setup-x.y.z.exe` installe MyVerse dans `%LOCALAPPDATA%\Programs\MyVerse` (sans droits administrateur), crée les raccourcis Bureau et menu Démarrer et ajoute MyVerse dans Paramètres › Applications (pour le désinstaller). Pas besoin de désinstaller pour mettre à jour : MyVerse vérifie au démarrage s'il existe une nouvelle version et affiche **Mettre à jour** à côté de son nom ; un clic télécharge l'installateur, l'installe par-dessus et rouvre MyVerse. Cliquer sur le numéro de version (ex. v2.1.3) vérifie tout de suite. Chants, réglages et téléphones jumelés sont gardés.
+- **Android :** l'app affiche **Mise à jour disponible : télécharger** ; l'APK s'installe par-dessus l'ancienne (même signature), le jumelage est gardé.
+- Chaque compilation réussie sur `main` publie (ou met à jour) la Release `v<version>` avec l'installateur, le dossier portable et l'APK. Pour sortir une nouvelle version, augmentez `version` dans `verselight/neutralino.config.json`.
+- La vérification automatique passe par l'API publique de GitHub : **elle ne fonctionne que si le dépôt est public**. Avec un dépôt privé, téléchargez les nouvelles versions dans Releases et lancez l'installateur (il met à jour par-dessus, sans désinstaller).

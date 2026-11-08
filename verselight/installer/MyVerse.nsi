@@ -4,7 +4,7 @@ Unicode true
 !include "MUI2.nsh"
 
 !ifndef VERSION
-  !define VERSION "2.1.2"
+  !define VERSION "2.1.3"
 !endif
 !define APP "MyVerse"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\MyVerse"
@@ -27,6 +27,12 @@ SetCompressor /SOLID lzma
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "French"
+
+; mise à jour automatique (lancée par MyVerse avec /S) : on rouvre MyVerse à la fin
+Function .onInstSuccess
+  IfSilent 0 +2
+  Exec '"$INSTDIR\MyVerse.exe"'
+FunctionEnd
 
 Function FermerMyVerse
   nsExec::Exec 'taskkill /F /IM MyVerse.exe'
