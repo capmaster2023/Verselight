@@ -13,6 +13,8 @@
   .theme-aube #fond { background: radial-gradient(110% 90% at 50% 100%, #5A3A12 0%, #2A1A0A 45%, #0A0604 100%); }
   .theme-vert #fond { background: #00B140; }
   .theme-transparent #fond { background: transparent; }
+  /* rien à l'écran (Retirer) : tout devient transparent, comme à opacité 0 → OBS montre la caméra, le projecteur est noir */
+  .mode-vide #fond { opacity: 0; }
   html.obs, html.obs body { background: transparent; }
   html.obs #msg { display: none; }
   #scene { position: fixed; inset: 6vh 7vw; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; transition: opacity .45s ease; }

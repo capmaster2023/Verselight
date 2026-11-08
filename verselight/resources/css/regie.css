@@ -123,3 +123,6 @@ dialog input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--or)
 .tel-liste .point { width: 9px; height: 9px; border-radius: 50%; background: var(--brume2); }
 .tel-liste .point.on { background: var(--vert); }
 .muet.alerte { color: #FFC2C8; }
+
+/* aperçu vide = transparent (damier), comme la sortie */
+.apercu:not(.vivant) { background: repeating-conic-gradient(#1a2148 0 25%, #10183A 0 50%) 0 0 / 24px 24px; }
