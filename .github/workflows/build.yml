@@ -64,7 +64,7 @@ jobs:
           cp verselight/extensions/bridge/verselight-bridge.exe $P/extensions/bridge/
           cp verselight/LISEZ-MOI.txt $P/LISEZ-MOI.txt
           (cd out && zip -r -9 ../MyVerse-$V-Windows.zip MyVerse)
-          ls -la out/VerseLight MyVerse-$V-Windows.zip
+          ls -la out/MyVerse MyVerse-$V-Windows.zip
 
       - uses: actions/upload-artifact@v4
         with:
