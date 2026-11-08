@@ -184,11 +184,11 @@ private fun PairScreen(remote: Remote, busy: Boolean) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("VerseLight", color = Or, fontSize = 34.sp, fontWeight = FontWeight.Bold)
+        Text("MyVerse", color = Or, fontSize = 34.sp, fontWeight = FontWeight.Bold)
         Text("Télécommande", color = Brume, fontSize = 18.sp)
         Spacer(Modifier.height(32.dp))
         Text(
-            "Sur le PC : VerseLight › bouton « Téléphone ». Scannez le code une seule fois ; ensuite l'app se reconnecte toute seule.",
+            "Sur le PC : MyVerse › bouton « Téléphone ». Scannez le code une seule fois ; ensuite l'app se reconnecte toute seule.",
             color = Blanc, fontSize = 17.sp,
         )
         if (info.isNotEmpty()) {
@@ -231,7 +231,7 @@ private fun MainScreen(
     }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("VerseLight", color = Or, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text("MyVerse", color = Or, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.width(10.dp))
             Text(pc, color = Brume, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             TextButton(onClick = { settings = true }) { Text("Réglages", color = Or2) }

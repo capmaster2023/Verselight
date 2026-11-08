@@ -1,19 +1,19 @@
-# VerseLight 2.1 — télécommande Android
+# MyVerse 2.1 — télécommande Android (ex-VerseLight)
 
 VerseLight (Windows, Neutralino) + **VerseLight Remote** (Android) : on tape « jn 3 16 » sur le téléphone, on voit le passage, on touche **Afficher** → il passe sur le projecteur et dans OBS, par VerseLight sur le PC (même Wi-Fi).
 
 ## Récupérer les fichiers
 
-GitHub → onglet **Actions** → dernier « Build VerseLight » réussi → en bas, **Artifacts** :
+GitHub → onglet **Actions** → dernier « Build MyVerse » réussi → en bas, **Artifacts** :
 
-- `VerseLight-Remote` : l'APK à installer sur le téléphone (Android 8+).
-- `VerseLight-2.1.0-Windows` : le dossier VerseLight complet (VerseLight.exe, resources.neu, extensions\bridge\verselight-bridge.exe, LISEZ-MOI.txt).
+- `MyVerse` : l'APK à installer sur le téléphone (Android 8+).
+- `MyVerse-2.1.1-Windows` : le dossier VerseLight complet (VerseLight.exe, resources.neu, extensions\bridge\verselight-bridge.exe, LISEZ-MOI.txt).
 
 Sur un tag `v*` (ex. `v2.1.0`), une **Release** est créée avec l'APK et le zip Windows.
 
 ## Mise en place (une seule fois)
 
-1. Sur le PC : décompressez le dossier VerseLight, lancez `VerseLight.exe`. Acceptez la demande Windows (pare-feu, réseau privé). Le Wi-Fi du PC doit être en profil **Privé**.
+1. Sur le PC : décompressez le dossier VerseLight, lancez `MyVerse.exe`. Acceptez la demande Windows (pare-feu, réseau privé). Le Wi-Fi du PC doit être en profil **Privé**.
 2. Dans VerseLight : bouton **Téléphone** → un code QR s'affiche.
 3. Sur le téléphone : installez l'APK, ouvrez-le, **Scanner le code QR**.
 
@@ -55,5 +55,5 @@ gh auth login
 git clone https://github.com/capmaster2023/Verselight.git
 cd Verselight
 git tag v2.1.0 && git push origin v2.1.0     # crée la Release
-gh run download --repo capmaster2023/Verselight --name VerseLight-Remote --dir ~/storage/downloads
+gh run download --repo capmaster2023/Verselight --name MyVerse --dir ~/storage/downloads
 ```

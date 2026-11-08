@@ -83,7 +83,7 @@ func main() {
 
 	info, err := readInfo(os.Stdin)
 	if err != nil {
-		log.Printf("lancez VerseLight.exe : ce programme démarre tout seul avec lui (%v)", err)
+		log.Printf("lancez MyVerse.exe : ce programme démarre tout seul avec lui (%v)", err)
 		return
 	}
 
@@ -116,12 +116,8 @@ func main() {
 	if err := b.runNeutralino(); err != nil {
 		log.Printf("Neutralino : %v", err)
 	}
-	b.mu.Lock()
-	for p := range b.phones {
-		p.ws.Close()
-	}
-	b.mu.Unlock()
-	log.Print("VerseLight fermé : arrêt du bridge")
+	log.Print("MyVerse fermé : arrêt du bridge")
+	os.Exit(0) // libère tout de suite le port et le verrou pour le prochain lancement
 }
 
 func readInfo(r io.Reader) (nlInfo, error) {
@@ -182,7 +178,18 @@ func (b *bridge) runNeutralino() error {
 	b.nlMu.Unlock()
 	log.Print("connecté à VerseLight")
 	b.toRegie("bridgeEvent", b.status())
+	// battement : si MyVerse ne répond plus (fermé, planté), on s'arrête
+	go func() {
+		for {
+			time.Sleep(5 * time.Second)
+			if ws.Ping() != nil {
+				ws.conn.Close()
+				return
+			}
+		}
+	}()
 	for {
+		ws.SetReadDeadline(time.Now().Add(20 * time.Second))
 		msg, err := ws.ReadMessage()
 		if err != nil {
 			return err

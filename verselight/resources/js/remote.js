@@ -158,7 +158,7 @@
   $('#tel-btn').addEventListener('click', () => {
     $('#tel-qr').innerHTML = '';
     $('#tel-info').textContent = pret ? 'Préparation du code…'
-      : 'Le module réseau n’est pas démarré : vérifiez que le dossier extensions\\bridge (verselight-bridge.exe) est bien à côté de VerseLight.exe, puis relancez VerseLight.';
+      : 'Le module réseau n’est pas démarré : vérifiez que le dossier extensions\\bridge (verselight-bridge.exe) est bien à côté de MyVerse.exe, puis relancez MyVerse.';
     majParefeu();
     majAppareils();
     dlg.showModal();

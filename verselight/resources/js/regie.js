@@ -48,7 +48,7 @@
       : { x: choix.x + 80, y: choix.y + 80, width: Math.round(choix.w * 0.6), height: Math.round(choix.w * 0.6 * 9 / 16), fullScreen: false, borderless: false };
     try {
       const w = await Neutralino.window.create('http://127.0.0.1:' + window.NL_PORT + '/ecran.html', {
-        title: 'VerseLight — écran', icon: '/resources/icone.png', enableInspector: false,
+        title: 'MyVerse — écran', icon: '/resources/icone.png', enableInspector: false,
         alwaysOnTop: false, resizable: true, exitProcessOnClose: true, ...opts, processArgs: '--enable-extensions=false',
       });
       ecranPid = w && w.pid ? w.pid : -1;

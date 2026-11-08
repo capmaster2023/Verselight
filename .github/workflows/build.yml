@@ -1,4 +1,4 @@
-name: Build VerseLight
+name: Build MyVerse
 
 on:
   push:
@@ -52,29 +52,29 @@ jobs:
         run: |
           npm install -g @neutralinojs/neu@11.8.0
           neu build 2>&1 | tee ../ci-neu.log
-          test -f dist/VerseLight/resources.neu
+          test -f dist/MyVerse/resources.neu
 
       - name: Paquet Windows
         run: |
           V=${{ steps.v.outputs.version }}
-          P=out/VerseLight
+          P=out/MyVerse
           mkdir -p $P/extensions/bridge
-          cp verselight/dist/VerseLight/VerseLight-win_x64.exe $P/VerseLight.exe
-          cp verselight/dist/VerseLight/resources.neu $P/resources.neu
+          cp verselight/dist/MyVerse/MyVerse-win_x64.exe $P/MyVerse.exe
+          cp verselight/dist/MyVerse/resources.neu $P/resources.neu
           cp verselight/extensions/bridge/verselight-bridge.exe $P/extensions/bridge/
           cp verselight/LISEZ-MOI.txt $P/LISEZ-MOI.txt
-          (cd out && zip -r -9 ../VerseLight-$V-Windows.zip VerseLight)
-          ls -la out/VerseLight VerseLight-$V-Windows.zip
+          (cd out && zip -r -9 ../MyVerse-$V-Windows.zip MyVerse)
+          ls -la out/VerseLight MyVerse-$V-Windows.zip
 
       - uses: actions/upload-artifact@v4
         with:
-          name: VerseLight-${{ steps.v.outputs.version }}-Windows
-          path: out/VerseLight
+          name: MyVerse-${{ steps.v.outputs.version }}-Windows
+          path: out/MyVerse
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows-zip
-          path: VerseLight-*-Windows.zip
+          path: MyVerse-*-Windows.zip
           retention-days: 3
 
   android:
@@ -119,18 +119,18 @@ jobs:
           set -o pipefail
           ./gradlew --no-daemon assembleDebug assembleRelease 2>&1 | tee ../ci-android.log
           mkdir -p ../apk
-          cp app/build/outputs/apk/release/app-release.apk ../apk/VerseLight-Remote.apk
-          cp app/build/outputs/apk/debug/app-debug.apk ../apk/VerseLight-Remote-debug.apk
+          cp app/build/outputs/apk/release/app-release.apk ../apk/MyVerse.apk
+          cp app/build/outputs/apk/debug/app-debug.apk ../apk/MyVerse-debug.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: VerseLight-Remote
-          path: apk/VerseLight-Remote.apk
+          name: MyVerse
+          path: apk/MyVerse.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: VerseLight-Remote-debug
-          path: apk/VerseLight-Remote-debug.apk
+          name: MyVerse-debug
+          path: apk/MyVerse-debug.apk
 
       - name: Journal Android
         if: always()
@@ -177,5 +177,5 @@ jobs:
         with:
           files: |
             dl/windows-zip/*.zip
-            dl/VerseLight-Remote/VerseLight-Remote.apk
-            dl/VerseLight-Remote-debug/VerseLight-Remote-debug.apk
+            dl/MyVerse/MyVerse.apk
+            dl/MyVerse-debug/MyVerse-debug.apk

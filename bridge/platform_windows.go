@@ -27,7 +27,7 @@ const (
 // singleInstance : un seul bridge à la fois (mutex nommé Windows).
 func singleInstance() bool {
 	name, _ := syscall.UTF16PtrFromString(`Local\VerseLightBridge`)
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 60; i++ {
 		h, _, err := procCreateMutex.Call(0, 0, uintptr(unsafe.Pointer(name)))
 		if h != 0 && err != syscall.ERROR_ALREADY_EXISTS {
 			return true // poignée gardée jusqu'à la fin du processus

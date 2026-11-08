@@ -1,5 +1,5 @@
 VERSELIGHT — Bible et chants pour la projection
-Double-cliquez sur VerseLight.exe (garder resources.neu à côté). Aucune installation, fonctionne sans Internet.
+Double-cliquez sur MyVerse.exe (garder resources.neu à côté). Aucune installation, fonctionne sans Internet.
 Nécessite Microsoft Edge WebView2 (déjà présent sur Windows 10 à jour et Windows 11).
 
 - « Ouvrir l'écran » (ou « Afficher ») : l'écran de projection s'ouvre tout seul en plein écran
@@ -15,8 +15,8 @@ Nécessite Microsoft Edge WebView2 (déjà présent sur Windows 10 à jour et Wi
 Windows peut afficher « Windows a protégé votre ordinateur » (logiciel non signé) :
 Informations complémentaires › Exécuter quand même.
 
-TÉLÉCOMMANDE ANDROID (VerseLight Remote)
-- Le dossier extensions\bridge doit rester à côté de VerseLight.exe.
+TÉLÉCOMMANDE ANDROID (MyVerse)
+- Le dossier extensions\bridge doit rester à côté de MyVerse.exe.
 - Au premier lancement, Windows demande une autorisation (pare-feu) : acceptez.
   Le Wi-Fi du PC doit être en réseau « Privé ».
 - Bouton « Téléphone » : un code QR s'affiche. Dans l'app, « Scanner le code QR ».
