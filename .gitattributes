@@ -1,0 +1,14 @@
+# Fins de ligne : scripts Unix en LF, scripts Windows en CRLF
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+LISEZ-MOI.txt text eol=crlf
+# Fichiers binaires
+*.jar binary
+*.exe binary
+*.neu binary
+*.png binary
+*.webp binary
+*.keystore binary
+*.jks binary
+*.woff2 binary
