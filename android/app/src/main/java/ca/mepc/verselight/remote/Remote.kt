@@ -59,7 +59,7 @@ class Remote(private val context: Context, val store: Store) {
     private var rid = 0
 
     private enum class Result { CLOSED, FAILED, REVOKED }
-    private class Rejected(val code: String, val message: String) : Exception(message)
+    private class Rejected(val code: String, msg: String) : Exception(msg)
 
     init {
         // retour du Wi-Fi : on reprend tout de suite, et on passe par le Wi-Fi même s'il n'a pas Internet
