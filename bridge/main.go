@@ -23,6 +23,12 @@ import (
 
 var version = "dev"
 
+// délais (variables pour les tests)
+var (
+	phoneIdle = 45 * time.Second // le téléphone envoie un ping toutes les 10 s
+	nlPing    = 5 * time.Second
+)
+
 const (
 	firstPort     = 47900
 	lastPort      = 47909
@@ -55,6 +61,7 @@ type bridge struct {
 	info nlInfo
 
 	mu        sync.Mutex
+	ecranPid  int // fenêtre de projection, fermée avec MyVerse
 	phones    map[*phone]bool
 	state     json.RawMessage
 	pairKey   []byte
@@ -62,6 +69,10 @@ type bridge struct {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "--migrer-profil" {
+		migrateProfile(os.Args[2:])
+		return
+	}
 	dir := os.Getenv("VERSELIGHT_DATA_DIR")
 	if dir == "" {
 		base, err := os.UserConfigDir()
@@ -117,6 +128,12 @@ func main() {
 		log.Printf("Neutralino : %v", err)
 	}
 	log.Print("MyVerse fermé : arrêt du bridge")
+	b.mu.Lock()
+	pid := b.ecranPid
+	b.mu.Unlock()
+	if pid > 0 {
+		killTree(pid) // ferme aussi la fenêtre de projection restée ouverte
+	}
 	os.Exit(0) // libère tout de suite le port et le verrou pour le prochain lancement
 }
 
@@ -178,10 +195,12 @@ func (b *bridge) runNeutralino() error {
 	b.nlMu.Unlock()
 	log.Print("connecté à VerseLight")
 	b.toRegie("bridgeEvent", b.status())
-	// battement : si MyVerse ne répond plus (fermé, planté), on s'arrête
+	// battement : si l'écriture échoue, MyVerse est fermé, on s'arrête
+	// (fermeture normale ou plantage : Windows coupe la connexion et la lecture échoue aussi)
+	interval := nlPing
 	go func() {
 		for {
-			time.Sleep(5 * time.Second)
+			time.Sleep(interval)
 			if ws.Ping() != nil {
 				ws.conn.Close()
 				return
@@ -189,7 +208,6 @@ func (b *bridge) runNeutralino() error {
 		}
 	}()
 	for {
-		ws.SetReadDeadline(time.Now().Add(20 * time.Second))
 		msg, err := ws.ReadMessage()
 		if err != nil {
 			return err
@@ -296,6 +314,15 @@ func (b *bridge) fromRegie(event string, data json.RawMessage) {
 		}
 	case "firewall":
 		go b.checkFirewall(true)
+	case "ecranPid":
+		var r struct {
+			Pid int `json:"pid"`
+		}
+		if json.Unmarshal(data, &r) == nil {
+			b.mu.Lock()
+			b.ecranPid = r.Pid
+			b.mu.Unlock()
+		}
 	}
 }
 
@@ -426,6 +453,7 @@ func (b *bridge) handlePhone(w http.ResponseWriter, r *http.Request) {
 		b.st.seen(h.DeviceID, name)
 	}
 	ws.SetReadDeadline(time.Time{})
+	ws.idle = phoneIdle
 
 	p := &phone{ws: ws, deviceID: h.DeviceID, name: name}
 	b.mu.Lock()
@@ -446,7 +474,6 @@ func (b *bridge) handlePhone(w http.ResponseWriter, r *http.Request) {
 
 	// 4. commandes : relayées telles quelles à la régie
 	for {
-		ws.SetReadDeadline(time.Now().Add(45 * time.Second))
 		raw, err := ws.ReadMessage()
 		if err != nil {
 			return

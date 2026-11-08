@@ -126,3 +126,4 @@ dialog input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--or)
 
 /* aperçu vide = transparent (damier), comme la sortie */
 .apercu:not(.vivant) { background: repeating-conic-gradient(#1a2148 0 25%, #10183A 0 50%) 0 0 / 24px 24px; }
+.tel-qr-msg { color: #10183A; font-weight: 700; padding: 20px; text-align: center; }

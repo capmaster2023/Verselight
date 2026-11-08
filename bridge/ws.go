@@ -25,7 +25,8 @@ const wsMaxMessage = 4 << 20
 type wsConn struct {
 	conn   net.Conn
 	br     *bufio.Reader
-	client bool // un client masque ses trames
+	client bool          // un client masque ses trames
+	idle   time.Duration // délai max sans aucune trame (pings compris), 0 = sans limite
 	wmu    sync.Mutex
 	closed bool
 }
@@ -144,6 +145,9 @@ func (c *wsConn) Ping() error              { return c.writeFrame(0x9, nil) }
 func (c *wsConn) ReadMessage() ([]byte, error) {
 	var msg []byte
 	for {
+		if c.idle > 0 { // chaque trame, même un ping, prouve que l'autre côté est vivant
+			c.conn.SetReadDeadline(time.Now().Add(c.idle))
+		}
 		var h [2]byte
 		if _, err := io.ReadFull(c.br, h[:]); err != nil {
 			return nil, err

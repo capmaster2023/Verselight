@@ -19,7 +19,7 @@
   if (natif) {
     try { Neutralino.init(); } catch (e) {}
     Neutralino.events.on('windowClose', async () => {
-      if (ecranPid) try { await Neutralino.os.execCommand('taskkill /PID ' + ecranPid + ' /F', { background: true }); } catch (e) {}
+      if (ecranPid > 0) try { await Neutralino.os.execCommand('taskkill /PID ' + ecranPid + ' /T /F', { background: true }); } catch (e) {}
       Neutralino.app.exit();
     });
   }
@@ -37,7 +37,7 @@
     } catch (e) { return [{ p: true, x: 0, y: 0, w: window.screen.width, h: window.screen.height, nom: 'Écran principal' }]; }
   }
   async function fermerEcranNatif() {
-    if (ecranPid > 0) try { await Neutralino.os.execCommand('taskkill /PID ' + ecranPid + ' /F'); } catch (e) {}
+    if (ecranPid > 0) try { await Neutralino.os.execCommand('taskkill /PID ' + ecranPid + ' /T /F'); } catch (e) {}
     ecranPid = 0;
   }
   async function ouvrirSur(choix) {
@@ -49,7 +49,7 @@
     try {
       const w = await Neutralino.window.create('http://127.0.0.1:' + window.NL_PORT + '/ecran.html', {
         title: 'MyVerse — écran', icon: '/resources/icone.png', enableInspector: false,
-        alwaysOnTop: false, resizable: true, exitProcessOnClose: true, ...opts, processArgs: '--enable-extensions=false',
+        alwaysOnTop: false, resizable: true, exitProcessOnClose: true, ...opts, processArgs: '--enable-server=false --enable-extensions=false',
       });
       ecranPid = w && w.pid ? w.pid : -1;
       ecrire('verselight-ecran-choisi', choix);
@@ -477,7 +477,7 @@
     return { b: r.b, c: r.c, v1, v2, entier: !r.v1 };
   }
   window.VLRegie = {
-    etat: () => etat, cible: () => cible, ecranOuvert: () => !!ecranOuvert(), trouver, chants: () => chants,
+    etat: () => etat, cible: () => cible, ecranOuvert: () => !!ecranOuvert(), trouver, chants: () => chants, ecranPid: () => ecranPid,
     surChangement: (f) => ecouteurs.push(f),
     apercu(txt) {
       const r = lireRef(txt);

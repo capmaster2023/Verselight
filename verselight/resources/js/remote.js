@@ -48,7 +48,12 @@
     }, 60);
   }
   R.surChangement(() => pousser(false));
-  setInterval(() => pousser(false), 2000); // OBS connecté/déconnecté
+  let dernierPid = -2;
+  setInterval(() => {
+    pousser(false); // OBS connecté/déconnecté
+    const pid = Math.max(0, R.ecranPid() || 0);
+    if (pret && pid !== dernierPid) { dernierPid = pid; versBridge('ecranPid', { pid }); }
+  }, 2000);
 
   // ------------------------------------------------------------ commandes reçues des téléphones
   function chercherChants(q) {
@@ -155,10 +160,14 @@
     b.classList.toggle('bien', pret && connectes.length > 0);
     b.title = !pret ? 'Module réseau non démarré' : connectes.length ? connectes.length + ' téléphone(s) connecté(s)' : 'Aucun téléphone connecté';
   }
-  $('#tel-btn').addEventListener('click', () => {
+  function qrAttente() {
     $('#tel-qr').innerHTML = '';
-    $('#tel-info').textContent = pret ? 'Préparation du code…'
-      : 'Le module réseau n’est pas démarré : vérifiez que le dossier extensions\\bridge (verselight-bridge.exe) est bien à côté de MyVerse.exe, puis relancez MyVerse.';
+    $('#tel-qr').appendChild(h('div', 'tel-qr-msg', pret ? 'Préparation du code…' : 'Démarrage du module réseau…'));
+  }
+  $('#tel-btn').addEventListener('click', () => {
+    qrAttente();
+    $('#tel-info').textContent = pret ? '' : 'Si le code n’apparaît pas : vérifiez que le dossier extensions\\bridge (verselight-bridge.exe) est bien à côté de MyVerse.exe, puis rouvrez MyVerse.';
+    if (!pret) { relances = 0; relancerBridge(); }
     majParefeu();
     majAppareils();
     dlg.showModal();
@@ -172,15 +181,62 @@
   function bridgePret() {
     if (pret) return;
     pret = true;
+    relances = 0;
+    clearTimeout(minuterieRelance);
+    dernierPid = -2;
     versBridge('status');
     versBridge('devices');
     pousser(true);
     majBouton();
+    if (dlg.open) { $('#tel-info').textContent = ''; qrAttente(); versBridge('pairStart'); versBridge('devices'); }
   }
+  // le bridge s'est arrêté ou n'a pas démarré : MyVerse le relance lui-même
+  let relances = 0, minuterieRelance = null;
+  function planifierRelance(ms) { clearTimeout(minuterieRelance); minuterieRelance = setTimeout(relancerBridge, ms); }
+  async function relancerBridge() {
+    if (pret || relances >= 3) return;
+    const jeton = sessionStorage.getItem('NL_TOKEN') || window.NL_TOKEN || '';
+    if (!jeton.includes('.')) return;
+    relances++;
+    try {
+      const p = await Neutralino.os.spawnProcess('"' + window.NL_PATH + '/extensions/bridge/verselight-bridge.exe"');
+      await Neutralino.os.updateSpawnedProcess(p.id, 'stdIn', JSON.stringify({ nlPort: String(window.NL_PORT), nlToken: jeton, nlConnectToken: jeton.split('.')[1], nlExtensionId: EXT }) + '\n');
+      await Neutralino.os.updateSpawnedProcess(p.id, 'stdInEnd');
+    } catch (e) {}
+    planifierRelance(25000);
+  }
+  planifierRelance(15000);
   Neutralino.events.on('extensionReady', (e) => { if (e.detail === EXT) bridgePret(); });
-  Neutralino.events.on('extClientDisconnect', (e) => { if (e.detail === EXT) { pret = false; connectes = []; majBouton(); } });
+  Neutralino.events.on('extClientDisconnect', (e) => { if (e.detail === EXT) { pret = false; connectes = []; majBouton(); planifierRelance(3000); } });
   Neutralino.events.on('ready', () => {
     Neutralino.extensions.getStats().then((s) => { if (s && s.connected && s.connected.includes(EXT)) bridgePret(); }).catch(() => {});
   });
   majBouton();
+
+  // ------------------------------------------------------------ données de VerseLight après le renommage en MyVerse
+  // WebView2 garde chants et réglages dans %APPDATA%\<nom de l'exe> : on recopie une fois l'ancien profil.
+  (async () => {
+    try {
+      const exe = (window.NL_ARGS && window.NL_ARGS[0]) || '';
+      const nom = exe.split(/[\\/]/).pop();
+      if (!nom || /^verselight\.exe$/i.test(nom)) return;
+      const appdata = await Neutralino.os.getEnv('APPDATA');
+      if (!appdata) return;
+      const marque = appdata + '\\VerseLight\\profil-recupere.txt';
+      try { await Neutralino.filesystem.getStats(marque); return; } catch (e) {}
+      const ancien = appdata + '\\VerseLight.exe', nouveau = appdata + '\\' + nom;
+      try { await Neutralino.filesystem.getStats(ancien); } catch (e) { return; } // jamais utilisé VerseLight ici
+      try { await Neutralino.filesystem.createDirectory(appdata + '\\VerseLight'); } catch (e) {}
+      await Neutralino.filesystem.writeFile(marque, new Date().toISOString());
+      // seulement si MyVerse n'a encore rien de personnel (sinon on n'écrase rien)
+      if (R.chants().length !== (window.CHANTS_INCLUS || []).length) return; // chants ajoutés dans MyVerse : on garde
+      const chemin = /^[a-zA-Z]:[\\/]/.test(exe) ? exe : window.NL_PATH + '\\' + nom;
+      const bridgeExe = window.NL_PATH + '/extensions/bridge/verselight-bridge.exe';
+      await Neutralino.os.execCommand(`"${bridgeExe}" --migrer-profil ${window.NL_PID} "${ancien}" "${nouveau}" "${chemin}"`, { background: true });
+      const t = document.getElementById('toast');
+      t.textContent = 'Récupération de vos chants et réglages de VerseLight… MyVerse redémarre.';
+      t.classList.add('vu');
+      setTimeout(() => Neutralino.app.exit(), 1500);
+    } catch (e) {}
+  })();
 })();

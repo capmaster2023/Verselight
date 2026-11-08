@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 	"unsafe"
@@ -44,6 +45,21 @@ func hiddenCmd(name string, args ...string) *exec.Cmd {
 	c := exec.Command(name, args...)
 	c.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
 	return c
+}
+
+// killTree : ferme un processus et ses enfants (la fenêtre de projection lancée par cmd.exe).
+func killTree(pid int) {
+	hiddenCmd("taskkill", "/PID", strconv.Itoa(pid), "/T", "/F").Run()
+}
+
+// waitPid : attend la fin d'un processus (au plus max).
+func waitPid(pid int, max time.Duration) {
+	h, err := syscall.OpenProcess(0x00100000 /* SYNCHRONIZE */, false, uint32(pid))
+	if err != nil {
+		return // déjà terminé
+	}
+	defer syscall.CloseHandle(h)
+	syscall.WaitForSingleObject(h, uint32(max/time.Millisecond))
 }
 
 func ruleExists(name string) bool {
