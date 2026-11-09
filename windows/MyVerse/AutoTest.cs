@@ -147,6 +147,20 @@ public static class AutoTest
             Ok(R.Etat.Mode == "chant", "chant à l'écran");
             Capture(w, "09-chants.png");
             Capture(w.Ecran, "10-ecran-chant.png");
+
+            // recherche par numéro dans le recueil choisi (un numéro à 2 chiffres : pas de 116 ni de 160)
+            var nums = w.TestNumero("").Select(x => Regie.Numero(x.Title)).ToList();
+            var cible = nums.FirstOrDefault(x => x >= 10 && x <= 99) ?? nums.FirstOrDefault(x => x != null);
+            if (cible is int nn)
+            {
+                var l = w.TestNumero(nn.ToString());
+                Ok(l.Count >= 1 && l.All(x => Regie.Numero(x.Title) == nn), $"recherche par numéro {nn} : " + string.Join(" | ", l.Select(x => x.Title)));
+                await Attendre(500);
+                Capture(w, "09b-numero.png");
+                var vide = w.TestNumero("99999");
+                Ok(vide.Count == 0, "numéro absent : liste vide");
+                w.TestNumero("");
+            }
             R.Effacer();
             await Attendre(900);
             Capture(w, "11-vide.png");

@@ -11,8 +11,8 @@
     <AssemblyName>MyVerse</AssemblyName>
     <ApplicationIcon>myverse.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>4.0.2</Version>
-    <FileVersion>4.0.2.0</FileVersion>
+    <Version>4.0.3</Version>
+    <FileVersion>4.0.3.0</FileVersion>
     <Product>MyVerse</Product>
     <AssemblyTitle>MyVerse</AssemblyTitle>
     <Company>MEPC Montréal</Company>

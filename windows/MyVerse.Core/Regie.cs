@@ -342,12 +342,31 @@ public sealed class Regie
         return n;
     }
 
-    /// <summary>Chants du recueil choisi (null = tous ; "" = sans recueil) contenant la recherche, triés.</summary>
+    /// <summary>Chants du recueil choisi (null = tous ; "" = sans recueil) contenant la recherche, triés.
+    /// Une recherche « 12 » met d'abord les chants n° 12.</summary>
     public List<Chant> Filtrer(string? q, string? recueil)
     {
         var nq = Texte.Norm((q ?? "").Trim());
-        return Chants.Where(c => (recueil == null || (c.Author ?? "") == recueil) &&
-                                 (nq.Length == 0 || Texte.Norm(c.Title + " " + c.Author + " " + string.Join(" ", c.Sections.Select(s => s.Text))).Contains(nq)))
+        var res = Chants.Where(c => (recueil == null || (c.Author ?? "") == recueil) &&
+                                    (nq.Length == 0 || Texte.Norm(c.Title + " " + c.Author + " " + string.Join(" ", c.Sections.Select(s => s.Text))).Contains(nq)))
+            .OrderBy(c => c.Author ?? "", Comparer<string>.Create(Comparer)).ThenBy(c => c.Title, Comparer<string>.Create(Comparer)).ToList();
+        if (Regex.IsMatch((q ?? "").Trim(), @"^\d+$") && int.TryParse(q!.Trim(), out var n))
+            res = res.OrderBy(c => Numero(c.Title) == n ? 0 : 1).ToList();
+        return res;
+    }
+
+    /// <summary>Numéro d'un chant d'après le début de son titre (« 12 - … », « 12. … », « N° 12 », « #12 »).</summary>
+    public static int? Numero(string? titre)
+    {
+        var m = Regex.Match(titre ?? "", @"^\s*(?:#|n[°º]|no\.?)?\s*(\d+)", RegexOptions.IgnoreCase);
+        return m.Success && int.TryParse(m.Groups[1].Value, out var n) ? n : null;
+    }
+
+    /// <summary>Chants portant exactement ce numéro, dans le recueil choisi (null = tous).</summary>
+    public List<Chant> ParNumero(string? numero, string? recueil)
+    {
+        if (!int.TryParse((numero ?? "").Trim(), out var n)) return new();
+        return Chants.Where(c => (recueil == null || (c.Author ?? "") == recueil) && Numero(c.Title) == n)
             .OrderBy(c => c.Author ?? "", Comparer<string>.Create(Comparer)).ThenBy(c => c.Title, Comparer<string>.Create(Comparer)).ToList();
     }
 
@@ -358,8 +377,7 @@ public sealed class Regie
         List<Chant> res;
         if (Regex.IsMatch(q, @"^\d+$"))
         {
-            int n = int.Parse(q);
-            res = Chants.Where(c => Regex.Match(c.Title, @"^\s*(\d+)") is { Success: true } m && int.TryParse(m.Groups[1].Value, out var k) && k == n).ToList();
+            res = int.TryParse(q, out var n) ? Chants.Where(c => Numero(c.Title) == n).ToList() : new();
         }
         else
         {

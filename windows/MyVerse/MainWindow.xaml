@@ -292,7 +292,26 @@
                             <Button x:Name="Nouveau" Style="{StaticResource Btn}" Content="＋ Nouveau chant" Margin="0,8,0,0"
                                     ToolTip="Taper ou coller un chant : il est rangé tout seul en diapositives" />
                         </StackPanel>
-                        <ListBox x:Name="ListeChants" Style="{StaticResource ListeChants}" ItemContainerStyle="{StaticResource ElementChant}" ItemTemplate="{StaticResource ModeleChant}" />
+                        <Border x:Name="NumBoite" DockPanel.Dock="Top" Margin="0,0,0,8" Background="{StaticResource Encre}" BorderBrush="{StaticResource Nuit3}" BorderThickness="1" CornerRadius="10" Padding="12,0,4,0"
+                                ToolTip="Taper le numéro du chant dans ce recueil (Entrée : ouvrir, puis 1-9 pour les strophes)">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="N°" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Or2}" VerticalAlignment="Center" />
+                                <TextBlock x:Name="NumIndice" Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="14" Foreground="{StaticResource Brume2}" IsHitTestVisible="False"
+                                           Text="Numéro du chant" TextTrimming="CharacterEllipsis" />
+                                <TextBox x:Name="NumChant" Grid.Column="1" Margin="8,0,0,0" FontSize="15" FontWeight="SemiBold" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Blanc}" MaxLength="6"
+                                         CaretBrush="{StaticResource Or2}" SelectionBrush="{StaticResource Or}" VerticalContentAlignment="Center" Padding="0,8" FocusVisualStyle="{x:Null}" InputMethod.IsInputMethodEnabled="False" />
+                                <Button x:Name="NumEffacer" Grid.Column="2" Style="{StaticResource BtnPlat}" Padding="8,2" Content="✕" Foreground="{StaticResource Brume}" Visibility="Collapsed" ToolTip="Effacer le numéro" />
+                            </Grid>
+                        </Border>
+                        <Grid>
+                            <ListBox x:Name="ListeChants" Style="{StaticResource ListeChants}" ItemContainerStyle="{StaticResource ElementChant}" ItemTemplate="{StaticResource ModeleChant}" />
+                            <TextBlock x:Name="ListeVide" Margin="6,14,6,0" VerticalAlignment="Top" TextWrapping="Wrap" FontSize="14" Foreground="{StaticResource Brume2}" Visibility="Collapsed" IsHitTestVisible="False" />
+                        </Grid>
                     </DockPanel>
                     <DockPanel Grid.Column="2">
                         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">

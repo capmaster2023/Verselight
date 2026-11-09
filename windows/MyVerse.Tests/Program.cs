@@ -417,6 +417,16 @@ if (Actif())
     Ok(rg.Recueils().Any(x => x.Nom == "Mes chants"), "recueil « Mes chants »");
     Egal(rg.Filtrer("gloire", "Mes chants").Count, 1, "filtre par paroles et recueil");
     Ok(rg.ChercherChants("1").All(c => c.Title.TrimStart().StartsWith("1")), "chant par numéro");
+    rg.AjouterChants(new[] { new Chant { Title = "6 - Six" }, new Chant { Title = "16 - Seize" }, new Chant { Title = "106. Cent six" }, new Chant { Title = "N° 60 Soixante" }, new Chant { Title = "Numva Yesu" } }, "Num A");
+    rg.AjouterChants(new[] { new Chant { Title = "6 - Autre six" } }, "Num B");
+    Egal(string.Join("|", rg.ParNumero("6", "Num A").Select(c => c.Title)), "6 - Six", "numéro exact dans le recueil (pas 16 ni 106)");
+    Egal(rg.ParNumero("06", null).Count(c => c.Author.StartsWith("Num ")), 2, "numéro « 06 » dans tous les recueils");
+    Egal(string.Join("|", rg.ParNumero("60", "Num A").Select(c => c.Title)), "N° 60 Soixante", "numéro « N° 60 »");
+    Egal(rg.ParNumero("7", "Num A").Count, 0, "numéro absent");
+    Ok(Regie.Numero("Numva Yesu") == null && Regie.Numero("106. Cent six") == 106, "numéro lu dans le titre");
+    Ok(rg.Filtrer("6", null).Take(2).All(c => Regie.Numero(c.Title) == 6), "recherche « 6 » : les n° 6 d'abord");
+    Ok(rg.ChercherChants("99999999999999").Count == 0, "numéro trop long sans erreur");
+    rg.SupprimerRecueil("Num A"); rg.SupprimerRecueil("Num B");
     Ok(Regie.Comparer("2. B", "10. A") < 0 && Regie.Comparer("élan", "Etoile") < 0, "tri naturel et sans accents");
     rg.SupprimerChant(id);
     Ok(rg.Trouver(id) == null, "chant supprimé");

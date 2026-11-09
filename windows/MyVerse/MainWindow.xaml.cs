@@ -26,6 +26,7 @@ public partial class MainWindow : Window
     int recherches;
     readonly DispatcherTimer minuterieQ = new() { Interval = TimeSpan.FromMilliseconds(180) };
     readonly DispatcherTimer minuterieQc = new() { Interval = TimeSpan.FromMilliseconds(120) };
+    readonly DispatcherTimer minuterieNum = new() { Interval = TimeSpan.FromMilliseconds(300) };
     readonly DispatcherTimer minuterieToast = new() { Interval = TimeSpan.FromMilliseconds(3200) };
     readonly List<Button> boutonsLivres = new();
     bool chargement = true;
@@ -69,6 +70,7 @@ public partial class MainWindow : Window
         {
             QcIndice.Visibility = Qc.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
             QcEffacer.Visibility = Qc.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+            if (Qc.Text.Length > 0 && NumChant.Text.Length > 0) NumChant.Clear();
             minuterieQc.Stop(); minuterieQc.Start();
         };
         Qc.GotKeyboardFocus += (_, _) => RechercheChants.BorderBrush = Pinceau("Or");
@@ -81,6 +83,29 @@ public partial class MainWindow : Window
         };
         QcEffacer.Click += (_, _) => { Qc.Clear(); Qc.Focus(); };
         minuterieQc.Tick += (_, _) => { minuterieQc.Stop(); ListeChantsMaj(); };
+
+        // recherche par numéro, dans le recueil choisi
+        NumChant.PreviewTextInput += (_, e) => e.Handled = !e.Text.All(char.IsDigit);
+        NumChant.TextChanged += (_, _) =>
+        {
+            var d = new string(NumChant.Text.Where(char.IsDigit).ToArray());
+            if (d != NumChant.Text) { NumChant.Text = d; NumChant.CaretIndex = d.Length; return; }
+            NumIndice.Visibility = d.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+            NumEffacer.Visibility = d.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+            if (d.Length > 0 && Qc.Text.Length > 0) Qc.Clear();
+            minuterieNum.Stop(); minuterieNum.Start();
+        };
+        NumChant.KeyDown += (_, e) =>
+        {
+            if (e.Key != Key.Enter) return;
+            e.Handled = true;
+            AllerAuNumero(true);
+        };
+        NumChant.PreviewMouseLeftButtonDown += (_, e) => { if (!NumChant.IsKeyboardFocusWithin) { NumChant.Focus(); e.Handled = true; } };
+        NumChant.GotKeyboardFocus += (_, _) => { NumBoite.BorderBrush = Pinceau("Or"); NumChant.SelectAll(); };
+        NumChant.LostKeyboardFocus += (_, _) => NumBoite.BorderBrush = Pinceau("Nuit3");
+        NumEffacer.Click += (_, _) => { NumChant.Clear(); NumChant.Focus(); };
+        minuterieNum.Tick += (_, _) => AllerAuNumero(false);
         TelBtn.Click += (_, _) => new TelephoneWindow { Owner = this }.ShowDialog();
         ObsBtn.Click += (_, _) => { if (new ObsWindow { Owner = this }.ShowDialog() == true) App.Obs.Reconnecter(); };
         OutilsBtn.Click += (_, _) => OuvrirOutils(true);
@@ -641,10 +666,26 @@ public partial class MainWindow : Window
     {
         RemplirRecueils();
         var rec = (Recueil.SelectedItem as ComboBoxItem)?.Tag as string;
-        // une recherche cherche dans tous les recueils
-        var liste = R.Filtrer(Qc.Text, Qc.Text.Trim().Length > 0 ? null : rec ?? "\u0001");
+        var q = Qc.Text.Trim();
+        var num = NumChant.Text.Trim();
+        // une recherche cherche dans tous les recueils ; un numéro, dans le recueil choisi
+        var liste = q.Length > 0 ? R.Filtrer(q, null)
+                  : num.Length > 0 ? R.ParNumero(num, rec ?? "\u0001")
+                  : R.Filtrer("", rec ?? "\u0001");
         ListeChants.ItemsSource = liste;
         if (chantOuvert != null) ListeChants.SelectedItem = liste.FirstOrDefault(c => c.Id == chantOuvert);
+        ListeVide.Text = q.Length > 0 ? "Aucun chant trouvé." : num.Length > 0 ? $"Aucun chant n° {num} dans ce recueil." : "";
+        ListeVide.Visibility = liste.Count == 0 && ListeVide.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Montre le chant du numéro tapé et l'ouvre ; avec Entrée, rend la main aux raccourcis 1-9 des strophes.</summary>
+    void AllerAuNumero(bool entree)
+    {
+        minuterieNum.Stop();
+        ListeChantsMaj();
+        if (NumChant.Text.Length == 0 || ListeChants.Items.Count == 0 || ListeChants.Items[0] is not Chant c) return;
+        OuvrirChant(c.Id);
+        if (entree) { Keyboard.ClearFocus(); FocusManager.SetFocusedElement(this, this); }
     }
 
     public void OuvrirChant(string? id)
@@ -838,4 +879,5 @@ public partial class MainWindow : Window
     public void TestAfficherSelection() => AfficherCourant();
     public void TestOnglet(bool bible) => MontrerOnglet(bible);
     public Chant? TestPremierChant() => ListeChants.Items.Count > 0 ? ListeChants.Items[0] as Chant : null;
+    public List<Chant> TestNumero(string n) { NumChant.Text = n; AllerAuNumero(false); return ListeChants.Items.Cast<Chant>().ToList(); }
 }
