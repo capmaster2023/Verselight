@@ -135,8 +135,7 @@
                                 <TextBlock x:Name="ObsTexte" Text="OBS" />
                             </StackPanel>
                         </Button>
-                        <Button x:Name="OutilsBtn" Style="{StaticResource Btn}" Content="Outils" ToolTip="Mise à jour, journal d'erreurs" Margin="0,0,10,0" />
-                        <Button x:Name="EcranBtn" Style="{StaticResource BtnOr}" Content="Écran de projection ▾" ToolTip="Choisir l'écran de projection (projecteur, télé, OBS)" />
+                        <Button x:Name="OutilsBtn" Style="{StaticResource Btn}" Content="Outils" ToolTip="Mise à jour, journal d'erreurs" />
                     </StackPanel>
                 </Grid>
             </Border>
@@ -305,16 +304,6 @@
                 </Grid>
             </Grid>
         </DockPanel>
-
-        <!-- menu « Écran de projection » -->
-        <Popup x:Name="MenuEcrans" PlacementTarget="{Binding ElementName=EcranBtn}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" HorizontalOffset="0" VerticalOffset="6">
-            <Border Background="{StaticResource Nuit2}" BorderBrush="{StaticResource Nuit3}" BorderThickness="1" CornerRadius="12" Padding="6" MinWidth="360">
-                <Border.Effect>
-                    <DropShadowEffect BlurRadius="30" ShadowDepth="8" Opacity="0.5" Color="Black" />
-                </Border.Effect>
-                <StackPanel x:Name="MenuEcransPile" />
-            </Border>
-        </Popup>
 
         <!-- message court -->
         <Border x:Name="ToastBoite" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,20" Background="{StaticResource Nuit2}" BorderBrush="{StaticResource Nuit3}" BorderThickness="1"

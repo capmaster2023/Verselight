@@ -86,7 +86,6 @@ public partial class MainWindow : Window
         OutilsBtn.Click += (_, _) => OuvrirOutils(true);
         VersionBtn.Click += (_, _) => OuvrirOutils(true);
         MajBtn.Click += (_, _) => OuvrirOutils(false);
-        EcranBtn.Click += (_, _) => MenuEcransOuvrir();
 
         // ---------- Bible
         BiblesImporter.Click += (_, _) => ImporterBible();
@@ -238,7 +237,6 @@ public partial class MainWindow : Window
         // petit écran (1024 px) : barre du haut plus courte, la recherche garde sa place
         bool compact = w < 1360;
         SousTitre.Visibility = VersionBtn.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-        EcranBtn.Content = compact ? "Écran ▾" : "Écran de projection ▾";
         ObsCompact = compact;
         MajObs();
     }
@@ -271,7 +269,6 @@ public partial class MainWindow : Window
     {
         if (e.Key == Key.Escape)
         {
-            if (MenuEcrans.IsOpen) { MenuEcrans.IsOpen = false; e.Handled = true; return; }
             R.Effacer();
             Keyboard.ClearFocus();
             FocusManager.SetFocusedElement(this, this);
@@ -719,12 +716,9 @@ public partial class MainWindow : Window
         ApercuRendu.Afficher(e);
         ecran?.Rendu.Afficher(e);
         App.SortieObs.Ecrire(e);
-        bool ouvert = R.EcranOuvert();
         Apercu.BorderBrush = Pinceau(e.Vide ? "Nuit3" : "Or");
         Apercu.Background = e.Vide || e.Theme == "transparent" ? Pinceau("Damier") : Brushes.Black;
-        PastilleTexte.Text = ouvert ? (e.Vide ? "Écran ouvert · vide" : "À l'écran") : "Écran fermé";
-        Pastille.Background = ouvert ? Pinceau("Vert") : new SolidColorBrush(Color.FromArgb(0x8C, 0, 0, 0));
-        PastilleTexte.Foreground = ouvert ? new SolidColorBrush(Color.FromRgb(0x03, 0x20, 0x10)) : Pinceau("Brume");
+        MajPastille();
         var s = R.Prochaine();
         SuivantLab.Text = s?.Label ?? "";
         SuivantTexte.Text = s?.Texte ?? "—";
@@ -740,43 +734,17 @@ public partial class MainWindow : Window
         }
     }
 
-    // ------------------------------------------------------------ écran de projection
-    void MenuEcransOuvrir()
+    /// <summary>Pastille de l'aperçu : la diapositive part-elle quelque part (OBS, fenêtre de projection) ?</summary>
+    void MajPastille()
     {
-        if (MenuEcrans.IsOpen) { MenuEcrans.IsOpen = false; return; }
-        var p = MenuEcransPile;
-        p.Children.Clear();
-        TextBlock Titre(string t) => new() { Text = t, FontSize = 12, FontWeight = FontWeights.Bold, Foreground = Pinceau("Or"), Margin = new Thickness(10, 8, 10, 4) };
-        Button Choix(string t, Action a, bool danger = false)
-        {
-            var b = new Button { Style = Style_("BtnPlat"), Content = t };
-            if (danger) b.Foreground = Pinceau("Danger");
-            b.Click += (_, _) => { MenuEcrans.IsOpen = false; a(); };
-            return b;
-        }
-        var ecrans = Natif.Ecrans();
-        p.Children.Add(Titre("Projecteur plein écran"));
-        foreach (var m in ecrans)
-        {
-            var mm = m;
-            p.Children.Add(Choix($"{m.Nom} : {m.W}×{m.H} @ {m.X},{m.Y}{(m.Principal ? " (principal)" : "")}", () => OuvrirSur(mm, true)));
-        }
-        p.Children.Add(Titre("Dans OBS (sans fenêtre)"));
-        p.Children.Add(Choix("Copier le chemin pour une source navigateur OBS", ModeObs));
-        p.Children.Add(new TextBlock { Text = App.SortieObs.Page, FontSize = 11, Foreground = Pinceau("Brume2"), Margin = new Thickness(12, 0, 12, 8), TextWrapping = TextWrapping.Wrap, MaxWidth = 420 });
-        p.Children.Add(Titre("Projecteur fenêtré"));
-        var prim = ecrans.FirstOrDefault(e => e.Principal) ?? ecrans[0];
-        p.Children.Add(Choix("Fenêtre sur l'écran principal", () => OuvrirSur(prim, false)));
-        if (ecran != null)
-        {
-            p.Children.Add(new Border { Height = 1, Background = Pinceau("Nuit3"), Margin = new Thickness(0, 4, 0, 4) });
-            p.Children.Add(Choix("Fermer l'écran de projection", () => { ecran?.Close(); }, true));
-        }
-        MenuEcrans.Child.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        MenuEcrans.HorizontalOffset = EcranBtn.ActualWidth - MenuEcrans.Child.DesiredSize.Width;
-        MenuEcrans.IsOpen = true;
+        var e = R.Etat;
+        bool ouvert = R.EcranOuvert();
+        PastilleTexte.Text = ouvert ? (e.Vide ? "Écran ouvert · vide" : "À l'écran") : App.Obs.Actif ? "OBS non connecté" : "Aperçu seulement";
+        Pastille.Background = ouvert ? Pinceau("Vert") : new SolidColorBrush(Color.FromArgb(0x8C, 0, 0, 0));
+        PastilleTexte.Foreground = ouvert ? new SolidColorBrush(Color.FromRgb(0x03, 0x20, 0x10)) : Pinceau("Brume");
     }
 
+    // ------------------------------------------------------------ écran de projection
     /// <summary>Ouvre la projection sur un écran (plein écran) ou en fenêtre.</summary>
     public void OuvrirSur(Moniteur m, bool plein)
     {
@@ -805,20 +773,6 @@ public partial class MainWindow : Window
         Activate();
     }
 
-    void ModeObs()
-    {
-        ecran?.Close();
-        if (!App.SortieObs.Prete) App.SortieObs.Preparer();
-        App.Donnees.Reglages.Ecran = new EcranChoisi { Mode = "obs" };
-        App.Donnees.SauverReglages();
-        var chemin = App.SortieObs.Page;
-        try { Clipboard.SetText(chemin); } catch (Exception) { }
-        App.SortieObs.Ecrire(R.Etat);
-        Toast("Chemin copié. Dans OBS : Source navigateur › cocher « Fichier local » › coller : " + chemin + " (1920×1080).");
-        MajEcran();
-        App.Telephone.Actualiser();
-    }
-
     /// <summary>Fenêtre de projection ouverte (pour le test automatique).</summary>
     public EcranWindow? Ecran => ecran;
 
@@ -829,6 +783,7 @@ public partial class MainWindow : Window
         ObsTexte.Text = ObsCompact ? "OBS" : o.Statut;
         ObsBtn.ToolTip = "Piloter OBS · " + o.Statut;
         ObsPoint.Fill = Pinceau(o.Connecte ? "Vert" : "Brume2");
+        MajPastille();
         App.Telephone.Actualiser();
     }
 

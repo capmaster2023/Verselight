@@ -6,7 +6,7 @@ MyVerse (Windows) + l'app **MyVerse** (Android) : on tape « jn 3 16 » sur le P
 
 - **Programme Windows natif** (C# / WPF, .NET 8) : plus de page web, plus de WebView2, plus de module « bridge » à côté. Un seul programme, `MyVerse.exe`, qui démarre vite et fonctionne sans Internet.
 - **Les mêmes fonctions** que la 3.x : interface « Studio » (Bibles et livres à gauche, texte au centre, l'écran à droite), recherche floue dans toutes les Bibles, versets bilingues, chants rangés tout seuls, ✂ Découper, imports (VideoPsalm, OpenLyrics, OpenSong, ChordPro, SongSelect, ProPresenter 6, PDF, texte, site web), OBS, télécommande Android.
-- **Fenêtre de projection native** sur l'écran choisi (le vrai nom de l'écran est affiché : « EPSON », « DELL »…), texte à la plus grande taille possible, lignes équilibrées, fondu entre les diapositives.
+- **Affichage par OBS** (bouton OBS › Piloter OBS) : texte à la plus grande taille possible, lignes équilibrées ; l'aperçu de la régie montre exactement ce qui est à l'écran. (4.0.1 : bouton « Écran de projection » retiré.)
 - **Vos données sont reprises toutes seules** au premier démarrage : chants, réglages, Bibles importées, versets découpés (copie faite par la 3.0.4, ou lecture directe du profil de la 3.x) et téléphones jumelés (rien à rescanner).
 - **Téléphone** : même protocole que la 3.x, l'app Android n'a pas besoin d'être mise à jour.
 

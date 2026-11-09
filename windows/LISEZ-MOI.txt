@@ -12,12 +12,11 @@ VOS DONNÉES
   versets découpés et téléphones jumelés de MyVerse 3.
 - Tout est dans %APPDATA%\VerseLight (Outils › « Ouvrir le dossier des données »).
 
-PROJECTION
-- « Écran de projection ▾ » : choisissez l'écran (projecteur, télé) : plein écran dessus.
-  Ou « Projecteur fenêtré », ou « Dans OBS (sans fenêtre) ».
-- Dans la fenêtre de projection : double-clic ou F11 = plein écran / fenêtre.
-- Raccourcis (régie et fenêtre de projection, télécommandes de présentation) :
-  → / Espace suivant, ← précédent, Échap retirer, Entrée afficher, / chercher.
+AFFICHAGE
+- L'écran passe par OBS (bouton « OBS » : cochez « Piloter OBS ») : « Afficher » met MyVerse
+  au premier plan de la scène, « Retirer » l'enlève.
+- L'aperçu à droite montre ce qui est à l'écran.
+- Raccourcis : → / Espace suivant, ← précédent, Échap retirer, Entrée afficher, / chercher.
 
 BIBLE
 - Louis Segond 1910 et King James incluses. « jn 3 16 », « ps 23 », « rm 8.28 », puis Entrée.
@@ -35,8 +34,8 @@ CHANTS
 OBS
 - Bouton « OBS » : cochez « Piloter OBS » (OBS 28 ou plus : Outils › Paramètres du serveur WebSocket).
   « Afficher » met MyVerse au premier plan de la scène, « Retirer » l'enlève.
-- Sans fenêtre : « Écran de projection ▾ › Dans OBS » copie le chemin d'une page à mettre dans
-  une source navigateur (cocher « Fichier local »), 1920×1080.
+- La page affichée dans OBS : %APPDATA%\VerseLight-OBS\ecran.html (MyVerse l'ajoute tout seul
+  comme source navigateur « MyVerse (temporaire) »).
 
 TÉLÉCOMMANDE ANDROID (app MyVerse)
 - Bouton « Téléphone » : un code QR s'affiche. Dans l'app : « Scanner le code QR ».
