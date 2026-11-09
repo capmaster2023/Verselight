@@ -236,7 +236,8 @@ private fun MainScreen(
     val pc by remote.pcName.collectAsState()
     val update by remote.update.collectAsState()
     val directEtat by remote.direct.etat.collectAsState()
-    val pret = link == Link.CONNECTED || directEtat == Direct.Etat.PRET
+    // jumelé : l'app marche toujours (PC, ou seule avec OBS directement quand MyVerse est fermé)
+    val pret = link != Link.NOT_PAIRED
     var tab by rememberSaveable { mutableStateOf(0) }
     var settings by remember { mutableStateOf(false) }
     var showLog by remember { mutableStateOf(false) }
@@ -326,11 +327,17 @@ private fun SettingRow(label: String, value: Boolean, onChange: (Boolean) -> Uni
 @Composable
 private fun LiveBar(remote: Remote, link: Link, direct: Direct.Etat) {
     val state by remote.screen.collectAsState()
+    val directMsg by remote.direct.message.collectAsState()
     val haptic = LocalHapticFeedback.current
     val enDirect = link != Link.CONNECTED && direct == Direct.Etat.PRET
     val connected = link == Link.CONNECTED || enDirect
     val (line, next) = when {
-        !connected -> (if (link == Link.CONNECTING) "Connexion au PC…" else if (direct == Direct.Etat.CONNEXION) "PC introuvable · connexion directe à OBS…" else "Hors ligne · recherche du PC…") to ""
+        !connected -> when {
+            direct == Direct.Etat.CONNEXION -> "MyVerse fermé sur le PC · connexion à OBS…"
+            direct == Direct.Etat.ERREUR || direct == Direct.Etat.ARRET && directMsg.isNotBlank() -> "MyVerse fermé sur le PC · OBS : $directMsg"
+            link == Link.CONNECTING -> "Connexion au PC…"
+            else -> "Recherche du PC…"
+        } to ""
         state == null -> (if (enDirect) "OBS direct (MyVerse fermé sur le PC)" else "Connecté") to ""
         else -> {
             val s = state!!
@@ -350,7 +357,7 @@ private fun LiveBar(remote: Remote, link: Link, direct: Direct.Etat) {
         Modifier.fillMaxWidth().background(Nuit).padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(12.dp).background(if (connected) Vert else if (link == Link.CONNECTING) Or else Rouge, CircleShape))
+        Box(Modifier.size(12.dp).background(if (connected) Vert else if (link == Link.CONNECTING || direct == Direct.Etat.CONNEXION) Or else Rouge, CircleShape))
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(line, color = Blanc, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -359,12 +366,12 @@ private fun LiveBar(remote: Remote, link: Link, direct: Direct.Etat) {
         Spacer(Modifier.width(8.dp))
         OutlinedButton(
             onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); remote.send("prev") },
-            enabled = connected, modifier = Modifier.height(58.dp),
+            modifier = Modifier.height(58.dp),
         ) { Text("‹", fontSize = 26.sp) }
         Spacer(Modifier.width(8.dp))
         Button(
             onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); remote.send("next") },
-            enabled = connected, modifier = Modifier.height(58.dp),
+            modifier = Modifier.height(58.dp),
         ) { Text("Suivant ›", fontSize = 17.sp, fontWeight = FontWeight.Bold) }
     }
 }

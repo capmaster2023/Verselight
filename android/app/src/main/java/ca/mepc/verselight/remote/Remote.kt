@@ -72,7 +72,7 @@ class Remote(private val context: Context, val store: Store) {
             "MyVerse (Android) $version · Android ${Build.VERSION.RELEASE} · ${Build.MANUFACTURER} ${Build.MODEL}",
             "Téléphone : $ips",
             "PC jumelé : " + (p?.let { "${it.pcName} · IP du code QR : ${it.ips.joinToString(", ")} · port ${it.port} · dernière IP : ${it.lastHost ?: "aucune"}" } ?: "aucun"),
-            "État : ${link.value}",
+            "État : ${link.value} · OBS direct : ${direct.etat.value} ${direct.message.value}",
             "",
         )
         return (head + journal.value).joinToString("\n")
@@ -151,14 +151,17 @@ class Remote(private val context: Context, val store: Store) {
         link.value = Link.NOT_PAIRED
     }
 
-    /** Le téléphone peut afficher : relié au PC, ou à OBS directement (MyVerse fermé sur le PC). */
-    fun pret(): Boolean = socket != null || direct.pret()
+    /** Le téléphone peut travailler : relié au PC, sinon seul (Bible, chants, recherche) et avec OBS directement. */
+    fun pret(): Boolean = socket != null || store.pairing() != null
 
-    /** Commande vers la régie du PC, ou vers OBS directement si le PC ne répond pas. False si aucun des deux. */
+    /**
+     * Commande vers la régie du PC ; MyVerse fermé sur le PC : le téléphone répond lui-même (aperçu, recherche, chants)
+     * et affiche directement dans OBS. False seulement si le téléphone n'est pas jumelé.
+     */
     fun send(type: String, vararg fields: Pair<String, Any?>): Boolean {
         val s = socket
         if (s == null) {
-            if (!direct.pret()) return false
+            if (store.pairing() == null) return false
             direct.commande(type, fields.toMap())
             return true
         }
@@ -206,6 +209,7 @@ class Remote(private val context: Context, val store: Store) {
             return if (r == Result.FAILED) null else r
         }
         p.lastHost?.let { attempt(it, p.lastPort)?.let { r -> return r } }
+        direct.pcAbsent() // MyVerse ne répond pas à sa dernière adresse : OBS direct tout de suite, on continue à chercher le PC
         val found = discover(p.pcId)
         log(if (found.isEmpty()) "recherche du PC sur le Wi-Fi : aucune réponse" else "recherche du PC sur le Wi-Fi : trouvé " + found.joinToString { "${it.first}:${it.second}" })
         for ((host, port) in found) attempt(host, port)?.let { return it }

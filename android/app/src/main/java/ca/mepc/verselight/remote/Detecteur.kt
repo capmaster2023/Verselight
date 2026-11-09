@@ -96,36 +96,107 @@ object Detecteur {
         return s.trim().split(' ').filter { it.isNotEmpty() }
     }
 
+    // noms entendus de travers par la reconnaissance vocale (« jeunesse » pour Genèse, « gens » pour Jean,
+    // « romain » pour Romains) : comparés à l'oreille (même prononciation) ou à une lettre près
+    private val UNMOT: List<Nom> by lazy { NOMS.filter { it.mots.size == 1 && it.mots[0].length >= 4 } }
+    private val SONS: List<Pair<String, Nom>> by lazy { UNMOT.map { Recherche.son(it.mots[0]) to it }.filter { it.first.length >= 2 } }
+
+    /** Livre trouvé à la position i : sur = nom français exact ; sinon (entendu de travers, autre langue) il faut le verset. */
+    private class Livre(val livre: Int, val longueur: Int, val numerote: Boolean, val sur: Boolean)
+
+    private fun livreEn(t: List<String>, i: Int, extra: List<Pair<List<String>, Int>>): Livre? {
+        NOMS.firstOrNull { n -> i + n.mots.size <= t.size && n.mots.indices.all { t[i + it] == n.mots[it] } }
+            ?.let { return Livre(it.livre, it.mots.size, it.numerote, true) }
+        extra.firstOrNull { (m, _) -> i + m.size <= t.size && m.indices.all { t[i + it] == m[it] } }
+            ?.let { return Livre(it.second, it.first.size, false, false) }
+        val w = t[i]
+        if (w.length < 4 || w.any { it.isDigit() }) return null
+        val s = Recherche.son(w)
+        SONS.firstOrNull { it.first == s }?.let { return Livre(it.second.livre, 1, it.second.numerote, false) }
+        val k = if (w.length >= 7) 2 else 1
+        var meilleur: Nom? = null
+        var d0 = k + 1
+        for (n in UNMOT) {
+            val d = Recherche.distance(w, n.mots[0], k)
+            if (d < d0) { d0 = d; meilleur = n }
+        }
+        return meilleur?.let { Livre(it.livre, 1, it.numerote, false) }
+    }
+
+    /** Noms des livres tels qu'écrits dans les Bibles du téléphone (kirundi, swahili…), en mots comme mots(). */
+    fun nomsDepuis(bibles: List<BibleTexte>): List<Pair<List<String>, Int>> {
+        val out = ArrayList<Pair<List<String>, Int>>()
+        val vus = HashSet<String>()
+        for (bi in bibles) bi.livres.forEachIndexed { i, l ->
+            val m = mots(l.name)
+            if (m.any { w -> w.length >= 3 && w.any { it in 'a'..'z' } } && vus.add(m.joinToString(" "))) out.add(m to i)
+        }
+        return out.sortedByDescending { it.first.size }
+    }
+
     /**
      * Références trouvées dans une phrase. bible sert à vérifier qu'elles existent (chapitre et verset).
-     * contexte : livre et chapitre de la dernière référence entendue (pour « au verset 17 »).
+     * contexte : livre et chapitre de la dernière référence entendue (pour « au verset 17 », « chapitre 4 »).
+     * extra : noms des livres dans d'autres langues (Bibles importées), voir nomsDepuis.
      */
-    fun trouver(texte: String, bible: BibleTexte?, contexte: Ref? = null): List<Trouvaille> {
+    fun trouver(texte: String, bible: BibleTexte?, contexte: Ref? = null, extra: List<Pair<List<String>, Int>> = emptyList()): List<Trouvaille> {
         val t = mots(texte)
         val out = ArrayList<Trouvaille>()
         var dernierLivre = -100 // position du dernier livre reconnu
         var ctx = contexte
+
+        // verset à partir de k0 : « 16 », « verset 16 », « et au verset 16 », « 16 à 18 » → (v1, v2, position suivante)
+        fun verset(k0: Int): Triple<Int, Int, Int>? {
+            var v: Pair<Int, Int>? = nombre(t, k0)
+            if (v == null) {
+                var m = k0
+                var n = 0
+                var mot = false
+                while (m < t.size && t[m] in AVANT_VERSET && n < 4) { if (t[m].startsWith("v")) mot = true; m++; n++ }
+                if (mot) v = nombre(t, m)
+            }
+            val premier = v ?: return null
+            var fin = premier.first
+            var k = premier.second
+            if (k < t.size && t[k] in JUSQUE) nombre(t, k + 1)?.let { if (it.first > premier.first) { fin = it.first; k = it.second } }
+            return Triple(premier.first, fin, k)
+        }
+        fun ajouter(r: Ref, avecVerset: Boolean, fin: Int): Boolean {
+            val borne = bible?.borner(r)
+            val existe = bible == null || (borne != null && (r.v1 == 0 || borne.v1 == r.v1))
+            if (existe) {
+                out.add(Trouvaille(if (r.v1 == 0) r else (borne ?: r), avecVerset, fin))
+                ctx = r
+            }
+            return existe
+        }
+
         var i = 0
         while (i < t.size) {
-            val nom = NOMS.firstOrNull { n -> i + n.mots.size <= t.size && n.mots.indices.all { t[i + it] == n.mots[it] } }
-            if (nom == null) {
-                // « au verset 17 » sans livre : même livre et même chapitre que la référence précédente
-                if ((t[i] == "verset" || t[i] == "versets") && ctx != null && i - dernierLivre > 8) {
-                    val v = nombre(t, i + 1)
-                    if (v != null) {
-                        var fin = v.first
-                        var k = v.second
-                        if (k < t.size && t[k] in JUSQUE) nombre(t, k + 1)?.let { if (it.first > v.first) { fin = it.first; k = it.second } }
-                        val r = Ref(ctx.b, ctx.c, v.first, fin)
-                        val ok = bible?.borner(r)
-                        if (bible == null || (ok != null && ok.v1 == r.v1)) { out.add(Trouvaille(ok ?: r, true, k)); i = k; continue }
+            val trouve = livreEn(t, i, extra)
+            if (trouve == null) {
+                val c0 = ctx
+                if (c0 != null && i - dernierLivre > 8) {
+                    // « au verset 17 » : même livre, même chapitre que la référence précédente
+                    if (t[i] == "verset" || t[i] == "versets") {
+                        val v = verset(i)
+                        if (v != null && ajouter(Ref(c0.b, c0.c, v.first, v.second), true, v.third)) { i = v.third; continue }
+                    }
+                    // « au chapitre 4 (verset 2) » : même livre
+                    if (t[i] == "chapitre" || t[i] == "chapitres") {
+                        val c = nombre(t, i + 1)
+                        if (c != null) {
+                            val v = verset(c.second)
+                            val fin = v?.third ?: c.second
+                            if (ajouter(Ref(c0.b, c.first, v?.first ?: 0, v?.second ?: 0), v != null, fin)) { i = fin; continue }
+                        }
                     }
                 }
                 i++
                 continue
             }
-            var livre = nom.livre
-            if (nom.numerote) {
+            var livre = trouve.livre
+            if (trouve.numerote) {
                 // numéro dit avant le nom : « premier Jean », « deuxième épître aux Corinthiens », « 1 Samuel »
                 var k = i - 1
                 var numero = 0
@@ -136,48 +207,26 @@ object Detecteur {
                     if (t[k] !in LIENS_LIVRE) break
                     k--; sauts++
                 }
-                val max = MAX_NUMERO[nom.livre] ?: 1
+                val max = MAX_NUMERO[trouve.livre] ?: 1
                 livre = when {
-                    nom.livre == 61 && numero == 0 -> 42 // « Jean » seul : l'évangile
-                    numero in 1..max -> nom.livre + numero - 1
-                    else -> nom.livre
+                    trouve.livre == 61 && numero == 0 -> 42 // « Jean » seul : l'évangile
+                    numero in 1..max -> trouve.livre + numero - 1
+                    else -> trouve.livre
                 }
             }
-            var k = i + nom.mots.size
+            var k = i + trouve.longueur
             var motChapitre = false
             var sauts = 0
             while (k < t.size && t[k] in AVANT_CHAPITRE && sauts < 3) { if (t[k].startsWith("ch")) motChapitre = true; k++; sauts++ }
             val chap = nombre(t, k)
-            if (chap == null) { i += nom.mots.size; continue }
-            k = chap.second
+            if (chap == null) { i += trouve.longueur; continue }
             dernierLivre = i
-            // verset : « 3 16 », « 3 verset 16 », « 3 et au verset 16 »
-            var verset: Pair<Int, Int>? = null
-            var motVerset = false
-            if (k < t.size) {
-                val direct = nombre(t, k)
-                if (direct != null) verset = direct
-                else {
-                    var m = k
-                    var s2 = 0
-                    while (m < t.size && t[m] in AVANT_VERSET && s2 < 4) { if (t[m].startsWith("v")) motVerset = true; m++; s2++ }
-                    if (motVerset) verset = nombre(t, m)
-                }
-            }
-            var fin = verset?.first ?: 0
-            if (verset != null) {
-                k = verset.second
-                if (k < t.size && t[k] in JUSQUE) nombre(t, k + 1)?.let { if (it.first > verset.first) { fin = it.first; k = it.second } }
-            }
-            if (verset == null && livre in PRENOMS && !motChapitre) { i = k; continue }
-            val r = Ref(livre, chap.first, verset?.first ?: 0, fin)
-            val borne = bible?.borner(r)
-            val existe = bible == null || (borne != null && (r.v1 == 0 || borne.v1 == r.v1))
-            if (existe) {
-                out.add(Trouvaille(if (r.v1 == 0) r else (borne ?: r), verset != null, k))
-                ctx = r
-            }
-            i = k
+            val v = verset(chap.second)
+            val fin = v?.third ?: chap.second
+            // nom pas sûr (entendu de travers, autre langue) ou prénom courant (« Jean 3 fois ») : il faut le verset ou « chapitre »
+            if (v == null && !motChapitre && (!trouve.sur || livre in PRENOMS)) { i = fin; continue }
+            ajouter(Ref(livre, chap.first, v?.first ?: 0, v?.second ?: 0), v != null, fin)
+            i = fin
         }
         return out
     }

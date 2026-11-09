@@ -10,6 +10,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -80,33 +81,52 @@ class Direct(private val ctx: Context, private val remote: Remote) {
 
     fun commande(type: String, f: Map<String, Any?>) { file.trySend(type to f) }
 
+    private val verrou = kotlinx.coroutines.sync.Mutex()
+    @Volatile private var dernierLog = ""
+    private fun noter(msg: String) { if (msg != dernierLog) { dernierLog = msg; remote.log("OBS direct : $msg") } }
+
+    /** Une tentative de connexion à OBS avec les réglages reçus du PC : null = connecté, sinon la raison. */
+    private suspend fun tenter(insister: Boolean): String? = verrou.withLock {
+        if (obs.pret) return@withLock null
+        val store = remote.store
+        val c = store.obs()
+        val p = store.pairing()
+        if (!store.obsDirect) {
+            etat.value = Etat.ARRET
+            message.value = "désactivé dans les réglages de l'app"
+            return@withLock message.value
+        }
+        if (c == null || !c.actif || p == null) {
+            etat.value = Etat.ARRET
+            message.value = "pas encore configuré : dans MyVerse sur le PC, bouton OBS › activer (port et mot de passe), puis connectez le téléphone au PC une fois"
+            noter(message.value)
+            return@withLock message.value
+        }
+        val host = p.lastHost ?: p.ips.firstOrNull() ?: return@withLock "adresse du PC inconnue"
+        val cle = "$host:${c.port}:${c.mdp.hashCode()}"
+        if (refus == cle && !insister) return@withLock message.value
+        etat.value = Etat.CONNEXION
+        message.value = "connexion à OBS ($host:${c.port})…"
+        noter("connexion à $host:${c.port}…")
+        val err = obs.connecter(host, c.port, c.mdp)
+        if (err == null) {
+            etat.value = Etat.PRET
+            message.value = "OBS ($host:${c.port})"
+            noter("connecté à $host:${c.port} (MyVerse fermé sur le PC)")
+            remote.screen.value = etatTel()
+            return@withLock null
+        }
+        etat.value = Etat.ERREUR
+        message.value = err
+        noter("échec : $err")
+        if (err.contains("mot de passe")) refus = cle
+        err
+    }
+
     private suspend fun boucle() {
         while (pcAbsent && !obs.pret) {
-            val store = remote.store
-            val c = store.obs()
-            val p = store.pairing()
-            if (!store.obsDirect) { etat.value = Etat.ARRET; message.value = "désactivé dans les réglages"; return }
-            if (c == null || !c.actif || p == null) {
-                etat.value = Etat.ARRET
-                message.value = "pas encore configuré : activez OBS dans MyVerse sur le PC (bouton OBS), puis connectez le téléphone au PC une fois"
-                return
-            }
-            val host = p.lastHost ?: p.ips.firstOrNull() ?: return
-            val cle = "$host:${c.port}:${c.mdp.hashCode()}"
-            if (refus == cle) return
-            etat.value = Etat.CONNEXION
-            message.value = "connexion à OBS ($host:${c.port})…"
-            val err = obs.connecter(host, c.port, c.mdp)
-            if (err == null) {
-                etat.value = Etat.PRET
-                message.value = "OBS ($host:${c.port})"
-                remote.log("OBS direct : connecté à $host:${c.port} (MyVerse fermé sur le PC)")
-                remote.screen.value = etatTel()
-                return
-            }
-            etat.value = Etat.ERREUR
-            message.value = err
-            if (err.contains("mot de passe")) { refus = cle; remote.log("OBS direct : $err"); return }
+            tenter(false) ?: return
+            if (etat.value == Etat.ARRET || refus != null) return // rien à réessayer (pas configuré, mauvais mot de passe)
             delay(5000)
         }
     }
@@ -159,7 +179,8 @@ class Direct(private val ctx: Context, private val remote: Remote) {
             "prev" -> bouger(-1)
             "clear" -> {
                 ecran = base().put("mode", "vide").put("lignes", JSONArray()).put("ref", "")
-                obs.cacher()
+                if (obs.pret || tenter(true) == null) obs.cacher()
+                else erreur("Retirer : OBS injoignable — ${message.value}")
                 publier()
             }
             "state.get" -> publier()
@@ -210,7 +231,11 @@ class Direct(private val ctx: Context, private val remote: Remote) {
     }
 
     private suspend fun montrer() {
-        if (!obs.pret) { erreur("OBS n'est pas joignable : ${message.value}"); publier(); return }
+        if (!obs.pret) {
+            // MyVerse est fermé sur le PC : le téléphone se connecte à OBS tout de suite
+            val err = tenter(true)
+            if (err != null) { erreur("Pas affiché : OBS injoignable — $err"); publier(); return }
+        }
         if (!obs.montrer(ecran) { page(it) }) erreur("OBS n'a pas affiché la diapositive (voir le journal).")
         publier()
     }

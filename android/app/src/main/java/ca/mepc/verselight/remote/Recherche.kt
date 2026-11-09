@@ -79,7 +79,7 @@ object Recherche {
 
     private val R_SON = listOf(
         Regex("ph") to "f", Regex("ch(?=[rl])") to "k", Regex("ch") to "x", Regex("qu|q") to "k",
-        Regex("c(?=[eiy])") to "s", Regex("c") to "k", Regex("g(?=[eiy])") to "j", Regex("je(?=[aou])") to "j",
+        Regex("c(?=[eiy])") to "s", Regex("c") to "k", Regex("[jg]e(?=[ao])") to "j", Regex("g(?=[eiy])") to "j",
         Regex("gu(?=[eiy])") to "g", Regex("h") to "", Regex("y") to "i", Regex("w") to "v", Regex("(.)\\1+") to "$1",
         Regex("eau|au") to "o", Regex("oeu|oe|eu") to "e", Regex("ou") to "u",
         Regex("[ae]i[nm](?![aeiou])|[iu][nm](?![aeiou])") to "1", Regex("[ae][nm](?![aeiou])") to "2", Regex("o[nm](?![aeiou])") to "3",

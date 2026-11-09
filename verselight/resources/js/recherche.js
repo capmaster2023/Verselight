@@ -62,7 +62,7 @@
   function son(w) {
     let s = w.replace(/(?<=...)(er|ez)$/, 'e')
       .replace(/ph/g, 'f').replace(/ch(?=[rl])/g, 'k').replace(/ch/g, 'x').replace(/qu|q/g, 'k').replace(/c(?=[eiy])/g, 's').replace(/c/g, 'k')
-      .replace(/g(?=[eiy])/g, 'j').replace(/je(?=[aou])/g, 'j').replace(/gu(?=[eiy])/g, 'g')
+      .replace(/[jg]e(?=[ao])/g, 'j').replace(/g(?=[eiy])/g, 'j').replace(/gu(?=[eiy])/g, 'g')
       .replace(/h/g, '').replace(/y/g, 'i').replace(/w/g, 'v').replace(/(.)\1+/g, '$1')
       .replace(/eau|au/g, 'o').replace(/oeu|oe|eu/g, 'e').replace(/ou/g, 'u')
       .replace(/[ae]i[nm](?![aeiou])|[iu][nm](?![aeiou])/g, '1').replace(/[ae][nm](?![aeiou])/g, '2').replace(/o[nm](?![aeiou])/g, '3')

@@ -67,6 +67,7 @@ class Ecoute : Service() {
     private var contexte: Ref? = null
     private var contexteQuand = 0L
     @Volatile private var bible: BibleTexte? = null
+    @Volatile private var noms: List<Pair<List<String>, Int>> = emptyList() // noms des livres dans les Bibles importées (kirundi…)
     private val relance = Runnable { if (actif) ecouter() }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -75,7 +76,14 @@ class Ecoute : Service() {
         super.onCreate()
         canaux(this)
         val app = applicationContext
-        Thread { bible = try { Donnees.principale(app, MyVerse.remote(app).store) } catch (e: Exception) { null } }.start()
+        Thread {
+            try {
+                val store = MyVerse.remote(app).store
+                bible = Donnees.principale(app, store)
+                noms = Detecteur.nomsDepuis(Donnees.pourRecherche(app, store))
+            } catch (e: Exception) {
+            }
+        }.start()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -194,14 +202,20 @@ class Ecoute : Service() {
     }
 
     private fun analyser(b: Bundle?, final: Boolean) {
-        val texte = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull() ?: return
-        if (texte.isBlank()) return
+        val textes = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.filter { it.isNotBlank() } ?: return
+        var texte = textes.firstOrNull() ?: return
         Detection.entendu.value = texte.takeLast(160)
         val bi = bible ?: return
         val maintenant = System.currentTimeMillis()
         val ctx = contexte?.takeIf { maintenant - contexteQuand < 180_000 }
+        var trouvees = Detecteur.trouver(texte, bi, ctx, noms)
+        // rien dans la meilleure phrase : les autres phrases possibles entendues par le téléphone
+        if (trouvees.isEmpty() && final) for (autre in textes.drop(1)) {
+            val r = Detecteur.trouver(autre, bi, ctx, noms)
+            if (r.isNotEmpty()) { trouvees = r; texte = autre; break }
+        }
         val nb = Detecteur.mots(texte).size
-        for (f in Detecteur.trouver(texte, bi, ctx)) {
+        for (f in trouvees) {
             // phrase pas finie : on attend que le nombre soit complet (« Romains 8 2… » → « Romains 8 28 »)
             if (!final && (!f.avecVerset || f.fin >= nb)) continue
             contexte = f.ref
