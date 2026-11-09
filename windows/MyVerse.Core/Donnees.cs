@@ -116,15 +116,17 @@ public sealed class Donnees
             try { d.Migrer(); }
             catch (Exception e) { Journal.Erreur("reprise des données de la 3.x", e); }
         }
-        d.Corriger();
+        bool ajoutInclus = false;
         if (!d.Reglages.Inclus)
         {
             // recueils de l'église (VideoPsalm) ajoutés une fois au premier démarrage
             var inclus = Lire<List<Chant>>(Path.Combine(ressources, "chants-inclus.json")) ?? new List<Chant>();
             foreach (var c in inclus) { c.Id = Chant.NouvelId(); d.Chants.Add(c); }
             d.Reglages.Inclus = true;
-            d.SauverChants();
+            ajoutInclus = true;
         }
+        d.Corriger(); // après l'ajout des recueils inclus : leurs titres sont aussi nettoyés
+        if (ajoutInclus) d.SauverChants();
         if (nouveau || !File.Exists(d.FReglages)) d.SauverReglages();
         return d;
     }

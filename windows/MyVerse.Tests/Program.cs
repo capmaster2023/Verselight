@@ -355,6 +355,41 @@ if (Actif())
 }
 
 // ------------------------------------------------------------------ régie
+Groupe("Transfert");
+if (Actif())
+{
+    var dA = Donnees.Charger(Temp(), res);
+    var bA = new Bibles(dA);
+    var rA = new Regie(dA, bA);
+    rA.AjouterChants(new[] {
+        new Chant { Title = "1 - Un", Sections = { new Section { Label = "Couplet 1", Text = "Ligne une" } } },
+        new Chant { Title = "2 - Deux", Sections = { new Section { Label = "Couplet 1", Text = "Ligne deux" } } } }, "Recueil T");
+    var infoA = bA.Ajouter(Bible.DepuisJson("x", File.ReadAllText(Path.Combine(res, "lsg.json"))), "MAB");
+    var fichier = Path.Combine(Temp(), "export" + Transfert.Extension);
+    var m = Transfert.Exporter(fichier, dA, true, true, "test");
+    Ok(m.Chants == dA.Chants.Count && m.Bibles.Count == 1, $"export : {m.Chants} chants, {m.Bibles.Count} Bible");
+    Ok(Transfert.Lire(fichier).Recueils.Contains("Recueil T"), "contenu du fichier lisible");
+
+    var dB = Donnees.Charger(Temp(), res);
+    var bB = new Bibles(dB);
+    var rB = new Regie(dB, bB);
+    var bil = Transfert.Importer(fichier, rB, bB);
+    Ok(bil.ChantsAjoutes == 2 && bil.ChantsMisAJour == 0 && bil.ChantsPareils == m.Chants - 2 && rB.Filtrer("", "Recueil T").Count == 2, $"import : {bil.ChantsAjoutes} ajoutés, {bil.ChantsPareils} déjà là");
+    Egal(bil.BiblesAjoutees, 1, "import : Bible ajoutée");
+    var bibB = bB.Toutes().FirstOrDefault(x => !x.Integree);
+    Ok(bibB != null && bibB.Court == "MAB" && bB.Charger(bibB.Id)?.NombreVersets() == infoA.Versets, "Bible importée lisible");
+    var bil2 = Transfert.Importer(fichier, rB, bB);
+    Ok(bil2.ChantsAjoutes == 0 && bil2.ChantsMisAJour == 0 && bil2.BiblesAjoutees == 0 && bil2.BiblesPresentes == 1, "réimport : rien en double");
+    rA.Filtrer("", "Recueil T")[0].Sections[0].Text = "Ligne changée";
+    Transfert.Exporter(fichier, dA, true, false);
+    var bil3 = Transfert.Importer(fichier, rB, bB);
+    Ok(bil3.ChantsMisAJour == 1 && rB.Filtrer("changée", null).Count == 1, "chant modifié : mis à jour");
+    Ok(Transfert.Lire(fichier).Bibles.Count == 0, "export des chants seuls");
+    bool refuse = false;
+    try { Transfert.Lire(Path.Combine(res, "lsg.json")); } catch (Exception) { refuse = true; }
+    Ok(refuse, "fichier qui n'est pas un export refusé");
+}
+
 Groupe("Regie");
 if (Actif())
 {

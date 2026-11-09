@@ -392,6 +392,58 @@ public sealed class Regie
         return res.Take(60).ToList();
     }
 
+    /// <summary>Ajoute des chants venant d'un autre MyVerse. Un chant déjà là (même identifiant, ou même recueil
+    /// et même titre) est remplacé par celui du fichier ; s'il est identique, rien ne change.</summary>
+    public (int ajoutes, int misAJour, int pareils) FusionnerChants(IEnumerable<Chant> liste)
+    {
+        int aj = 0, maj = 0, pareils = 0;
+        var parId = new Dictionary<string, Chant>();
+        var parCle = new Dictionary<string, List<Chant>>();
+        foreach (var c in donnees.Chants)
+        {
+            parId.TryAdd(c.Id ?? "", c);
+            var k = Cle(c);
+            if (!parCle.TryGetValue(k, out var l)) parCle[k] = l = new();
+            l.Add(c);
+        }
+        var pris = new HashSet<Chant>(); // chaque chant existant ne sert qu'une fois (titres en double dans un recueil)
+        foreach (var n in liste)
+        {
+            if (n == null) continue;
+            n.Author = (n.Author ?? "").Trim();
+            n.Title = Texte.Espaces.Replace(n.Title ?? "", " ").Trim();
+            if (n.Title.Length == 0) n.Title = "Sans titre";
+            n.Sections ??= new();
+            Chant? ex = null;
+            if (!string.IsNullOrEmpty(n.Id) && parId.TryGetValue(n.Id, out var a) && !pris.Contains(a) && Cle(a) == Cle(n)) ex = a;
+            else if (parCle.TryGetValue(Cle(n), out var l))
+            {
+                var libres = l.Where(x => !pris.Contains(x)).ToList();
+                ex = libres.FirstOrDefault(x => Pareil(x, n)) ?? (libres.Count == 1 ? libres[0] : null);
+            }
+            if (ex == null)
+            {
+                if (string.IsNullOrEmpty(n.Id) || parId.ContainsKey(n.Id)) n.Id = Chant.NouvelId();
+                donnees.Chants.Add(n);
+                parId[n.Id] = n;
+                pris.Add(n);
+                aj++;
+            }
+            else
+            {
+                pris.Add(ex);
+                if (Pareil(ex, n)) pareils++;
+                else { ex.Title = n.Title; ex.Author = n.Author; ex.Sections = n.Sections; ex.Copyright = n.Copyright; ex.Ccli = n.Ccli; maj++; }
+            }
+        }
+        if (aj + maj > 0) { donnees.SauverChants(); ChantsChange?.Invoke(); }
+        return (aj, maj, pareils);
+
+        static string Cle(Chant c) => Texte.Norm(Texte.Espaces.Replace(c.Author ?? "", " ").Trim()) + "\n" + Texte.Norm(Texte.Espaces.Replace(c.Title ?? "", " ").Trim());
+        static bool Pareil(Chant x, Chant y) => x.Title == y.Title && (x.Author ?? "") == (y.Author ?? "") && x.Sections.Count == y.Sections.Count &&
+            x.Sections.Zip(y.Sections).All(p => p.First.Label == p.Second.Label && p.First.Text == p.Second.Text);
+    }
+
     public int AjouterChants(IEnumerable<Chant> liste, string? recueil)
     {
         int n = 0;

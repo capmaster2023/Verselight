@@ -153,7 +153,9 @@ public sealed class Bibles
         court = (court ?? "").Trim();
         if (court.Length > 8) court = court[..8];
         if (court.Length == 0) court = b.Court.Length > 0 ? b.Court : "BIB";
-        var id = "b" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString("x");
+        var t = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var id = "b" + t.ToString("x");
+        while (R.Importees.Any(x => x.Id == id)) id = "b" + (++t).ToString("x");
         b.Id = id;
         b.Court = court;
         Directory.CreateDirectory(donnees.DossierBibles);

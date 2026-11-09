@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Input;
 
 namespace MyVerse.Ui;
 
@@ -36,6 +37,10 @@ public partial class OutilsWindow : FenetreDialogue
             try { Process.Start(new ProcessStartInfo("explorer.exe", "\"" + App.Donnees.Dossier + "\"") { UseShellExecute = true }); }
             catch (Exception x) { Journal.Erreur("ouverture du dossier", x); }
         };
+        ExporterBibles.Click += (_, _) => Exporter(false, true);
+        ExporterChants.Click += (_, _) => Exporter(true, false);
+        ExporterTout.Click += (_, _) => Exporter(true, true);
+        ImporterFichier.Click += (_, _) => ImporterTransfert();
         Fermer.Click += (_, _) => Close();
         if (chercher) Loaded += async (_, _) => await Chercher();
     }
@@ -105,6 +110,92 @@ public partial class OutilsWindow : FenetreDialogue
             MajEtat.Text = "Téléchargement de la mise à jour impossible. Réessayez plus tard. (" + x.Message + ")";
             Installer.IsEnabled = true;
             Verifier.IsEnabled = true;
+        }
+    }
+
+    // ------------------------------------------------------------ transfert vers un autre ordinateur
+    static string Contenu(Transfert.Manifeste m) => string.Join(" et ", new[]
+    {
+        m.Chants > 0 ? $"{m.Chants} chants ({m.Recueils.Count} recueil{(m.Recueils.Count > 1 ? "s" : "")})" : null,
+        m.Bibles.Count > 0 ? $"{m.Bibles.Count} Bible{(m.Bibles.Count > 1 ? "s" : "")} ({string.Join(", ", m.Bibles.Select(b => b.Short))})" : null,
+    }.Where(x => x != null));
+
+    static T Patienter<T>(Func<T> f)
+    {
+        Mouse.OverrideCursor = Cursors.Wait;
+        try { return f(); }
+        finally { Mouse.OverrideCursor = null; }
+    }
+
+    void Exporter(bool chants, bool bibles)
+    {
+        int nbBibles = App.Donnees.Reglages.Bibles.Importees.Count, nbChants = App.Donnees.Chants.Count;
+        if ((!chants || nbChants == 0) && (!bibles || nbBibles == 0))
+        {
+            Dialogue.Informer(this, bibles && !chants
+                ? "Aucune Bible importée à exporter : LSG et KJV sont déjà dans chaque MyVerse."
+                : "Aucun chant à exporter.");
+            return;
+        }
+        var quoi = chants && bibles ? "tout" : chants ? "chants" : "bibles";
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Exporter vers un autre ordinateur",
+            FileName = $"MyVerse-{quoi}-{DateTime.Now:yyyy-MM-dd}{Transfert.Extension}",
+            DefaultExt = Transfert.Extension,
+            Filter = $"Fichier MyVerse (*{Transfert.Extension})|*{Transfert.Extension}",
+            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+        };
+        if (dlg.ShowDialog(this) != true) return;
+        try
+        {
+            var m = Patienter(() => Transfert.Exporter(dlg.FileName, App.Donnees, chants, bibles, App.Version));
+            Dialogue.Informer(this, $"✓ Exporté : {Contenu(m)}.\n\nFichier : {dlg.FileName}\n\nSur l'autre ordinateur : Outils → Importer un fichier MyVerse.");
+        }
+        catch (Exception x)
+        {
+            Journal.Erreur("export MyVerse", x);
+            Dialogue.Informer(this, "L'export n'a pas pu se faire : " + x.Message);
+        }
+    }
+
+    void ImporterTransfert()
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Importer un fichier MyVerse",
+            Filter = $"Fichier MyVerse (*{Transfert.Extension};*.zip)|*{Transfert.Extension};*.zip",
+        };
+        if (dlg.ShowDialog(this) != true) return;
+        Transfert.Manifeste m;
+        try { m = Transfert.Lire(dlg.FileName); }
+        catch (Exception x)
+        {
+            Journal.Erreur("import MyVerse", x);
+            Dialogue.Informer(this, "Ce fichier n'est pas un export MyVerse. Sur l'autre ordinateur : Outils → Exporter.");
+            return;
+        }
+        var contenu = Contenu(m);
+        if (contenu.Length == 0) { Dialogue.Informer(this, "Ce fichier MyVerse est vide."); return; }
+        if (!Dialogue.Confirmer(this, $"Importer {contenu} ?" +
+                (m.Chants > 0 ? "\n\nUn chant qui existe déjà (même recueil, même titre) est remplacé par celui du fichier ; rien n'est mis en double." : ""),
+                "Importer")) return;
+        try
+        {
+            var b = Patienter(() => Transfert.Importer(dlg.FileName, App.Regie, App.Bibles));
+            var lignes = new List<string>();
+            if (m.Chants > 0)
+                lignes.Add($"{b.ChantsAjoutes} chant{(b.ChantsAjoutes > 1 ? "s" : "")} ajouté{(b.ChantsAjoutes > 1 ? "s" : "")}" +
+                           (b.ChantsMisAJour > 0 ? $", {b.ChantsMisAJour} mis à jour" : "") + (b.ChantsPareils > 0 ? $", {b.ChantsPareils} déjà là" : ""));
+            if (m.Bibles.Count > 0)
+                lignes.Add($"{b.BiblesAjoutees} Bible{(b.BiblesAjoutees > 1 ? "s" : "")} ajoutée{(b.BiblesAjoutees > 1 ? "s" : "")}" +
+                           (b.BiblesPresentes > 0 ? $", {b.BiblesPresentes} déjà là" : ""));
+            Dialogue.Informer(this, "✓ Import terminé :\n" + string.Join("\n", lignes));
+        }
+        catch (Exception x)
+        {
+            Journal.Erreur("import MyVerse", x);
+            Dialogue.Informer(this, "L'import n'a pas pu se faire : " + x.Message);
         }
     }
 }
