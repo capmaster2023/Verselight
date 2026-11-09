@@ -97,6 +97,9 @@ public static class AutoTest
             Ok(Police("Serif").Contains("Literata"), "police Literata incluse");
             Ok(Police("Sans").Contains("Atkinson"), "police Atkinson incluse");
             await Attendre(1500);
+            Capture(w, "00-accueil-agenda.png");
+            w.TestOnglet(true);
+            await Attendre(400);
             Capture(w, "01-bible.png");
 
             w.TestRecherche("jn 3 16");
@@ -161,6 +164,41 @@ public static class AutoTest
                 Ok(vide.Count == 0, "numéro absent : liste vide");
                 w.TestNumero("");
             }
+
+            // 5.0 : agenda (comme VideoPsalm), barre de commande, notes de prédication, écran noir
+            w.TestOngletAgenda();
+            var agTest = R.NouvelAgenda("Culte de test");
+            if (c != null) R.AjouterChantAgenda(c.Id);
+            R.AjouterBibleAgenda(new Ref(42, 3, 16, 17));
+            R.AjouterTexteAgenda("Annonces", "Bienvenue à tous !\n\nRepas fraternel après le culte");
+            Ok(R.Agenda.Elements.Count == (c != null ? 3 : 2), $"agenda : {R.Agenda.Elements.Count} éléments");
+            R.AfficherElement(R.Agenda.Elements[0], 0);
+            var cm = w.TestCommande("jean 3 16");
+            Ok(cm.Count > 0 && cm[0].Titre == "Jean 3:16", "barre de commande : " + string.Join(" | ", cm.Select(x => x.Titre)));
+            await Attendre(700);
+            Capture(w, "19-agenda.png");
+            w.TestCommande("");
+            for (int i = 0; i < 15 && R.ElementCourant?.Type != "bible"; i++) R.Bouger(1);
+            Ok(R.ElementCourant?.Type == "bible" && R.Etat.Ref.StartsWith("Jean 3:16"), "agenda : Suivant passe au passage biblique · " + R.Etat.Ref);
+            for (int i = 0; i < 5 && R.ElementCourant?.Type != "texte"; i++) R.Bouger(1);
+            Ok(R.ElementCourant?.Type == "texte" && R.Etat.Lignes.FirstOrDefault() == "Bienvenue à tous !", "agenda : puis les annonces");
+            await Attendre(500);
+            Capture(w, "20-agenda-annonces.png");
+            if (w.Ecran != null) Capture(w.Ecran, "21-ecran-annonces.png");
+            w.TestNoir();
+            await Attendre(900);
+            Ok(w.TestEstNoir, "écran noir");
+            Capture(w, "22-ecran-noir.png");
+            R.Bouger(1);
+            await Attendre(300);
+            Ok(!w.TestEstNoir, "la diapositive suivante rallume l'écran");
+            int nr = w.TestNotes("La grâce qui transforme\n1. Sauvés par grâce — Éphésiens 2:8-9\n2. Rm 5.8 et 2 Co 5:17\nAppel : Jean 3:16");
+            Ok(nr == 4, $"notes de prédication : {nr} versets trouvés");
+            await Attendre(500);
+            Capture(w, "23-notes.png");
+            w.TestVueAgenda();
+            R.SupprimerAgenda(agTest.Id);
+            w.TestOnglet(false);
             R.Effacer();
             await Attendre(900);
             Capture(w, "11-vide.png");

@@ -19,7 +19,8 @@ public partial class MainWindow : Window
     Bible B => App.Bibles.Principale;
 
     EcranWindow? ecran;
-    bool ongletBible = true;
+    string onglet = "bible";
+    bool ongletBible => onglet == "bible";
     (int B, int C)? vue;             // chapitre affiché
     Ref? sel;                        // versets choisis
     string? chantOuvert;
@@ -40,14 +41,16 @@ public partial class MainWindow : Window
         InitializeComponent();
         PositionDepart();
         VersionBtn.Content = "v" + App.Version;
+        SousTitre.Text = App.Version;
         Placement();
         ConstruireLivres();
         ConstruireAide();
         RemplirBibles();
 
         // ---------- barre du haut
-        OngletBible.Checked += (_, _) => MontrerOnglet(true);
-        OngletChants.Checked += (_, _) => MontrerOnglet(false);
+        OngletAgenda.Checked += (_, _) => MontrerOnglet("agenda");
+        OngletBible.Checked += (_, _) => MontrerOnglet("bible");
+        OngletChants.Checked += (_, _) => MontrerOnglet("chants");
         Q.TextChanged += (_, _) =>
         {
             QIndice.Visibility = Q.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -193,17 +196,29 @@ public partial class MainWindow : Window
         PreviewTextInput += (_, e) =>
         {
             if (e.Text != "/" || Keyboard.FocusedElement is TextBox or PasswordBox) return;
-            (ongletBible ? Q : Qc).Focus();
+            (onglet == "agenda" ? Cmd : ongletBible ? Q : Qc).Focus();
             e.Handled = true;
         };
         SizeChanged += (_, _) => Placement();
         Closing += (_, _) => Fermeture();
-        SourceInitialized += (_, _) => Natif.TitreSombre(this);
+        SourceInitialized += (_, _) => Natif.TitreSombre(this, false);
         Loaded += (_, _) => Demarre();
 
         RemplirRecueils();
         ListeChantsMaj();
         OuvrirChapitre(42, 3, 16, 16);
+        InitAgenda();
+        AgendaAjoutBible.Click += (_, _) =>
+        {
+            if (sel is Ref s && s.V1 > 0) Toast($"{R.AjouterBibleAgenda(s).Titre} ajouté à l'agenda « {R.Agenda.Nom} ».");
+            else if (vue is { } v) Toast($"{R.AjouterBibleAgenda(new Ref(v.B, v.C, 0, 0)).Titre} (chapitre entier) ajouté à l'agenda.");
+            else Toast("Choisissez d'abord un verset ou un chapitre.");
+        };
+        AgendaAjoutChant.Click += (_, _) =>
+        {
+            if (chantOuvert != null && R.AjouterChantAgenda(chantOuvert) is { } el) Toast($"« {el.Titre} » ajouté à l'agenda « {R.Agenda.Nom} ».");
+        };
+        MontrerOnglet("agenda");
         MajEcran();
         MajObs();
         MajTelephone();
@@ -226,7 +241,7 @@ public partial class MainWindow : Window
 
     void Demarre()
     {
-        Q.Focus();
+        (onglet == "agenda" ? Cmd : Q).Focus();
         // l'index de recherche se prépare en arrière-plan : la première recherche est instantanée
         _ = Task.Run(async () =>
         {
@@ -274,9 +289,10 @@ public partial class MainWindow : Window
         double w = ActualWidth > 0 ? ActualWidth : Width;
         Colonne.Width = Math.Clamp(w * 0.24, 360, 520);
         ColonneCote.Width = new GridLength(Math.Clamp(w * 0.17, 260, 340));
+        ColonneAgenda.Width = new GridLength(Math.Clamp(w * 0.23, 300, 400));
         // petit écran (1024 px) : barre du haut plus courte, la recherche garde sa place
         bool compact = w < 1360;
-        SousTitre.Visibility = VersionBtn.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        SousTitre.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         ObsCompact = compact;
         MajObs();
     }
@@ -293,20 +309,40 @@ public partial class MainWindow : Window
     }
 
     // ------------------------------------------------------------ onglets
-    void MontrerOnglet(bool bible)
+    void MontrerOnglet(bool bible) => MontrerOnglet(bible ? "bible" : "chants");
+
+    void MontrerOnglet(string o)
     {
-        ongletBible = bible;
-        R.OngletBible = bible;
-        PanneauBible.Visibility = bible ? Visibility.Visible : Visibility.Collapsed;
-        PanneauChants.Visibility = bible ? Visibility.Collapsed : Visibility.Visible;
-        RechercheBible.Visibility = bible ? Visibility.Visible : Visibility.Collapsed;
-        RechercheChants.Visibility = bible ? Visibility.Collapsed : Visibility.Visible;
-        if (bible) OngletBible.IsChecked = true; else OngletChants.IsChecked = true;
+        onglet = o;
+        R.OngletBible = o == "bible";
+        PanneauAgenda.Visibility = o == "agenda" ? Visibility.Visible : Visibility.Collapsed;
+        PanneauBible.Visibility = o == "bible" ? Visibility.Visible : Visibility.Collapsed;
+        PanneauChants.Visibility = o == "chants" ? Visibility.Visible : Visibility.Collapsed;
+        RechercheBible.Visibility = o == "bible" ? Visibility.Visible : Visibility.Collapsed;
+        RechercheChants.Visibility = o == "chants" ? Visibility.Visible : Visibility.Collapsed;
+        (o == "agenda" ? OngletAgenda : o == "bible" ? OngletBible : OngletChants).IsChecked = true;
     }
 
     // ------------------------------------------------------------ raccourcis clavier
     void Clavier(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.K && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            OuvrirCommande();
+            e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.Escape && Keyboard.FocusedElement == Cmd && Cmd.Text.Length > 0)
+        {
+            Cmd.Clear();
+            e.Handled = true;
+            return;
+        }
+        if (e.Key >= Key.F1 && e.Key <= Key.F9 && Keyboard.Modifiers == ModifierKeys.None && AfficherRefNotes(e.Key - Key.F1))
+        {
+            e.Handled = true;
+            return;
+        }
         if (e.Key == Key.Escape)
         {
             R.Effacer();
@@ -321,7 +357,11 @@ public partial class MainWindow : Window
         switch (e.Key)
         {
             case Key.Divide:
-                (ongletBible ? Q : Qc).Focus();
+                (onglet == "agenda" ? Cmd : ongletBible ? Q : Qc).Focus();
+                e.Handled = true;
+                break;
+            case Key.B:
+                BasculerNoir();
                 e.Handled = true;
                 break;
             case Key.Right or Key.Space or Key.PageDown:
@@ -337,16 +377,10 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 break;
             default:
-                if (!ongletBible && chantOuvert != null && e.Key >= Key.D1 && e.Key <= Key.D9)
-                {
-                    R.AfficherSection(chantOuvert, e.Key - Key.D1);
-                    e.Handled = true;
-                }
-                else if (!ongletBible && chantOuvert != null && e.Key >= Key.NumPad1 && e.Key <= Key.NumPad9)
-                {
-                    R.AfficherSection(chantOuvert, e.Key - Key.NumPad1);
-                    e.Handled = true;
-                }
+                int chiffre = e.Key >= Key.D1 && e.Key <= Key.D9 ? e.Key - Key.D1 : e.Key >= Key.NumPad1 && e.Key <= Key.NumPad9 ? e.Key - Key.NumPad1 : -1;
+                if (chiffre < 0) break;
+                if (onglet == "agenda" && elementChoisi != null) { R.AfficherElement(elementChoisi, chiffre); e.Handled = true; }
+                else if (onglet == "chants" && chantOuvert != null) { R.AfficherSection(chantOuvert, chiffre); e.Handled = true; }
                 break;
         }
     }
@@ -361,11 +395,14 @@ public partial class MainWindow : Window
             p.Children.Add(new TextBlock { Text = texte, FontSize = 12, Foreground = Pinceau("Brume2"), VerticalAlignment = VerticalAlignment.Center });
             Aide.Children.Add(p);
         }
+        Ajout("commande", "Ctrl K");
         Ajout("afficher", "Entrée");
         Ajout("suivant", "→", "Espace");
         Ajout("précédent", "←");
         Ajout("retirer", "Échap");
-        Ajout("chercher", "/");
+        Ajout("écran noir", "B");
+        Ajout("versets des notes", "F1–F9");
+        Ajout("diapositive", "1–9");
     }
 
     // ------------------------------------------------------------ Bibles (colonne de gauche)
@@ -395,7 +432,7 @@ public partial class MainWindow : Window
             var b = new Button
             {
                 Style = Style_("Btn"), Content = contenu, HorizontalContentAlignment = HorizontalAlignment.Stretch, Padding = new Thickness(11, 9, 11, 9),
-                Background = Pinceau(principale ? "Nuit3" : "Encre"), BorderBrush = Pinceau(principale ? "Or" : "Nuit3"),
+                Background = Pinceau(principale ? "OrLeger" : "Encre"), BorderBrush = Pinceau(principale ? "Or" : "Nuit3"),
                 ToolTip = principale ? "Bible affichée à l'écran" : "Afficher cette Bible",
             };
             var id = v.Id;
@@ -403,7 +440,7 @@ public partial class MainWindow : Window
             var deux = new Button
             {
                 Style = Style_("Btn"), Content = "2e", Padding = new Thickness(0), IsEnabled = !principale,
-                Background = deuxieme ? new SolidColorBrush(Color.FromArgb(0x24, 0xF6, 0xD6, 0x8A)) : Pinceau("Encre"),
+                Background = Pinceau(deuxieme ? "OrLeger" : "Encre"),
                 BorderBrush = Pinceau(deuxieme ? "Or2" : "Nuit3"), Foreground = Pinceau(deuxieme ? "Or2" : "Brume"),
                 ToolTip = deuxieme ? "Ne plus l'afficher sous le verset" : "L'afficher aussi sous le verset (versets bilingues)",
             };
@@ -527,16 +564,16 @@ public partial class MainWindow : Window
         g.ColumnDefinitions.Add(new ColumnDefinition());
         var num = new TextBlock { Text = v.ToString(), FontSize = 12, FontWeight = FontWeights.Bold, Foreground = Pinceau("Brume2"), TextAlignment = TextAlignment.Right, Margin = new Thickness(0, 5, 0, 0) };
         g.Children.Add(num);
-        var t = new TextBlock { TextWrapping = TextWrapping.Wrap, FontFamily = (FontFamily)FindResource("Serif"), FontSize = 17, LineHeight = 25.5, Foreground = Pinceau("Blanc") };
+        var t = new TextBlock { TextWrapping = TextWrapping.Wrap, FontFamily = (FontFamily)FindResource("Ui"), FontSize = 16.5, LineHeight = 25, Foreground = Pinceau("Blanc") };
         if (refTexte != null)
         {
-            var r = new Span(new Run(refTexte)) { FontFamily = (FontFamily)FindResource("Sans"), FontSize = 12, FontWeight = FontWeights.Bold, Foreground = Pinceau("Or") };
+            var r = new Span(new Run(refTexte)) { FontFamily = (FontFamily)FindResource("Mono"), FontSize = 12, FontWeight = FontWeights.Bold, Foreground = Pinceau("Or") };
             t.Inlines.Add(r);
             if (!string.IsNullOrEmpty(version))
                 t.Inlines.Add(new InlineUIContainer(new Border
                 {
                     Background = Pinceau("Or"), CornerRadius = new CornerRadius(4), Padding = new Thickness(5, 0, 5, 0), Margin = new Thickness(6, 0, 0, 0),
-                    Child = new TextBlock { Text = version, FontSize = 10, FontWeight = FontWeights.Bold, Foreground = Pinceau("Encre") },
+                    Child = new TextBlock { Text = version, FontSize = 10, FontWeight = FontWeights.Bold, Foreground = Pinceau("SurOr") },
                 }) { BaselineAlignment = BaselineAlignment.Center });
             t.Inlines.Add(new LineBreak());
         }
@@ -568,7 +605,7 @@ public partial class MainWindow : Window
         return row;
     }
 
-    static readonly SolidColorBrush Surligne = new(Color.FromArgb(0x47, 0xE4, 0xAF, 0x41));
+    static readonly SolidColorBrush Surligne = new(Color.FromRgb(0xCD, 0xE7, 0xDC));
 
     /// <summary>Versets choisis (gris) et à l'écran (or).</summary>
     void Marquer()
@@ -581,7 +618,7 @@ public partial class MainWindow : Window
             bool direct = cible != null && cible.B == b && cible.C == c && v >= cible.V1 && v <= cible.V2;
             bool choisi = sel is Ref s && s.B == b && s.C == c && v >= s.V1 && v <= Math.Max(s.V1, s.V2) && vue is { } vv && vv.B == b && vv.C == c;
             if (direct) { r.Background = Pinceau("OrLeger"); r.BorderBrush = Pinceau("Or"); }
-            else if (choisi) { r.Background = Pinceau("Nuit2"); r.BorderBrush = Pinceau("Nuit3"); }
+            else if (choisi) { r.Background = Pinceau("Nuit2"); r.BorderBrush = Pinceau("Trait2"); }
             else { r.ClearValue(Border.BackgroundProperty); r.ClearValue(Border.BorderBrushProperty); }
         }
         foreach (var s in Sections.Children.OfType<Border>())
@@ -693,7 +730,7 @@ public partial class MainWindow : Window
         chantOuvert = id;
         var c = R.Trouver(id);
         ChantTitre.Text = c?.Title ?? "Aucun chant choisi";
-        Modifier.IsEnabled = Supprimer.IsEnabled = c != null;
+        Modifier.IsEnabled = Supprimer.IsEnabled = AgendaAjoutChant.IsEnabled = c != null;
         Sections.Children.Clear();
         if (c != null)
             for (int i = 0; i < c.Sections.Count; i++)
@@ -754,6 +791,7 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------ afficher, découper
     void AfficherCourant()
     {
+        if (onglet == "agenda") { AfficherAgendaCourant(); return; }
         if (ongletBible)
         {
             if (sel is Ref s && s.V1 > 0) AfficherVerset(s);
@@ -774,7 +812,11 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------ ce qui est à l'écran
     void MajEcran()
     {
-        var e = R.Etat;
+        // écran noir : le texte est caché sans être perdu ; une nouvelle diapositive le rallume
+        if (noir && !ReferenceEquals(R.Etat, etatNoir)) noir = false;
+        var e = noir ? R.Etat with { Mode = "vide", Lignes = Array.Empty<string>(), Ref = "", Second = null } : R.Etat;
+        Noir.Content = noir ? "Rallumer" : "Écran noir";
+        Noir.BorderBrush = Pinceau(noir ? "Blanc" : "Nuit3");
         ApercuRendu.Afficher(e);
         ecran?.Rendu.Afficher(e);
         App.SortieObs.Ecrire(e);
@@ -784,7 +826,7 @@ public partial class MainWindow : Window
         var s = R.Prochaine();
         SuivantLab.Text = s?.Label ?? "";
         SuivantTexte.Text = s?.Texte ?? "—";
-        Decouper.IsEnabled = s != null;
+        Decouper.IsEnabled = s != null && s.Cible is CibleChant or CibleVerset;
         // le verset à l'écran est dans un autre chapitre (Suivant, téléphone) : la Bible le suit
         // (pas pendant qu'une liste de résultats de recherche est affichée)
         if (R.Cible is CibleVerset cv && ongletBible && vue is { } v && (v.B != cv.B || v.C != cv.C))
@@ -794,6 +836,7 @@ public partial class MainWindow : Window
             if (vue != null && R.Selection != sel) sel = R.Selection;
             Marquer();
         }
+        MajAgendaEcran();
     }
 
     /// <summary>Pastille de l'aperçu : la diapositive part-elle quelque part (OBS, fenêtre de projection) ?</summary>
@@ -801,9 +844,13 @@ public partial class MainWindow : Window
     {
         var e = R.Etat;
         bool ouvert = R.EcranOuvert();
-        PastilleTexte.Text = ouvert ? (e.Vide ? "Écran ouvert · vide" : "À l'écran") : App.Obs.Actif ? "OBS non connecté" : "Aperçu seulement";
-        Pastille.Background = ouvert ? Pinceau("Vert") : new SolidColorBrush(Color.FromArgb(0x8C, 0, 0, 0));
-        PastilleTexte.Foreground = ouvert ? new SolidColorBrush(Color.FromRgb(0x03, 0x20, 0x10)) : Pinceau("Brume");
+        PastilleTexte.Text = noir ? "Écran noir" : ouvert ? (e.Vide ? "Écran ouvert · vide" : "À l'écran") : App.Obs.Actif ? "OBS non connecté" : "Aperçu seulement";
+        Pastille.Background = ouvert && !noir ? Pinceau("Vert") : new SolidColorBrush(Color.FromArgb(0xD9, 0xFF, 0xFF, 0xFF));
+        PastilleTexte.Foreground = ouvert && !noir ? new SolidColorBrush(Color.FromRgb(0x03, 0x20, 0x10)) : Pinceau("Brume");
+        var m = App.Donnees.Reglages.Ecran;
+        ProjTexte.Text = ecran != null ? "Projection · " + (m?.Nom is { Length: > 0 } nom ? nom : "écran") : ouvert ? "Sortie OBS" : "Aperçu seulement";
+        ProjPoint.Fill = Pinceau(ouvert ? "Vert" : "Brume2");
+        EcranInfo.Text = ecran != null && m != null ? $"{m.Nom} · {m.W} × {m.H}" : ouvert ? "OBS" : "écran fermé";
     }
 
     // ------------------------------------------------------------ écran de projection
@@ -828,7 +875,8 @@ public partial class MainWindow : Window
         App.Donnees.Reglages.Ecran = new EcranChoisi { Mode = plein ? "plein" : "fenetre", X = m.X, Y = m.Y, W = m.W, H = m.H, Nom = m.Nom, Principal = m.Principal };
         App.Donnees.SauverReglages();
         w.Show();
-        w.Rendu.Afficher(R.Etat);
+        w.Rendu.Afficher(noir ? R.Etat with { Mode = "vide", Lignes = Array.Empty<string>(), Ref = "", Second = null } : R.Etat);
+        if (QrEcran.IsChecked == true) w.MontrerQr(SuivreQr.Source, urlSuivre);
         Toast(plein ? $"Projection plein écran sur {m.Nom}." : "Projection en fenêtre.");
         MajEcran();
         App.Telephone.Actualiser();
@@ -853,6 +901,7 @@ public partial class MainWindow : Window
     {
         int n = App.Telephone.Connectes().Count;
         TelPoint.Fill = Pinceau(n > 0 ? "Vert" : App.Parefeu_ is "missing" or "refused" or "error" ? "Rouge" : "Brume2");
+        TelTexte.Text = n > 0 ? $"{n} téléphone{(n > 1 ? "s" : "")}" : "Téléphone";
         TelBtn.ToolTip = n > 0 ? $"{n} téléphone(s) connecté(s)" : App.Parefeu_ is "missing" or "refused" or "error" ? "Pare-feu Windows : autorisation nécessaire pour le téléphone" : "Aucun téléphone connecté";
     }
 

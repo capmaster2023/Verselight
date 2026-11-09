@@ -5,14 +5,14 @@ using System.Windows.Media;
 
 namespace MyVerse.Ui;
 
-/// <summary>Fenêtre de dialogue de MyVerse : fond sombre, barre de titre sombre, Échap pour fermer.</summary>
+/// <summary>Fenêtre de dialogue de MyVerse : fond clair, Échap pour fermer.</summary>
 public class FenetreDialogue : Window
 {
     public FenetreDialogue()
     {
         Style = (Style)Application.Current.FindResource("Dialogue");
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        SourceInitialized += (_, _) => Natif.TitreSombre(this);
+        SourceInitialized += (_, _) => Natif.TitreSombre(this, false);
         PreviewKeyDown += (_, e) =>
         {
             if (e.Key != Key.Escape || e.Handled) return;
@@ -89,6 +89,33 @@ public static class Dialogue
         boutons.Children.Add(non);
         boutons.Children.Add(oui);
         w.Loaded += (_, _) => { champ.Focus(); champ.SelectAll(); };
+        w.ShowDialog();
+        return res;
+    }
+
+    /// <summary>Titre et texte libre de l'agenda (annonce, prière…). Renvoie null si l'utilisateur annule.</summary>
+    public static (string Titre, string Texte)? DemanderTexte(Window? owner, string titreFenetre, string titre, string texte)
+    {
+        var (w, corps, boutons) = Base(owner, titreFenetre);
+        corps.Children.Insert(0, Texte("Titre"));
+        var champ = new TextBox { Style = MainWindow.Style_("Champ"), Text = titre, Margin = new Thickness(0, 6, 0, 14), Width = 540 };
+        corps.Children.Insert(1, champ);
+        corps.Children.Insert(2, Texte("Texte : une ligne vide entre deux diapositives"));
+        var zone = new TextBox { Style = MainWindow.Style_("Zone"), Text = texte, Margin = new Thickness(0, 6, 0, 0), Width = 540, Height = 260 };
+        corps.Children.Insert(3, zone);
+        (string, string)? res = null;
+        var non = new Button { Style = MainWindow.Style_("Btn"), Content = "Annuler", IsCancel = true, MinWidth = 100 };
+        var oui = new Button { Style = MainWindow.Style_("BtnOr"), Content = "Enregistrer", Margin = new Thickness(10, 0, 0, 0), MinWidth = 120 };
+        non.Click += (_, _) => w.Close();
+        oui.Click += (_, _) =>
+        {
+            if (zone.Text.Trim().Length == 0) { zone.Focus(); return; }
+            res = (champ.Text.Trim(), zone.Text);
+            w.Close();
+        };
+        boutons.Children.Add(non);
+        boutons.Children.Add(oui);
+        w.Loaded += (_, _) => { zone.Focus(); zone.CaretIndex = zone.Text.Length; };
         w.ShowDialog();
         return res;
     }

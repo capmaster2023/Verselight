@@ -34,7 +34,7 @@ public sealed record Apercu(string Ref, List<string> Lignes, List<(int V, string
 /// La régie : ce qui est à l'écran, versets et chants, suivant / précédent, versets découpés, chants enregistrés.
 /// Sans interface : utilisée par la fenêtre principale, la fenêtre de projection, OBS et les téléphones.
 /// </summary>
-public sealed class Regie
+public sealed partial class Regie
 {
     readonly Donnees donnees;
     public Bibles Bibles { get; }
@@ -104,6 +104,7 @@ public sealed class Regie
 
     public void AfficherVerset(int b, int c, int v1, int v2, int part = 0)
     {
+        if (!depuisAgenda) ElementCourant = null;
         var vs = B.Versets(b, c);
         int n = vs.Count;
         if (n == 0) return;
@@ -134,6 +135,7 @@ public sealed class Regie
     {
         var c = Trouver(id);
         if (c == null || i < 0 || i >= c.Sections.Count) return;
+        if (!depuisAgenda) ElementCourant = null;
         Cible = new CibleChant(id, i);
         Oeil?.Invoke(true);
         Etat = Etat with
@@ -152,11 +154,13 @@ public sealed class Regie
         Oeil?.Invoke(false);
         Etat = Etat with { Mode = "vide", Lignes = Array.Empty<string>(), Ref = "", Second = null };
         Cible = null;
+        ElementCourant = null;
         Signaler();
     }
 
     public void Bouger(int d)
     {
+        if (BougerAgenda(d)) return;
         if (Cible is CibleChant cc)
         {
             var c = Trouver(cc.Id);
@@ -187,6 +191,8 @@ public sealed class Regie
 
     public Suivante? Prochaine()
     {
+        var (agenda, sa) = ProchaineAgenda();
+        if (agenda) return sa;
         if (Cible is CibleChant cc)
         {
             var c = Trouver(cc.Id);
@@ -218,7 +224,13 @@ public sealed class Regie
     /// <summary>Nouvelle version de la Bible : le verset à l'écran est réaffiché.</summary>
     public void Rafraichir()
     {
-        if (Cible is CibleVerset cv) AfficherVerset(cv.B, cv.C, cv.V1, cv.V2, cv.Part);
+        if (Cible is CibleVerset cv)
+        {
+            bool avant = depuisAgenda;
+            depuisAgenda = ElementCourant != null;
+            try { AfficherVerset(cv.B, cv.C, cv.V1, cv.V2, cv.Part); }
+            finally { depuisAgenda = avant; }
+        }
         else Signaler();
     }
 

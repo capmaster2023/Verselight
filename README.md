@@ -1,4 +1,13 @@
-# MyVerse 4 — projection Bible et chants (logiciel Windows natif) + télécommande Android
+# MyVerse 5 — projection Bible et chants (logiciel Windows natif) + télécommande Android
+
+## Nouveautés 5.0 : design « Pupitre » (clair) et agenda
+
+- **Agenda** (comme VideoPsalm) : un agenda par culte, préparé à l'avance, avec des chants de tous les recueils, des passages de la Bible et des textes (annonces, prières). « Suivant » passe d'un élément à l'autre.
+- **Barre de commande** (Ctrl K) : « jean 3 16 », « chant 45 », « minuteur 35 »… Entrée affiche, Tab ajoute à l'agenda.
+- **Notes de prédication** : collez vos notes, les versets sont trouvés tout seuls (F1 à F9 pour les afficher).
+- **L'assemblée suit sur son téléphone** : un code QR ouvre une page (même Wi-Fi) où le texte arrive en direct ; chacun choisit sa langue.
+- Écran noir (touche B), minuteur de prédication, interface claire et minimale.
+
 
 MyVerse (Windows) + l'app **MyVerse** (Android) : on tape « jn 3 16 » sur le PC ou sur le téléphone, on voit le passage, on touche **Afficher** → il passe sur le projecteur et dans OBS (même Wi-Fi).
 

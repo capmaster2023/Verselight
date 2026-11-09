@@ -62,6 +62,7 @@ public sealed class Reglages
     [JsonPropertyName("inclus")] public bool Inclus { get; set; }
     [JsonPropertyName("fenetre")] public PositionFenetre? Fenetre { get; set; }
     [JsonPropertyName("recueil")] public string Recueil { get; set; } = "";
+    [JsonPropertyName("agenda")] public string Agenda { get; set; } = "";
 }
 
 /// <summary>
@@ -86,12 +87,14 @@ public sealed class Donnees
     public Reglages Reglages { get; private set; } = new();
     public List<Chant> Chants { get; private set; } = new();
     public Dictionary<string, List<string>> Decoupes { get; private set; } = new();
+    public List<Agenda> Agendas { get; private set; } = new();
     /// <summary>Ce qui a été repris de la 3.x au premier démarrage (vide sinon).</summary>
     public string Migration { get; private set; } = "";
 
     string FReglages => Path.Combine(Dossier, "reglages.json");
     string FChants => Path.Combine(Dossier, "chants.json");
     string FDecoupes => Path.Combine(Dossier, "decoupes.json");
+    string FAgendas => Path.Combine(Dossier, "agendas.json");
     public string DossierBibles => Path.Combine(Dossier, "bibles");
 
     Donnees(string dossier, string ressources) { Dossier = dossier; DossierRessources = ressources; }
@@ -111,6 +114,8 @@ public sealed class Donnees
         d.Reglages = Lire<Reglages>(d.FReglages) ?? new Reglages();
         d.Chants = Lire<List<Chant>>(d.FChants) ?? new List<Chant>();
         d.Decoupes = Lire<Dictionary<string, List<string>>>(d.FDecoupes) ?? new Dictionary<string, List<string>>();
+        d.Agendas = Lire<List<Agenda>>(d.FAgendas) ?? new List<Agenda>();
+        foreach (var a in d.Agendas) { a.Elements ??= new(); a.Nom ??= ""; }
         if (nouveau)
         {
             try { d.Migrer(); }
@@ -194,6 +199,7 @@ public sealed class Donnees
     }
 
     public void SauverReglages() => Sauver(FReglages, Reglages, "réglages");
+    public void SauverAgendas() => Sauver(FAgendas, Agendas, "agendas");
     public void SauverChants() => Sauver(FChants, Chants, "chants");
     public void SauverDecoupes() => Sauver(FDecoupes, Decoupes, "versets découpés");
 

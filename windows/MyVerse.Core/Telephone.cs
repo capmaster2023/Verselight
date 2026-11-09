@@ -137,6 +137,12 @@ public sealed class Telephone : IDisposable
     byte[]? cleJumelage;
     DateTime jumelageFin;
     string dernierEtat = "";
+    // page « suivre » de l'assemblée (lecture seule, sans jumelage)
+    readonly object verrouPublic = new();
+    string etatPublic = "{\"v\":0,\"mode\":\"vide\",\"lignes\":[]}", dernierPublic = "";
+    int versionPublic;
+    TaskCompletionSource changementPublic = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    readonly Dictionary<string, DateTime> suiveurs = new();
     Timer? minuterieEtat;
 
     public string NomPc { get; }
@@ -356,7 +362,11 @@ public sealed class Telephone : IDisposable
             }
             if (!(h.TryGetValue("Upgrade", out var up) && up.Equals("websocket", StringComparison.OrdinalIgnoreCase)) || !h.TryGetValue("Sec-WebSocket-Key", out var cle))
             {
-                await PageTest(s);
+                var demande = lignes[0].Split(' ');
+                var chemin = demande.Length > 1 ? demande[1] : "/";
+                if (chemin == "/suivre" || chemin.StartsWith("/suivre/", StringComparison.Ordinal) || chemin.StartsWith("/suivre?", StringComparison.Ordinal))
+                    await Suivre(s, chemin, qui);
+                else await PageTest(s);
                 return;
             }
             var accept = Convert.ToBase64String(SHA1.HashData(Encoding.ASCII.GetBytes(cle.Trim() + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")));
@@ -368,6 +378,198 @@ public sealed class Telephone : IDisposable
         catch (Exception e) when (e is IOException or SocketException or WebSocketException or OperationCanceledException or ObjectDisposedException) { }
         catch (Exception e) { Journal.Erreur($"téléphone {qui}", e); }
     }
+
+    // ------------------------------------------------------------ l'assemblée suit sur son téléphone
+    /// <summary>Adresse de la page « suivre » (pour le code QR), ou null sans réseau.</summary>
+    public string? AdresseSuivre() => Port > 0 && AdressesLocales().FirstOrDefault() is { } ip ? $"http://{ip}:{Port}/suivre" : null;
+
+    /// <summary>Téléphones qui suivent la page en ce moment (vus dans les 45 dernières secondes).</summary>
+    public int Suiveurs()
+    {
+        lock (verrouPublic)
+        {
+            var limite = DateTime.UtcNow.AddSeconds(-45);
+            foreach (var k in suiveurs.Where(x => x.Value < limite).Select(x => x.Key).ToList()) suiveurs.Remove(k);
+            return suiveurs.Count;
+        }
+    }
+
+    /// <summary>Ce que voit l'assemblée (fil de l'interface) : texte, référence, 2e version.</summary>
+    string EtatPublicCorps()
+    {
+        var e = regie.Etat;
+        var titre = regie.Cible is CibleChant cc && regie.Trouver(cc.Id) is { } s ? s.Title : regie.ElementCourant?.Titre ?? "";
+        var bib = regie.Bibles;
+        var p = bib.InfoDe(bib.IdPrincipale)?.Court ?? "";
+        var sec = bib.IdSeconde.Length > 0 ? bib.InfoDe(bib.IdSeconde)?.Court ?? "" : "";
+        return new JsonObject
+        {
+            ["mode"] = e.Mode,
+            ["lignes"] = new JsonArray(e.Lignes.Select(l => (JsonNode?)l).ToArray()),
+            ["ref"] = e.Ref,
+            ["second"] = e.Second?.Texte ?? "",
+            ["principale"] = e.Mode == "verset" ? p : "",
+            ["seconde"] = e.Mode == "verset" && e.Second != null ? sec : "",
+            ["titre"] = e.Mode == "chant" ? titre : "",
+        }.ToJsonString();
+    }
+
+    void EtatPublicChange()
+    {
+        string corps;
+        try { corps = EtatPublicCorps(); }
+        catch (Exception e) { Journal.Erreur("page suivre", e); return; }
+        TaskCompletionSource ancien;
+        lock (verrouPublic)
+        {
+            if (corps == dernierPublic) return;
+            dernierPublic = corps;
+            versionPublic++;
+            etatPublic = "{\"v\":" + versionPublic + "," + corps[1..];
+            ancien = changementPublic;
+            changementPublic = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+        ancien.TrySetResult();
+    }
+
+    async Task Suivre(Stream s, string chemin, string qui)
+    {
+        int i = chemin.IndexOf('?');
+        var route = (i >= 0 ? chemin[..i] : chemin).TrimEnd('/');
+        var param = new Dictionary<string, string>();
+        if (i >= 0)
+            foreach (var morceau in chemin[(i + 1)..].Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var kv = morceau.Split('=', 2);
+                try { param.TryAdd(Uri.UnescapeDataString(kv[0]), kv.Length > 1 ? Uri.UnescapeDataString(kv[1]) : ""); } catch (UriFormatException) { }
+            }
+        if (route == "/suivre/etat")
+        {
+            var id = param.TryGetValue("id", out var x) && x.Length is > 0 and <= 40 ? x : qui.Split(':')[0];
+            int v = param.TryGetValue("v", out var vs) && int.TryParse(vs, out var vv) ? vv : -1;
+            Task attente;
+            lock (verrouPublic)
+            {
+                suiveurs[id] = DateTime.UtcNow;
+                attente = v == versionPublic ? changementPublic.Task : Task.CompletedTask;
+            }
+            // attente longue : la réponse part dès que l'écran change (au plus 20 s)
+            if (!attente.IsCompleted) await Task.WhenAny(attente, Task.Delay(20000, fin.Token));
+            string corps;
+            lock (verrouPublic) { corps = etatPublic; suiveurs[id] = DateTime.UtcNow; }
+            await Repondre(s, "application/json; charset=utf-8", corps);
+            return;
+        }
+        await Repondre(s, "text/html; charset=utf-8", PageSuivre);
+    }
+
+    async Task Repondre(Stream s, string type, string texte)
+    {
+        var corps = Encoding.UTF8.GetBytes(texte);
+        var tete = Encoding.ASCII.GetBytes($"HTTP/1.1 200 OK\r\nContent-Type: {type}\r\nContent-Length: {corps.Length}\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n");
+        await s.WriteAsync(tete, fin.Token);
+        await s.WriteAsync(corps, fin.Token);
+        await s.FlushAsync(fin.Token);
+    }
+
+    const string PageSuivre = """
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#FFFFFF">
+<title>MyVerse · en direct</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#FFFFFF;color:#111111;font-family:"Segoe UI",Inter,system-ui,-apple-system,Roboto,sans-serif}
+header{position:sticky;top:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:12px 16px;background:#FFFFFF;border-bottom:1px solid #E6E6E6}
+.marque{font-weight:800;font-size:18px;letter-spacing:-.02em}
+.direct{display:inline-flex;align-items:center;gap:6px;font:700 12px ui-monospace,Consolas,monospace;color:#B42318}
+.direct i{width:8px;height:8px;border-radius:9px;background:#D92D20;display:inline-block}
+.outils{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+button{font:inherit;font-size:14px;font-weight:600;min-height:40px;padding:0 12px;border:1px solid #E6E6E6;border-radius:10px;background:#FFFFFF;color:#111111}
+button[aria-pressed="true"]{background:#0B6E4F;border-color:#0B6E4F;color:#FFFFFF}
+main{max-width:860px;margin:0 auto;padding:28px 20px 60px}
+#titre{margin:0 0 14px;font:700 13px ui-monospace,Consolas,monospace;color:#0B6E4F;text-transform:uppercase;letter-spacing:.04em}
+#texte{margin:0;white-space:pre-line;line-height:1.45;font-weight:600;letter-spacing:-.01em}
+#second{margin:18px 0 0;white-space:pre-line;line-height:1.45;color:#3E4A44;padding-top:16px;border-top:1px solid #E6E6E6}
+#ref{margin:18px 0 0;font:700 14px ui-monospace,Consolas,monospace;color:#0B6E4F}
+#vide{color:#5F5F5F;font-size:18px}
+footer{position:fixed;bottom:0;left:0;right:0;padding:8px 16px;font-size:12px;color:#5F5F5F;background:#FFFFFF;border-top:1px solid #E6E6E6}
+</style>
+</head>
+<body>
+<header>
+  <span class="marque">MyVerse</span>
+  <span class="direct"><i></i>EN DIRECT</span>
+  <div class="outils">
+    <span id="langues" hidden>
+      <button type="button" id="l1" aria-pressed="false"></button>
+      <button type="button" id="l2" aria-pressed="false"></button>
+      <button type="button" id="l3" aria-pressed="true">Les deux</button>
+    </span>
+    <button type="button" id="moins" aria-label="Texte plus petit">A−</button>
+    <button type="button" id="plus" aria-label="Texte plus grand">A+</button>
+  </div>
+</header>
+<main>
+  <p id="titre"></p>
+  <p id="texte"></p>
+  <p id="second" hidden></p>
+  <p id="ref"></p>
+  <p id="vide">Rien à l'écran pour le moment.</p>
+</main>
+<footer id="etat">Même Wi-Fi que l'église · le texte change tout seul.</footer>
+<script>
+var lire = function (k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } };
+var ecrire = function (k, v) { try { localStorage.setItem(k, v); } catch (e) { } };
+var id = lire('mv-id', ''); if (!id) { id = Math.random().toString(36).slice(2, 12); ecrire('mv-id', id); }
+var langue = lire('mv-langue', 'deux'), taille = parseFloat(lire('mv-taille', '1')) || 1, v = -1, dernier = null;
+function $(x) { return document.getElementById(x); }
+function tailles() { $('texte').style.fontSize = (26 * taille) + 'px'; $('second').style.fontSize = (19 * taille) + 'px'; }
+function montrer(e) {
+  dernier = e;
+  var vide = !e || e.mode === 'vide' || !e.lignes || !e.lignes.length;
+  $('vide').hidden = !vide; $('texte').hidden = vide; $('ref').hidden = vide || !e.ref; $('titre').hidden = vide || !e.titre;
+  if (vide) { $('second').hidden = true; $('langues').hidden = true; return; }
+  var deux = e.mode === 'verset' && e.second;
+  $('langues').hidden = !deux;
+  if (deux) { $('l1').textContent = e.principale || '1'; $('l2').textContent = e.seconde || '2'; }
+  var p = e.lignes.join(e.mode === 'verset' ? ' ' : String.fromCharCode(10));
+  $('titre').textContent = e.titre || '';
+  $('texte').textContent = deux && langue === 'seconde' ? e.second : p;
+  $('texte').hidden = false;
+  $('second').textContent = deux ? e.second : '';
+  $('second').hidden = !(deux && langue === 'deux');
+  $('ref').textContent = e.ref || '';
+  ['l1', 'l2', 'l3'].forEach(function (b, i) { $(b).setAttribute('aria-pressed', String(['principale', 'seconde', 'deux'][i] === langue)); });
+}
+$('l1').onclick = function () { langue = 'principale'; ecrire('mv-langue', langue); montrer(dernier); };
+$('l2').onclick = function () { langue = 'seconde'; ecrire('mv-langue', langue); montrer(dernier); };
+$('l3').onclick = function () { langue = 'deux'; ecrire('mv-langue', langue); montrer(dernier); };
+$('moins').onclick = function () { taille = Math.max(0.7, taille - 0.1); ecrire('mv-taille', String(taille)); tailles(); };
+$('plus').onclick = function () { taille = Math.min(2.2, taille + 0.1); ecrire('mv-taille', String(taille)); tailles(); };
+tailles();
+function attendre(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+async function boucle() {
+  for (;;) {
+    try {
+      var r = await fetch('/suivre/etat?v=' + v + '&id=' + encodeURIComponent(id), { cache: 'no-store' });
+      var e = await r.json();
+      v = e.v; montrer(e);
+      $('etat').textContent = "Même Wi-Fi que l'église · le texte change tout seul.";
+    } catch (x) {
+      $('etat').textContent = 'Connexion perdue… nouvel essai.';
+      await attendre(2000);
+    }
+  }
+}
+boucle();
+</script>
+</body>
+</html>
+""";
 
     async Task PageTest(Stream s)
     {
@@ -722,6 +924,7 @@ public sealed class Telephone : IDisposable
     /// <summary>La régie a changé (fil de l'interface) : l'état part vers les téléphones (regroupé, sans doublon).</summary>
     void EtatChange()
     {
+        EtatPublicChange();
         string etat;
         try { etat = EtatTelephone(); }
         catch (Exception e) { Journal.Erreur("état pour les téléphones", e); return; }

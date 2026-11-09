@@ -618,6 +618,80 @@ if (Actif())
     }
     var dev = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(don.Dossier, "devices.json")))!;
     Ok((string?)dev["pcId"] == tel.PcId && dev["devices"] is System.Text.Json.Nodes.JsonArray, "devices.json au format de la 3.x");
+
+    // page « suivre » : l'assemblée suit sur son téléphone (sans jumelage, lecture seule)
+    using (var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) })
+    {
+        var page = await http.GetStringAsync($"http://127.0.0.1:{tel.Port}/suivre");
+        Ok(page.Contains("MyVerse") && page.Contains("/suivre/etat"), "page « suivre »");
+        var e0 = System.Text.Json.Nodes.JsonNode.Parse(await http.GetStringAsync($"http://127.0.0.1:{tel.Port}/suivre/etat?v=-1&id=test1"))!;
+        int v0 = (int)e0["v"]!;
+        var attente = http.GetStringAsync($"http://127.0.0.1:{tel.Port}/suivre/etat?v={v0}&id=test1");
+        await Task.Delay(400);
+        Ok(!attente.IsCompleted, "attente longue tant que l'écran ne change pas");
+        rg.AfficherVerset(42, 3, 16, 16);
+        var e1 = System.Text.Json.Nodes.JsonNode.Parse(await attente)!;
+        Ok((int)e1["v"]! > v0 && ((string?)e1["ref"] ?? "").StartsWith("Jean 3:16") && ((string?)e1["principale"]) == "LSG", "l'assemblée voit le verset aussitôt");
+        Ok(tel.Suiveurs() >= 1, $"téléphones qui suivent : {tel.Suiveurs()}");
+        Ok(Telephone.AdressesLocales().Count == 0 || (tel.AdresseSuivre() ?? "").EndsWith($":{tel.Port}/suivre"), "adresse du code QR");
+    }
+}
+
+Groupe("Agenda");
+if (Actif())
+{
+    var don = Donnees.Charger(Temp(), res);
+    var bib = new Bibles(don);
+    var rg = new Regie(don, bib);
+    Egal(Regie.NomAgendaParDefaut(new DateTime(2026, 11, 9)), "Culte du dimanche 15 novembre", "nom par défaut : le prochain dimanche");
+    Egal(Regie.NomAgendaParDefaut(new DateTime(2026, 11, 15)), "Culte du dimanche 15 novembre", "un dimanche : ce jour-là");
+    var ag = rg.Agenda;
+    Ok(rg.Agendas.Count == 1 && ag.Elements.Count == 0, "un agenda créé tout seul");
+    var idChant = rg.EnregistrerChant(null, "1 - Chant de test", new List<Section> { new() { Label = "Couplet 1", Text = "Ligne A\nLigne B" }, new() { Label = "Refrain", Text = "Ligne C" } }, "Recueil A");
+    var eC = rg.AjouterChantAgenda(idChant)!;
+    var eB = rg.AjouterBibleAgenda(new Ref(42, 3, 16, 17));
+    var eT = rg.AjouterTexteAgenda("Annonces", "Bienvenue\n\nRepas après le culte");
+    Egal(rg.Agenda.Elements.Count, 3, "chant, Bible et texte dans l'agenda");
+    Egal($"{rg.Diapos(eC).Count}/{rg.Diapos(eB).Count}/{rg.Diapos(eT).Count}", "2/2/2", "diapositives de chaque élément");
+    Egal(rg.Description(eB).Type, "BIBLE", "type affiché");
+    rg.AfficherElement(eC, 0);
+    Ok(rg.ElementCourant == eC && rg.Etat.Mode == "chant", "élément de l'agenda à l'écran");
+    rg.Bouger(1);
+    rg.Bouger(1);
+    Ok(rg.ElementCourant == eB && rg.Etat.Ref.StartsWith("Jean 3:16"), "Suivant passe à l'élément suivant");
+    Egal(rg.Prochaine()?.Label, "Jean 3:17", "Suivant = Jean 3:17");
+    rg.Bouger(1);
+    Egal(rg.Prochaine()?.Label, "Agenda › Annonces", "fin du passage : l'élément suivant est annoncé");
+    rg.Bouger(1);
+    Ok(rg.ElementCourant == eT && string.Join("|", rg.Etat.Lignes) == "Bienvenue", "puis le texte");
+    rg.Bouger(1); rg.Bouger(1);
+    Egal(string.Join("|", rg.Etat.Lignes), "Repas après le culte", "fin de l'agenda : on reste");
+    rg.Bouger(-1); rg.Bouger(-1);
+    Ok(rg.ElementCourant == eB && rg.Etat.Ref.StartsWith("Jean 3:17"), "Précédent revient à l'élément d'avant");
+    rg.AfficherVerset(1, 1, 1, 1);
+    Ok(rg.ElementCourant == null, "autre chose à l'écran : plus d'élément en cours");
+    rg.DeplacerAgenda(eT.Id, -2);
+    Egal(rg.Agenda.Elements[0].Id, eT.Id, "déplacer en tête");
+    var a2 = rg.NouvelAgenda("Culte de Noël");
+    Ok(rg.Agenda.Id == a2.Id && rg.Agenda.Elements.Count == 0, "nouvel agenda choisi");
+    rg.ChoisirAgenda(ag.Id);
+    Egal(rg.Agenda.Elements.Count, 3, "retour au premier agenda");
+    var don2 = Donnees.Charger(don.Dossier, res);
+    Ok(don2.Agendas.Count == 2 && don2.Agendas.Any(a => a.Nom == "Culte de Noël") && don2.Agendas.First(a => a.Id == ag.Id).Elements.Count == 3, "agendas enregistrés");
+    rg.SupprimerAgenda(a2.Id);
+    Egal(rg.Agendas.Count, 1, "agenda supprimé");
+
+    var notes = "La grâce qui transforme\n1. Sauvés par grâce — Éphésiens 2:8-9\n2. Rm 5.8 et 2 Co 5:17\nAppel : Jean 3:16, puis Psaume 23. Une 2 fois, Rom 8, le 3:16, culte à 10:30";
+    Egal(string.Join(" | ", rg.RefsDansNotes(notes).Select(x => x.Libelle)), "Éphésiens 2:8-9 | Romains 5:8 | 2 Corinthiens 5:17 | Jean 3:16 | Psaumes 23", "versets trouvés dans les notes");
+
+    var c1 = rg.Commande("jean 3 16");
+    Ok(c1.Count > 0 && c1[0].Type == "BIBLE" && c1[0].Titre == "Jean 3:16", "commande « jean 3 16 »");
+    var c2 = rg.Commande("chant 1", "Recueil A");
+    Ok(c2.Count > 0 && c2[0].ChantId == idChant, "commande « chant 1 » : le recueil choisi d'abord");
+    var c3 = rg.Commande("minuteur 35");
+    Ok(c3.Count == 1 && c3[0].Action == "minuteur" && c3[0].Minutes == 35, "commande « minuteur 35 »");
+    Ok(rg.Commande("Chant de test").Any(x => x.ChantId == idChant), "commande : titre d'un chant");
+    Ok(rg.Commande("romains").Any(x => x.Type == "BIBLE" && x.Titre == "Romains 1"), "commande : nom d'un livre");
 }
 
 Console.WriteLine($"\n{total - echecs}/{total} vérifications réussies" + (echecs > 0 ? $" — {echecs} ÉCHEC(S)" : " — tout est bon"));

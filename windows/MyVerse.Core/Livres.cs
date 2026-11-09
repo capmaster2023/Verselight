@@ -114,6 +114,40 @@ public static class Livres
         return new Ref(b, ch, v1, Math.Max(v1, v2));
     }
 
+    /// <summary>Une référence trouvée dans un texte (notes de prédication).</summary>
+    public sealed record Trouvee(Ref Ref, int Index, int Longueur, string Texte);
+
+    static readonly Regex R_DANS = new(@"(?<![\p{L}\p{N}])(?:([123])\s*)?(\p{L}{2,20})\.?\s*(\d{1,3})(?:\s*[:.,]\s*(\d{1,3})(?:\s*[-–]\s*(\d{1,3}))?)?(?![\d:])", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Références dans un texte libre : « Éphésiens 2:8-9 », « Rm 5.8 », « 2 Co 5:17 », « Psaume 23 ».
+    /// Sans verset, seul le nom entier d'un livre compte (« Actes 2 », pas « Rom 8 »).
+    /// </summary>
+    public static List<Trouvee> Trouver(string? texte)
+    {
+        var res = new List<Trouvee>();
+        if (string.IsNullOrWhiteSpace(texte)) return res;
+        int pos = 0;
+        while (pos < texte.Length)
+        {
+            var m = R_DANS.Match(texte, pos);
+            if (!m.Success) break;
+            bool ok = true;
+            if (!(m.Groups[4].Success && m.Groups[4].Value.Length > 0))
+            {
+                var cle = m.Groups[1].Value + Regex.Replace(Texte.Norm(m.Groups[2].Value), "[^a-z0-9]", "");
+                ok = Complets.Any(k => k.Compact == cle) || (Alias.ContainsKey(cle) && cle.Length - m.Groups[1].Value.Length >= 4);
+            }
+            if (ok && Lire(m.Value) is { } r)
+            {
+                res.Add(new Trouvee(r, m.Index, m.Length, m.Value.Trim()));
+                pos = m.Index + m.Length;
+            }
+            else pos = m.Index + 1; // « et 2 Co 5:17 » : on recommence juste après, sans manger le « 2 »
+        }
+        return res;
+    }
+
     /// <summary>Livres proposés pendant qu'on tape le nom.</summary>
     public static List<string> Suggestions(string saisie)
     {

@@ -133,13 +133,13 @@ public static class Natif
         return liste;
     }
 
-    /// <summary>Barre de titre sombre (Windows 10 20H1 et plus, Windows 11).</summary>
-    public static void TitreSombre(Window w)
+    /// <summary>Barre de titre sombre (projection) ou claire (régie, dialogues) — Windows 10 20H1 et plus, Windows 11.</summary>
+    public static void TitreSombre(Window w, bool sombre = true)
     {
         try
         {
             var h = new WindowInteropHelper(w).EnsureHandle();
-            int oui = 1;
+            int oui = sombre ? 1 : 0;
             if (DwmSetWindowAttribute(h, 20, ref oui, sizeof(int)) != 0) DwmSetWindowAttribute(h, 19, ref oui, sizeof(int));
         }
         catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException) { }
