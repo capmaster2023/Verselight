@@ -23,7 +23,7 @@ const server = http.createServer((req, res) => {
 });
 server.listen(0, '127.0.0.1', () => {
   const profile = path.join(require('os').tmpdir(), 'mychurch-edge-' + process.pid);
-  const child = spawn(edge, ['--headless', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--hide-scrollbars', '--user-data-dir=' + profile, '--window-size=1280,720', '--force-device-scale-factor=1', '--virtual-time-budget=3000', '--screenshot=' + screenshot, 'http://127.0.0.1:' + server.address().port + '/?obs=1'], { stdio: ['ignore', 'ignore', 'pipe'] });
+  const child = spawn(edge, ['--headless', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--hide-scrollbars', '--user-data-dir=' + profile, '--window-size=1280,720', '--force-device-scale-factor=1', '--virtual-time-budget=3000', '--screenshot=' + screenshot, 'http://localhost:' + server.address().port + '/?obs=1'], { stdio: ['ignore', 'ignore', 'pipe'] });
   let log = ''; child.stderr.on('data', c => { log = (log + c).slice(-3000); });
   const timeout = setTimeout(() => { child.kill(); server.close(); console.error('OBS browser screenshot timed out. ' + log); process.exit(1); }, 60000);
   child.on('error', e => { clearTimeout(timeout); server.close(); console.error(e); process.exit(1); });
