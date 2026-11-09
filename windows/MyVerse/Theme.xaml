@@ -224,6 +224,36 @@
             </Setter.Value>
         </Setter>
     </Style>
+    <!-- petit « + » devant un chant ou un verset : ajouter à l'agenda -->
+    <Style x:Key="BtnAjout" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource Or}" />
+        <Setter Property="Background" Value="{StaticResource Encre}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Nuit3}" />
+        <Setter Property="Width" Value="30" />
+        <Setter Property="Height" Value="30" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="ToolTip" Value="Ajouter à l'agenda" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusOr}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Fond" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="8">
+                        <Path Data="M0,5 H10 M5,0 V10" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Fond" Property="Background" Value="{StaticResource OrLeger}" />
+                            <Setter TargetName="Fond" Property="BorderBrush" Value="{StaticResource Or}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Fond" Property="Opacity" Value="0.75" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
     <!-- onglets Bible / Chants -->
     <Style x:Key="Onglet" TargetType="RadioButton">
         <Setter Property="Foreground" Value="{StaticResource Brume}" />

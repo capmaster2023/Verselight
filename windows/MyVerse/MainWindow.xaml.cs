@@ -559,10 +559,16 @@ public partial class MainWindow : Window
     Border LigneVerset(int b, int c, int v, string? refTexte, string texte, HashSet<string>? termes, string? version)
     {
         var g = new Grid();
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(38) });
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) });
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(10) });
         g.ColumnDefinitions.Add(new ColumnDefinition());
-        var num = new TextBlock { Text = v.ToString(), FontSize = 12, FontWeight = FontWeights.Bold, Foreground = Pinceau("Brume2"), TextAlignment = TextAlignment.Right, Margin = new Thickness(0, 5, 0, 0) };
+        // « + » devant le verset : l'ajouter à l'agenda (tout le passage s'il fait partie des versets choisis)
+        var plus = new Button { Style = Style_("BtnAjout"), HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
+        plus.Click += (_, ev) => { ev.Handled = true; AjouterVersetAgenda(b, c, v); };
+        g.Children.Add(plus);
+        var num = new TextBlock { Text = v.ToString(), FontSize = 12, FontWeight = FontWeights.Bold, Foreground = Pinceau("Brume2"), TextAlignment = TextAlignment.Right, Margin = new Thickness(0, 6, 0, 0) };
+        Grid.SetColumn(num, 1);
         g.Children.Add(num);
         var t = new TextBlock { TextWrapping = TextWrapping.Wrap, FontFamily = (FontFamily)FindResource("Ui"), FontSize = 16.5, LineHeight = 25, Foreground = Pinceau("Blanc") };
         if (refTexte != null)
@@ -582,7 +588,7 @@ public partial class MainWindow : Window
                 t.Inlines.Add(mot ? new Run(m) { Background = Surligne } : new Run(m));
         else if (refTexte != null) t.Inlines.Add(new Run(texte));
         else t.Text = texte;
-        Grid.SetColumn(t, 2);
+        Grid.SetColumn(t, 3);
         g.Children.Add(t);
         var row = new Border { Style = (Style)FindResource("LigneVerset"), Child = g, Tag = (b, c, v) };
         row.MouseLeftButtonDown += (_, e) =>

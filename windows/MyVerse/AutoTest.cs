@@ -165,6 +165,12 @@ public static class AutoTest
                 w.TestNumero("");
             }
 
+            // 5.0.1 : boutons « + » devant les chants (liste) et les versets (Bible)
+            var agPlus = R.NouvelAgenda("Test des boutons +");
+            int ajC = w.TestPlusPremierChant(), ajV = w.TestPlusPremierVerset();
+            Ok(ajC == 1 && ajV == 1 && R.Agenda.Elements.Count == 2, $"boutons + devant les chants et les versets : {ajC} / {ajV}");
+            R.SupprimerAgenda(agPlus.Id);
+
             // 5.0 : agenda (comme VideoPsalm), barre de commande, notes de prédication, écran noir
             w.TestOngletAgenda();
             var agTest = R.NouvelAgenda("Culte de test");

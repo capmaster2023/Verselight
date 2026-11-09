@@ -292,6 +292,51 @@ public partial class MainWindow
             R.ModifierTexteAgenda(e.Id, t.Titre, t.Texte);
     }
 
+    // ------------------------------------------------------------ boutons « + » des listes (Chants, Bible)
+    void AjouterChantListe_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if ((sender as FrameworkElement)?.DataContext is Chant c && R.AjouterChantAgenda(c.Id) is { } el)
+            Toast($"« {el.Titre} » ajouté à l'agenda « {R.Agenda.Nom} ».");
+    }
+
+    void AjouterVersetAgenda(int b, int c, int v)
+    {
+        var r = sel is Ref s && s.B == b && s.C == c && s.V2 > s.V1 && v >= s.V1 && v <= s.V2 ? s : new Ref(b, c, v, v);
+        var el = R.AjouterBibleAgenda(r);
+        Toast($"{el.Titre} ajouté à l'agenda « {R.Agenda.Nom} ».");
+    }
+
+    static IEnumerable<T> Enfants<T>(DependencyObject o) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(o); i++)
+        {
+            var x = VisualTreeHelper.GetChild(o, i);
+            if (x is T t) yield return t;
+            foreach (var y in Enfants<T>(x)) yield return y;
+        }
+    }
+
+    /// <summary>Test : clic sur le « + » du premier chant de la liste. Renvoie le nombre d'éléments ajoutés.</summary>
+    public int TestPlusPremierChant()
+    {
+        ListeChants.UpdateLayout();
+        if (ListeChants.ItemContainerGenerator.ContainerFromIndex(0) is not ListBoxItem li) return -1;
+        if (Enfants<Button>(li).FirstOrDefault() is not { } bouton) return -2;
+        int avant = R.Agenda.Elements.Count;
+        bouton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+        return R.Agenda.Elements.Count - avant;
+    }
+
+    /// <summary>Test : clic sur le « + » du premier verset affiché.</summary>
+    public int TestPlusPremierVerset()
+    {
+        if (Versets.Children.OfType<Border>().FirstOrDefault() is not { } ligne || Enfants<Button>(ligne).FirstOrDefault() is not { } bouton) return -2;
+        int avant = R.Agenda.Elements.Count;
+        bouton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+        return R.Agenda.Elements.Count - avant;
+    }
+
     // ------------------------------------------------------------ notes de prédication
     void NotesMaj()
     {

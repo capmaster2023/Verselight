@@ -38,10 +38,17 @@
             </Style.Triggers>
         </Style>
         <DataTemplate x:Key="ModeleChant">
-            <StackPanel>
-                <TextBlock Text="{Binding Title}" FontSize="15" TextTrimming="CharacterEllipsis" Foreground="{StaticResource Blanc}" />
-                <TextBlock x:Name="Recueil" Text="{Binding Author}" FontSize="12.5" Foreground="{StaticResource Brume}" TextTrimming="CharacterEllipsis" />
-            </StackPanel>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button Style="{StaticResource BtnAjout}" Click="AjouterChantListe_Click" Margin="0,0,10,0" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Title}" FontSize="15" TextTrimming="CharacterEllipsis" Foreground="{StaticResource Blanc}" />
+                    <TextBlock x:Name="Recueil" Text="{Binding Author}" FontSize="12.5" Foreground="{StaticResource Brume}" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Grid>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding Author}" Value="">
                     <Setter TargetName="Recueil" Property="Visibility" Value="Collapsed" />
