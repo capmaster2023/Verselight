@@ -64,8 +64,11 @@ type bridge struct {
 	appPID int    // MyVerse.exe qui a lancé ce bridge
 	appExe string //   et son chemin (pour le relancer)
 
+	started time.Time
+
 	mu         sync.Mutex
-	ecranPid   int // fenêtre de projection, fermée avec MyVerse
+	closing    bool // MyVerse s'est fermé : ce bridge s'arrête
+	ecranPid   int  // fenêtre de projection, fermée avec MyVerse
 	lastRegie  time.Time
 	restarting bool
 	phones     map[*phone]bool
@@ -126,7 +129,7 @@ func main() {
 	if n := os.Getenv("COMPUTERNAME"); n != "" {
 		host = n
 	}
-	b := &bridge{st: st, dir: dir, name: host, phones: map[*phone]bool{}, info: info, appPID: appPID, appExe: appExe}
+	b := &bridge{st: st, dir: dir, name: host, phones: map[*phone]bool{}, info: info, appPID: appPID, appExe: appExe, started: time.Now()}
 
 	ln, port, err := listenFirstFree()
 	if err != nil {
@@ -149,6 +152,7 @@ func main() {
 		log.Printf("Neutralino : %v", err)
 	}
 	b.mu.Lock()
+	b.closing = true
 	restarting := b.restarting
 	pid := b.ecranPid
 	b.mu.Unlock()
@@ -162,9 +166,11 @@ func main() {
 	os.Exit(0) // libère tout de suite le port et le verrou pour le prochain lancement
 }
 
-// otherInstance : un autre MyVerse tourne déjà. Renvoie vrai si ce bridge doit continuer.
-// - l'autre fonctionne : on le ramène au premier plan et on ferme ce double (fenêtre blanche) ;
-// - l'autre est bloqué (fenêtre blanche) : on le ferme et on prend sa place.
+// otherInstance : un autre bridge tourne déjà. Renvoie vrai si ce bridge doit continuer.
+// - même MyVerse (relance de secours en double) : ce bridge s'arrête sans rien toucher ;
+// - l'autre MyVerse se ferme : on attend qu'il libère la place ;
+// - l'autre MyVerse fonctionne ou vient de démarrer (double-clic) : on le ramène devant et on ferme ce double ;
+// - l'autre est bloqué depuis plus d'une minute (fenêtre blanche) : on le ferme et on prend sa place.
 func otherInstance(myApp int) bool {
 	client := &http.Client{Timeout: 1500 * time.Millisecond}
 	for p := firstPort; p <= lastPort; p++ {
@@ -173,15 +179,25 @@ func otherInstance(myApp int) bool {
 			continue
 		}
 		var r struct {
-			MyVerse bool `json:"myverse"`
-			Alive   bool `json:"alive"`
+			MyVerse bool    `json:"myverse"`
+			Alive   bool    `json:"alive"`
+			Closing bool    `json:"closing"`
+			App     int     `json:"app"`
+			Age     float64 `json:"age"`
 		}
 		json.NewDecoder(resp.Body).Decode(&r)
 		resp.Body.Close()
 		if !r.MyVerse {
 			continue
 		}
-		if r.Alive {
+		if myApp != 0 && r.App == myApp {
+			log.Print("un bridge tourne déjà pour ce MyVerse : arrêt")
+			return false
+		}
+		if r.Closing {
+			break
+		}
+		if r.Alive || r.Age < 60 {
 			log.Print("MyVerse est déjà ouvert : on le ramène au premier plan")
 			if resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/focus", p)); err == nil {
 				resp.Body.Close()
@@ -204,7 +220,7 @@ func otherInstance(myApp int) bool {
 
 // watchdog : si la page de MyVerse ne s'est jamais manifestée (fenêtre restée blanche), on relance MyVerse.
 func (b *bridge) watchdog() {
-	time.Sleep(35 * time.Second)
+	time.Sleep(60 * time.Second)
 	if b.regieAlive(0) {
 		return
 	}
@@ -717,7 +733,11 @@ func (b *bridge) handleHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case local && r.URL.Path == "/instance":
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(mustJSON(map[string]any{"myverse": true, "alive": b.regieAlive(20 * time.Second)}))
+		b.mu.Lock()
+		closing := b.closing
+		b.mu.Unlock()
+		w.Write(mustJSON(map[string]any{"myverse": true, "alive": !closing && b.regieAlive(20*time.Second), "closing": closing,
+			"app": b.appPID, "age": time.Since(b.started).Seconds()}))
 	case local && r.URL.Path == "/focus":
 		w.Write([]byte("ok"))
 		go focusWindowOf(b.appPID)
@@ -746,8 +766,11 @@ func (b *bridge) checkFirewall(userAsked bool) {
 		b.toRegie("bridgeEvent", map[string]any{"type": "firewall", "firewall": "ok"})
 		return
 	}
-	// une seule demande automatique, jamais redemandée ensuite
-	if !userAsked && b.st.firewall() != "" {
+	// au démarrage : aucune fenêtre Windows, on signale seulement (la demande se fait à l'ouverture de « Téléphone »)
+	if !userAsked {
+		if b.st.firewall() == "" || b.st.firewall() == "ok" {
+			b.st.setFirewall("missing")
+		}
 		b.toRegie("bridgeEvent", map[string]any{"type": "firewall", "firewall": b.st.firewall()})
 		return
 	}

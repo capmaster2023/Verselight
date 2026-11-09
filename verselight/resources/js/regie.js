@@ -141,8 +141,10 @@
     }
     menuEcrans();
   }
-  function ecranOuvert() { return natif ? ecranPid !== 0 || (lire('verselight-ecran-choisi', {}) || {}).mode === 'obs' : ecran && !ecran.closed; }
-  function assurerEcran() { if (!ecranOuvert()) ouvrirEcran(); }
+  const obsBranche = () => !!(window.VLObs && window.VLObs.actif() && window.VLObs.connecte());
+  function ecranOuvert() { return natif ? ecranPid !== 0 || obsBranche() || (lire('verselight-ecran-choisi', {}) || {}).mode === 'obs' : ecran && !ecran.closed; }
+  // l'écran de projection ne s'ouvre que si on le choisit (« Écran de projection ▾ ») : rien ne s'ouvre tout seul
+  function assurerEcran() { if (!natif && !ecranOuvert()) ouvrirEcran(); }
   function envoyer() {
     if (!natif && ecranOuvert()) ecran.postMessage({ verselight: true, etat }, '*');
     ecrire('verselight-etat', { ...etat, t: Date.now() });

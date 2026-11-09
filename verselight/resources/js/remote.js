@@ -116,6 +116,7 @@
       ok: 'Pare-feu Windows : autorisé.',
       refused: 'Pare-feu : autorisation refusée. Le téléphone ne pourra pas se connecter. Cliquez « Autoriser dans le pare-feu » puis acceptez la demande Windows.',
       error: 'Pare-feu : la règle n’a pas pu être ajoutée. Cliquez « Autoriser dans le pare-feu ».',
+      missing: 'Pare-feu : autorisation nécessaire pour le téléphone. Acceptez la demande de Windows (ou cliquez « Autoriser dans le pare-feu »).',
     }[parefeu] || 'Pare-feu : vérification…';
     p.textContent = msg;
     p.className = 'muet' + (parefeu && parefeu !== 'ok' ? ' alerte' : '');

@@ -64,11 +64,11 @@ func TestOtherInstance(t *testing.T) {
 	if ln == nil {
 		t.Skip("aucun port libre")
 	}
-	alive, focused, quit := true, false, false
+	alive, focused, quit, app, age, closing := true, false, false, 0, 120.0, false
 	go http.Serve(ln, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/instance":
-			w.Write(mustJSON(map[string]any{"myverse": true, "alive": alive}))
+			w.Write(mustJSON(map[string]any{"myverse": true, "alive": alive, "app": app, "age": age, "closing": closing}))
 		case "/focus":
 			focused = true
 		case "/quit":
@@ -79,8 +79,24 @@ func TestOtherInstance(t *testing.T) {
 	if otherInstance(0) || !focused {
 		t.Fatal("la copie en double aurait dû s'arrêter après avoir ramené la première")
 	}
-	alive = false
+	// double-clic : l'autre vient de démarrer (page pas encore chargée) → on ne le ferme pas
+	alive, focused, age = false, false, 5
+	if otherInstance(0) || !focused || quit {
+		t.Fatal("une copie qui démarre ne doit pas être fermée")
+	}
+	// bloquée depuis plus d'une minute → fermée et remplacée
+	age = 120
 	if !otherInstance(0) || !quit {
 		t.Fatal("la copie bloquée aurait dû être fermée et remplacée")
+	}
+	// relance de secours du même MyVerse : on s'arrête sans rien toucher
+	app, alive, focused, quit = 4242, true, false, false
+	if otherInstance(4242) || focused || quit {
+		t.Fatal("un bridge en double pour le même MyVerse doit juste s'arrêter")
+	}
+	// l'autre MyVerse est en train de se fermer : on attend sa place
+	app, closing, focused, quit = 0, true, false, false
+	if !otherInstance(0) || focused || quit {
+		t.Fatal("pendant la fermeture de l'autre, on attend puis on continue")
 	}
 }
