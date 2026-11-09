@@ -1,6 +1,14 @@
-# MyVerse 3.0 — projection Bible et chants (Windows) + télécommande Android
+# MyVerse 4 — projection Bible et chants (logiciel Windows natif) + télécommande Android
 
-MyVerse (Windows, Neutralino) + l'app **MyVerse** (Android) : on tape « jn 3 16 » sur le téléphone, on voit le passage, on touche **Afficher** → il passe sur le projecteur et dans OBS (même Wi-Fi).
+MyVerse (Windows) + l'app **MyVerse** (Android) : on tape « jn 3 16 » sur le PC ou sur le téléphone, on voit le passage, on touche **Afficher** → il passe sur le projecteur et dans OBS (même Wi-Fi).
+
+## Nouveautés 4.0 : un vrai logiciel Windows
+
+- **Programme Windows natif** (C# / WPF, .NET 8) : plus de page web, plus de WebView2, plus de module « bridge » à côté. Un seul programme, `MyVerse.exe`, qui démarre vite et fonctionne sans Internet.
+- **Les mêmes fonctions** que la 3.x : interface « Studio » (Bibles et livres à gauche, texte au centre, l'écran à droite), recherche floue dans toutes les Bibles, versets bilingues, chants rangés tout seuls, ✂ Découper, imports (VideoPsalm, OpenLyrics, OpenSong, ChordPro, SongSelect, ProPresenter 6, PDF, texte, site web), OBS, télécommande Android.
+- **Fenêtre de projection native** sur l'écran choisi (le vrai nom de l'écran est affiché : « EPSON », « DELL »…), texte à la plus grande taille possible, lignes équilibrées, fondu entre les diapositives.
+- **Vos données sont reprises toutes seules** au premier démarrage : chants, réglages, Bibles importées, versets découpés (copie faite par la 3.0.4, ou lecture directe du profil de la 3.x) et téléphones jumelés (rien à rescanner).
+- **Téléphone** : même protocole que la 3.x, l'app Android n'a pas besoin d'être mise à jour.
 
 ## Nouveautés 3.0
 
@@ -20,14 +28,14 @@ MyVerse (Windows, Neutralino) + l'app **MyVerse** (Android) : on tape « jn 3 16
 GitHub → onglet **Actions** → dernier « Build MyVerse » réussi → en bas, **Artifacts** :
 
 - `MyVerse` : l'APK à installer sur le téléphone (Android 8+).
-- `windows-zip` : l'installateur `MyVerse-Setup-3.0.0.exe` et le dossier portable.
+- `windows-zip` : l'installateur `MyVerse-Setup-4.0.0.exe` et le dossier portable.
 
 Le plus simple : onglet **Releases** → dernière version → `MyVerse-Setup-x.y.z.exe` (PC) et `MyVerse.apk` (téléphone).
 
 ## Mise en place (une seule fois)
 
-1. Sur le PC : décompressez le dossier VerseLight, lancez `MyVerse.exe`. Acceptez la demande Windows (pare-feu, réseau privé). Le Wi-Fi du PC doit être en profil **Privé**.
-2. Dans VerseLight : bouton **Téléphone** → un code QR s'affiche.
+1. Sur le PC : lancez `MyVerse-Setup-x.y.z.exe` (ou décompressez le dossier portable et lancez `MyVerse.exe`). Acceptez la demande Windows (pare-feu).
+2. Dans MyVerse : bouton **Téléphone** → un code QR s'affiche.
 3. Sur le téléphone : installez l'APK, ouvrez-le, **Scanner le code QR**.
 
 C'est tout : ensuite l'app se reconnecte toute seule à chaque ouverture, même si l'IP du PC change (dernière IP connue → recherche sur le Wi-Fi → autres IP du QR). On peut jumeler plusieurs téléphones ; la fenêtre **Téléphone** permet de les révoquer.
@@ -45,10 +53,14 @@ Interrupteur **Détecteur de versets** (onglet Bible) : autorisez le micro et le
 
 ## Dépôt
 
+- `windows/` — **MyVerse 4** (C# .NET 8) :
+  - `MyVerse.Core/` : tout sauf l'interface (Bibles, recherche floue, imports de Bibles et de chants, rangement automatique, régie, serveur des téléphones, OBS, mises à jour, reprise des données de la 3.x). Sans dépendance : se compile et se teste partout.
+  - `MyVerse/` : l'interface WPF (`MainWindow`, fenêtre de projection `EcranWindow` / `Rendu`, dialogues), polices incluses, `Ressources/` (Louis Segond, King James, chants de l'église, page OBS).
+  - `MyVerse.Tests/` : 190+ vérifications du cœur (`dotnet run --project windows/MyVerse.Tests -- windows/MyVerse/Ressources`).
+  - `installer/MyVerse.nsi` : l'installateur.
 - `android/` — Kotlin + Jetpack Compose, `ca.mepc.verselight.remote`, minSdk 26, targetSdk 35.
-- `bridge/` — `verselight-bridge.exe` en Go (bibliothèque standard seulement), lancé par VerseLight comme extension Neutralino.
-- `verselight/` — sources de VerseLight (extraites de resources.neu) + `js/remote.js` (télécommande, QR) ; `bin/neutralino-win_x64.exe` est le VerseLight.exe d'origine.
-- `.github/workflows/build.yml` — compile tout sur GitHub.
+- `verselight/` et `bridge/` — l'ancienne version 3.x (HTML / Neutralino et module réseau en Go), gardées pour mémoire.
+- `.github/workflows/build.yml` — compile tout sur GitHub (Windows : tests, compilation, test automatique de l'interface avec captures d'écran dans la branche `ci-logs`).
 
 ### Signature de l'APK
 
@@ -58,7 +70,7 @@ Sans secrets, l'APK est signé avec `android/app/debug.keystore` (public, mot de
 
 - TCP 47900 (ou le suivant libre jusqu'à 47909) pour le téléphone, UDP 47901 pour la recherche du PC.
 - Le QR contient un secret aléatoire ; chaque téléphone en dérive sa propre clé (gardée chiffrée par Android Keystore). À chaque connexion : défi/réponse HMAC-SHA256, le PC prouve aussi son identité. Le secret ne circule jamais sur le réseau. Le code QR n'est valable que tant que la fenêtre Téléphone est ouverte.
-- `%APPDATA%\VerseLight\devices.json` : identifiant du PC et téléphones jumelés. Journal : `%APPDATA%\VerseLight\bridge.log`.
+- `%APPDATA%\VerseLight\devices.json` : identifiant du PC et téléphones jumelés. Journal : `%APPDATA%\VerseLight\journal-myverse.txt` (aussi dans Outils › Journal d'erreurs).
 
 ### Ça ne se connecte pas ?
 
@@ -71,13 +83,13 @@ pkg install git gh
 gh auth login
 git clone https://github.com/capmaster2023/Verselight.git
 cd Verselight
-git tag v3.0.0 && git push origin v3.0.0     # crée la Release
+git tag v4.0.0 && git push origin v4.0.0     # crée la Release
 gh run download --repo capmaster2023/Verselight --name MyVerse --dir ~/storage/downloads
 ```
 
 ## Installateur et mises à jour
 
-- **Windows :** `MyVerse-Setup-x.y.z.exe` installe MyVerse dans `%LOCALAPPDATA%\Programs\MyVerse` (sans droits administrateur), crée les raccourcis Bureau et menu Démarrer et ajoute MyVerse dans Paramètres › Applications (pour le désinstaller). Pas besoin de désinstaller pour mettre à jour : MyVerse vérifie au démarrage s'il existe une nouvelle version et affiche **Mettre à jour** à côté de son nom ; un clic télécharge l'installateur, l'installe par-dessus et rouvre MyVerse. Cliquer sur le numéro de version (ex. v2.1.3) vérifie tout de suite. Chants, réglages et téléphones jumelés sont gardés.
+- **Windows :** `MyVerse-Setup-x.y.z.exe` installe MyVerse dans `%LOCALAPPDATA%\Programs\MyVerse` (sans droits administrateur), crée les raccourcis Bureau et menu Démarrer et ajoute MyVerse dans Paramètres › Applications (pour le désinstaller). Pas besoin de désinstaller pour mettre à jour : MyVerse vérifie au démarrage s'il existe une nouvelle version et affiche **Mettre à jour** à côté de son nom ; un clic télécharge l'installateur, l'installe par-dessus et rouvre MyVerse. Cliquer sur le numéro de version (ex. v4.0.0) vérifie tout de suite. Chants, réglages et téléphones jumelés sont gardés.
 - **Android :** l'app affiche **Mise à jour disponible : télécharger** ; l'APK s'installe par-dessus l'ancienne (même signature), le jumelage est gardé.
-- Chaque compilation réussie sur `main` publie (ou met à jour) la Release `v<version>` avec l'installateur, le dossier portable et l'APK. Pour sortir une nouvelle version, augmentez `version` dans `verselight/neutralino.config.json`. La branche `dev` compile tout sans rien publier.
+- Chaque compilation réussie sur `main` publie (ou met à jour) la Release `v<version>` avec l'installateur, le dossier portable et l'APK. Pour sortir une nouvelle version, changez le numéro dans le fichier `VERSION` (et `<Version>` dans `windows/MyVerse/MyVerse.csproj`). La branche `dev` compile tout sans rien publier.
 - La vérification automatique passe par l'API publique de GitHub : **elle ne fonctionne que si le dépôt est public**. Avec un dépôt privé, téléchargez les nouvelles versions dans Releases et lancez l'installateur (il met à jour par-dessus, sans désinstaller).
