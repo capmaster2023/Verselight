@@ -477,7 +477,7 @@
     return { b: r.b, c: r.c, v1, v2, entier: !r.v1 };
   }
   window.VLRegie = {
-    etat: () => etat, cible: () => cible, ecranOuvert: () => !!ecranOuvert(), trouver, chants: () => chants, ecranPid: () => ecranPid,
+    etat: () => etat, cible: () => cible, ecranOuvert: () => !!ecranOuvert(), trouver, chants: () => chants, ecranPid: () => ecranPid, dossierObs: () => preparerObs(),
     surChangement: (f) => ecouteurs.push(f),
     apercu(txt) {
       const r = lireRef(txt);
