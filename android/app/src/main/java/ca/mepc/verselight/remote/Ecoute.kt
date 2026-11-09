@@ -105,7 +105,8 @@ class Ecoute : Service() {
             MyVerse.remote(this).start() // la connexion reste ouverte pour pouvoir afficher depuis la notification
             ecouter()
         }
-        return START_STICKY
+        // pas de redémarrage automatique en arrière-plan (Android 14 l'interdit pour le micro) : on relance depuis l'app
+        return START_NOT_STICKY
     }
 
     override fun onDestroy() {

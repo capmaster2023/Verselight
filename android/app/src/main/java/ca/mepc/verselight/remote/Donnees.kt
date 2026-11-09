@@ -46,6 +46,13 @@ object Donnees {
     fun principale(ctx: Context, store: Store): BibleTexte = bible(ctx, reglages(store).optString("principale", "lsg").ifBlank { "lsg" }) ?: lsg(ctx)
     fun seconde(ctx: Context, store: Store): BibleTexte? = reglages(store).optString("seconde").takeIf { it.isNotBlank() }?.let { bible(ctx, it) }
 
+    /** Bibles où chercher des mots sans le PC : principale, 2e version, puis les Bibles importées sur le PC. */
+    fun pourRecherche(ctx: Context, store: Store): List<BibleTexte> {
+        val ids = reglages(store).optJSONArray("importees")
+        val autres = if (ids == null) emptyList() else (0 until ids.length()).mapNotNull { bible(ctx, ids.optString(it)) }
+        return (listOf(principale(ctx, store)) + listOfNotNull(seconde(ctx, store)) + autres).distinctBy { it.id }
+    }
+
     // ---------------------------------------------------------------- chants
     fun chants(ctx: Context): List<JSONObject> {
         chantsCache?.let { return it }
@@ -64,7 +71,18 @@ object Donnees {
 
     /** Réponse « sync » du PC : réglages, chants (s'ils ont changé). Renvoie les Bibles à demander au PC. */
     fun recevoirSync(ctx: Context, store: Store, m: JSONObject): List<String> {
-        m.optJSONObject("reglages")?.let { store.reglages = it.toString() }
+        // Bibles importées sur le PC (kirundi, swahili…) : copiées aussi, pour la recherche sans le PC
+        val importees = ArrayList<String>()
+        m.optJSONArray("bibles")?.let { a ->
+            for (i in 0 until a.length()) a.optJSONObject(i)?.optString("id")?.let { if (it.isNotBlank() && it != "lsg" && it != "kjv") importees.add(it) }
+        }
+        m.optJSONObject("reglages")?.let { store.reglages = it.put("importees", JSONArray(importees)).toString() }
+        // Bibles supprimées sur le PC : supprimées ici aussi
+        val gardees = importees.toSet() + listOf(reglages(store).optString("principale"), reglages(store).optString("seconde"))
+        dossier(ctx).listFiles()?.forEach { f ->
+            val id = f.name.removeSuffix(".mvb")
+            if (f.name.endsWith(".mvb") && id !in gardees) { f.delete(); synchronized(this) { bibles.remove(id) } }
+        }
         m.optJSONObject("chants")?.let { c ->
             val gz = c.optString("gz")
             if (gz.isNotEmpty()) {
@@ -76,7 +94,7 @@ object Donnees {
             }
         }
         val r = reglages(store)
-        return listOf(r.optString("principale"), r.optString("seconde"))
+        return (listOf(r.optString("principale"), r.optString("seconde")) + importees)
             .filter { it.isNotBlank() && it != "lsg" && !aBible(ctx, it) }.distinct()
     }
 

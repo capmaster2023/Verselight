@@ -15,6 +15,17 @@ Nécessite Microsoft Edge WebView2 (déjà présent sur Windows 10 à jour et Wi
 Windows peut afficher « Windows a protégé votre ordinateur » (logiciel non signé) :
 Informations complémentaires › Exécuter quand même.
 
+NOUVEAUTÉS 3.0
+- Chants : collez un chant complet, même pas arrangé : il est rangé tout seul en diapositives
+  de 3 à 5 lignes (accords retirés, refrain reconnu). Bouton ✂ ou double-clic sur une strophe :
+  Entrée devant une ligne = nouvelle diapositive. Un long verset se découpe pareil.
+- Sous l'aperçu : le verset suivant ou le couplet suivant, en entier.
+- Bouton « Bibles » : importez votre Bible (Zefania XML, OSIS, USFX, JSON, texte), même en kirundi ;
+  King James incluse ; choisissez la version principale et une 2e version (versets bilingues).
+- Recherche par mots dans toutes les Bibles, même mal écrits ; la version est indiquée.
+- Téléphone : marche aussi quand MyVerse est fermé (connexion directe à OBS, voir plus bas),
+  et détecteur des versets cités par le prédicateur.
+
 TÉLÉCOMMANDE ANDROID (MyVerse)
 - Le dossier extensions\bridge doit rester à côté de MyVerse.exe.
 - Au premier lancement, Windows demande une autorisation (pare-feu) : acceptez.
@@ -22,3 +33,8 @@ TÉLÉCOMMANDE ANDROID (MyVerse)
 - Bouton « Téléphone » : un code QR s'affiche. Dans l'app, « Scanner le code QR ».
   Une seule fois : ensuite le téléphone se reconnecte tout seul (même Wi-Fi).
 - Dans la même fenêtre : liste des téléphones jumelés et bouton « Révoquer ».
+
+OBS SANS LE PC (téléphone)
+- Dans MyVerse : bouton OBS > activez-le avec le port et le mot de passe WebSocket d'OBS.
+- Connectez le téléphone une fois : il reçoit les réglages OBS (mot de passe chiffré), les chants et les Bibles.
+- Ensuite, si MyVerse est fermé, le téléphone affiche directement dans OBS (barre du bas : « OBS direct »).

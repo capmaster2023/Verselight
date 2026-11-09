@@ -139,7 +139,7 @@ class Direct(private val ctx: Context, private val remote: Remote) {
             }
             "bible.search" -> {
                 val q = s("q").trim()
-                val bibles = listOfNotNull(principale(), seconde()).distinct()
+                val bibles = Donnees.pourRecherche(ctx, remote.store)
                 val res = if (q.length >= 3) Recherche.chercher(bibles, q, 60) else emptyList()
                 val l = JSONArray()
                 res.forEach { x -> l.put(JSONObject().put("ref", "${Books.name(x.b)} ${x.c}:${x.v}").put("text", x.texte).put("v", if (x.principale) "" else x.version)) }
