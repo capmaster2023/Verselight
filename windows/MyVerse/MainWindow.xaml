@@ -245,9 +245,9 @@
                         <StackPanel>
                             <DockPanel>
                                 <TextBlock x:Name="MinuteurTemps" DockPanel.Dock="Right" FontSize="20" FontWeight="Bold" Text="00:00 / 45:00" VerticalAlignment="Center" />
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Minuteur de prédication" FontSize="14" FontWeight="Bold" />
-                                    <TextBlock Text="Visible pour le prédicateur" FontSize="12" Foreground="{StaticResource Brume}" />
+                                <StackPanel VerticalAlignment="Center" Margin="0,0,10,0">
+                                    <TextBlock Text="Prédication" FontSize="14" FontWeight="Bold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="Minuteur" FontSize="12" Foreground="{StaticResource Brume}" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </DockPanel>
                             <Grid Margin="0,7,0,0" Height="4">
