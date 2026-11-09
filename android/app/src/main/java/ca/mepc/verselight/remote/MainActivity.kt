@@ -1,6 +1,8 @@
 package ca.mepc.verselight.remote
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
 import android.content.pm.PackageManager
@@ -65,6 +67,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -169,6 +172,8 @@ private fun PairScreen(remote: Remote, busy: Boolean) {
     val context = LocalContext.current
     val info by remote.info.collectAsState()
     var scanning by remember { mutableStateOf(false) }
+    var showLog by remember { mutableStateOf(false) }
+    if (showLog) JournalDialog(remote) { showLog = false }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) scanning = true else Toast.makeText(context, "La caméra est nécessaire pour scanner le code.", Toast.LENGTH_LONG).show()
     }
@@ -212,6 +217,8 @@ private fun PairScreen(remote: Remote, busy: Boolean) {
                 modifier = Modifier.fillMaxWidth().height(64.dp),
             ) { Text("Scanner le code QR", fontSize = 19.sp, fontWeight = FontWeight.Bold) }
         }
+        Spacer(Modifier.height(16.dp))
+        TextButton(onClick = { showLog = true }) { Text("Journal d'erreurs", color = Brume) }
     }
 }
 
@@ -228,6 +235,8 @@ private fun MainScreen(
     val update by remote.update.collectAsState()
     var tab by rememberSaveable { mutableStateOf(0) }
     var settings by remember { mutableStateOf(false) }
+    var showLog by remember { mutableStateOf(false) }
+    if (showLog) JournalDialog(remote) { showLog = false }
     LaunchedEffect(Unit) {
         remote.events.collect { e ->
             if (e.optString("t") == "error") Toast.makeText(context, e.optString("message"), Toast.LENGTH_SHORT).show()
@@ -280,6 +289,7 @@ private fun MainScreen(
                     SettingRow("Boutons de volume : + Suivant, − Précédent", volume, setVolume)
                     SettingRow("Garder l'écran allumé", keepOn, setKeepOn)
                     Text("PC : $pc", color = Brume, fontSize = 13.sp)
+                    TextButton(onClick = { settings = false; showLog = true }) { Text("Journal d'erreurs", color = Or2) }
                 }
             },
         )
@@ -535,4 +545,31 @@ private fun SongView(remote: Remote, song: JSONObject, state: JSONObject?, conne
             ClearButton(remote, connected, Modifier.weight(1f).height(60.dp))
         }
     }
+}
+
+/** Journal d'erreurs : connexions, adresses essayées, refus, pertes de Wi-Fi. Bouton Copier pour l'envoyer. */
+@Composable
+private fun JournalDialog(remote: Remote, onClose: () -> Unit) {
+    val context = LocalContext.current
+    val lines by remote.journal.collectAsState()
+    val text = remember(lines) { remote.journalText() }
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text("Journal d'erreurs") },
+        text = {
+            LazyColumn(Modifier.fillMaxWidth().height(380.dp)) {
+                items(text.lines()) { l ->
+                    Text(l, fontFamily = FontFamily.Monospace, fontSize = 11.sp, lineHeight = 15.sp, color = if (l.contains("refusé") || l.contains("introuvable") || l.contains("erreur") || l.contains("perdu")) Rouge else Blanc)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val cm = context.getSystemService(ClipboardManager::class.java)
+                cm?.setPrimaryClip(ClipData.newPlainText("Journal MyVerse", text))
+                Toast.makeText(context, "Journal copié : collez-le dans votre message.", Toast.LENGTH_LONG).show()
+            }) { Text("Copier") }
+        },
+        dismissButton = { TextButton(onClick = onClose) { Text("Fermer") } },
+    )
 }

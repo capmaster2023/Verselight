@@ -147,12 +147,21 @@
       <button id="maj-installer" type="button" class="btn or" hidden>Installer la mise à jour</button>
     </div>
     <p class="muet">L’installation ferme MyVerse quelques secondes puis le rouvre. Chants, réglages et téléphones jumelés sont gardés.</p>
+    <h3 class="outils-titre">Journal d’erreurs</h3>
+    <textarea id="journal-texte" class="journal" readonly spellcheck="false"></textarea>
+    <div class="ligne-outils">
+      <button id="journal-maj" type="button" class="btn">Actualiser</button>
+      <button id="journal-copier" type="button" class="btn or">Copier le journal</button>
+      <button id="journal-vider" type="button" class="btn">Vider</button>
+    </div>
+    <p class="muet">Pour signaler un problème : Copier le journal, puis collez-le dans votre message. Copie aussi dans %APPDATA%\VerseLight\journal-myverse.txt</p>
     <div class="ligne-outils"><span class="grow"></span><button value="fermer" class="btn">Fermer</button></div>
   </form>
 </dialog>
 <input id="pdf" type="file" accept=".pdf,application/pdf" hidden>
 <div id="toast" class="toast"></div>
 
+<script src="js/journal.js"></script>
 <script src="js/neutralino.js"></script>
 <script src="js/bible-lsg1910.js"></script>
 <script src="js/bible.js"></script>

@@ -131,3 +131,4 @@ dialog input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--or)
 .version:hover { color: var(--blanc); background: var(--nuit2); }
 .outils-titre { margin: 6px 0; font-size: 15px; color: var(--or); }
 #outils-dlg { min-width: 460px; }
+.journal { width: 100%; min-width: 640px; height: 260px; box-sizing: border-box; font: 12px/1.45 Consolas, 'Courier New', monospace; background: #070B1E; color: #DCE3FF; border: 1px solid var(--nuit2); border-radius: 8px; padding: 8px; white-space: pre; overflow: auto; }

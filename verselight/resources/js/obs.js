@@ -21,10 +21,12 @@
         const id = { op: 1, d: { rpcVersion: 1 } };
         if (m.d.authentication) id.d.authentication = await sha((await sha(cfg.mdp + m.d.authentication.salt)) + m.d.authentication.challenge);
         ws.send(JSON.stringify(id));
-      } else if (m.op === 2) { ok = true; pastille('OBS : connecté', true); }
+      } else if (m.op === 2) { ok = true; pastille('OBS : connecté', true); if (window.VLJournal) VLJournal.info('OBS connecté (port ' + cfg.port + ')'); }
       else if (m.op === 7) { const r = attente.get(m.d.requestId); if (r) { attente.delete(m.d.requestId); r(m.d); } }
     };
     ws.onclose = (ev) => {
+      if (ok && window.VLJournal) VLJournal.info('OBS déconnecté (code ' + ev.code + ')');
+      if (ev.code === 4009 && window.VLJournal) VLJournal.erreur('OBS : mot de passe WebSocket incorrect');
       ok = false;
       pastille(ev.code === 4009 ? 'OBS : mot de passe incorrect' : 'OBS : non connecté');
       if (cfg.actif && ev.code !== 4009) reco = setTimeout(connecter, 5000);

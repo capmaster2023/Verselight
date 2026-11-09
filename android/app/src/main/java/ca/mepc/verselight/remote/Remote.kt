@@ -45,6 +45,38 @@ class Remote(private val context: Context, val store: Store) {
     val events = MutableSharedFlow<JSONObject>(extraBufferCapacity = 64) // preview, songs, song, error
     val pcName = MutableStateFlow(store.pairing()?.pcName ?: "")
     val update = MutableStateFlow<Pair<String, String>?>(null) // nouvelle version : (numéro, lien de l'APK)
+    val journal = MutableStateFlow<List<String>>(emptyList())  // journal d'erreurs (Réglages › Journal)
+    private val clock = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.FRANCE)
+
+    @Synchronized
+    fun log(msg: String) {
+        journal.value = (journal.value + "${clock.format(java.util.Date())}  $msg").takeLast(300)
+    }
+
+    /** En-tête du journal : version, téléphone, adresses, PC jumelé. */
+    fun journalText(): String {
+        val p = store.pairing()
+        val ips = try {
+            NetworkInterface.getNetworkInterfaces().toList().filter { it.isUp && !it.isLoopback }
+                .flatMap { ni -> ni.inetAddresses.toList().mapNotNull { a -> a.hostAddress?.takeIf { it.count { c -> c == '.' } == 3 }?.let { "${ni.name}=$it" } } }
+                .joinToString(", ")
+        } catch (e: Exception) {
+            "?"
+        }
+        val version = try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        } catch (e: Exception) {
+            "?"
+        }
+        val head = listOf(
+            "MyVerse (Android) $version · Android ${Build.VERSION.RELEASE} · ${Build.MANUFACTURER} ${Build.MODEL}",
+            "Téléphone : $ips",
+            "PC jumelé : " + (p?.let { "${it.pcName} · IP du code QR : ${it.ips.joinToString(", ")} · port ${it.port} · dernière IP : ${it.lastHost ?: "aucune"}" } ?: "aucun"),
+            "État : ${link.value}",
+            "",
+        )
+        return (head + journal.value).joinToString("\n")
+    }
     private var updateChecked = false
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -70,11 +102,13 @@ class Remote(private val context: Context, val store: Store) {
         cm.registerNetworkCallback(req, object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 cm.bindProcessToNetwork(network)
+                log("Wi-Fi disponible")
                 wake.trySend(Unit)
             }
 
             override fun onLost(network: Network) {
                 cm.bindProcessToNetwork(null)
+                log("Wi-Fi perdu")
                 socket?.cancel()
             }
         })
@@ -159,8 +193,11 @@ class Remote(private val context: Context, val store: Store) {
             return if (r == Result.FAILED) null else r
         }
         p.lastHost?.let { attempt(it, p.lastPort)?.let { r -> return r } }
-        for ((host, port) in discover(p.pcId)) attempt(host, port)?.let { return it }
+        val found = discover(p.pcId)
+        log(if (found.isEmpty()) "recherche du PC sur le Wi-Fi : aucune réponse" else "recherche du PC sur le Wi-Fi : trouvé " + found.joinToString { "${it.first}:${it.second}" })
+        for ((host, port) in found) attempt(host, port)?.let { return it }
         for (host in sortBySubnet(p.ips)) attempt(host, p.port)?.let { return it }
+        log("PC introuvable (essayé : ${tried.joinToString(", ")})")
         return Result.FAILED
     }
 
@@ -169,12 +206,21 @@ class Remote(private val context: Context, val store: Store) {
         val ws = client.newWebSocket(Request.Builder().url("ws://$host:$port/").build(), object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) { inbox.trySend("{\"t\":\"_open\"}") }
             override fun onMessage(webSocket: WebSocket, text: String) { inbox.trySend(text) }
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { inbox.trySend("{\"t\":\"_closed\"}") }
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { inbox.trySend("{\"t\":\"_closed\"}") }
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                inbox.trySend(JSONObject().put("t", "_closed").put("err", "fermée par le PC ($code)").toString())
+            }
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                inbox.trySend(JSONObject().put("t", "_closed").put("err", t.message ?: t.javaClass.simpleName).toString())
+            }
         })
         suspend fun next(ms: Long): JSONObject? = withTimeoutOrNull(ms) { JSONObject(inbox.receive()) }
+        log("connexion à $host:$port…")
         try {
-            if (next(4000)?.optString("t") != "_open") return Result.FAILED
+            val first = next(4000)
+            if (first?.optString("t") != "_open") {
+                log("$host:$port : " + (first?.optString("err")?.ifEmpty { null } ?: "pas de réponse en 4 s (pare-feu du PC, mauvais Wi-Fi ou MyVerse fermé)"))
+                return Result.FAILED
+            }
             val cnonce = b64(ByteArray(16).also { random.nextBytes(it) })
             ws.send(
                 JSONObject().put("t", "hello").put("v", 1).put("pcId", p.pcId).put("deviceId", store.deviceId)
@@ -182,18 +228,28 @@ class Remote(private val context: Context, val store: Store) {
             )
             val ch = next(5000) ?: return Result.FAILED
             if (ch.optString("t") == "auth.fail") throw Rejected(ch.optString("code"), ch.optString("message"))
-            if (ch.optString("t") != "challenge") return Result.FAILED
+            if (ch.optString("t") != "challenge") {
+                log("$host:$port : réponse inattendue (${ch.optString("t")} ${ch.optString("err")})")
+                return Result.FAILED
+            }
             val nonce = ch.getString("nonce")
             // le PC prouve qu'il connaît la clé avant qu'on réponde
             val proof = hmac(p.key, "verselight-srv|$cnonce|$nonce")
-            if (!MessageDigest.isEqual(proof.toByteArray(), ch.optString("proof").toByteArray())) return Result.FAILED
+            if (!MessageDigest.isEqual(proof.toByteArray(), ch.optString("proof").toByteArray())) {
+                log("$host:$port : ce PC n'a pas la bonne clé (autre PC ou jumelage refait ailleurs)")
+                return Result.FAILED
+            }
             ws.send(JSONObject().put("t", "auth").put("mac", hmac(p.key, nonce + store.deviceId)).toString())
             val w = next(5000) ?: return Result.FAILED
             if (w.optString("t") == "auth.fail") throw Rejected(w.optString("code"), w.optString("message"))
-            if (w.optString("t") != "welcome") return Result.FAILED
+            if (w.optString("t") != "welcome") {
+                log("$host:$port : authentification sans réponse")
+                return Result.FAILED
+            }
 
             // connecté
             val name = w.optString("pcName", p.pcName)
+            log("connecté à « $name » ($host:$port)" + if (pair) " · jumelage réussi" else "")
             store.save(p.copy(pcName = name, lastHost = host, lastPort = port))
             pcName.value = name
             info.value = ""
@@ -203,13 +259,17 @@ class Remote(private val context: Context, val store: Store) {
             while (true) {
                 val m = JSONObject(inbox.receive())
                 when (m.optString("t")) {
-                    "_closed" -> return Result.CLOSED
+                    "_closed" -> {
+                        log("connexion perdue : " + m.optString("err", "?"))
+                        return Result.CLOSED
+                    }
                     "state" -> screen.value = m
                     "auth.fail" -> throw Rejected(m.optString("code"), m.optString("message"))
                     else -> events.tryEmit(m)
                 }
             }
         } catch (e: Rejected) {
+            log("refusé par le PC : ${e.code} · ${e.message}")
             info.value = e.message ?: ""
             return when {
                 e.code == "revoked" && !pair -> Result.REVOKED
@@ -217,6 +277,7 @@ class Remote(private val context: Context, val store: Store) {
                 else -> Result.FAILED
             }
         } catch (e: Exception) {
+            log("$host:$port : erreur ${e.javaClass.simpleName} ${e.message ?: ""}")
             return Result.FAILED
         } finally {
             if (socket === ws) socket = null
@@ -249,6 +310,7 @@ class Remote(private val context: Context, val store: Store) {
         job?.cancel()
         running = true
         info.value = ""
+        log("jumelage avec « ${p.pcName} » · IP du code QR : ${p.ips.joinToString(", ")} · port ${p.port}")
         link.value = Link.PAIRING
         job = scope.launch {
             var r = Result.FAILED

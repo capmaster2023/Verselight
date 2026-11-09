@@ -542,7 +542,9 @@ func (b *bridge) handlePhone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer ws.Close()
+	who := r.RemoteAddr
 	fail := func(code, message string) {
+		log.Printf("téléphone %s refusé : %s (%s)", who, code, message)
 		ws.WriteText(mustJSON(map[string]any{"t": "auth.fail", "code": code, "message": message}))
 	}
 
@@ -557,6 +559,7 @@ func (b *bridge) handlePhone(w http.ResponseWriter, r *http.Request) {
 		fail("protocol", "Message de connexion invalide.")
 		return
 	}
+	who = fmt.Sprintf("« %s » (%s)", h.DeviceName, r.RemoteAddr)
 	if h.PcID != b.st.pcID() {
 		fail("wrong_pc", "Ce n'est pas le PC jumelé.")
 		return
@@ -611,6 +614,7 @@ func (b *bridge) handlePhone(w http.ResponseWriter, r *http.Request) {
 	ws.SetReadDeadline(time.Time{})
 	ws.idle = phoneIdle
 
+	log.Printf("téléphone connecté : %s", who)
 	p := &phone{ws: ws, deviceID: h.DeviceID, name: name}
 	b.mu.Lock()
 	b.phones[p] = true
@@ -625,6 +629,7 @@ func (b *bridge) handlePhone(w http.ResponseWriter, r *http.Request) {
 		b.mu.Lock()
 		delete(b.phones, p)
 		b.mu.Unlock()
+		log.Printf("téléphone déconnecté : %s", who)
 		b.sendDevices()
 	}()
 
@@ -669,6 +674,7 @@ func (b *bridge) serveDiscovery() {
 	}
 	defer pc.Close()
 	buf := make([]byte, 512)
+	vus := map[string]time.Time{}
 	for {
 		n, addr, err := pc.ReadFrom(buf)
 		if err != nil {
@@ -676,6 +682,10 @@ func (b *bridge) serveDiscovery() {
 		}
 		if !strings.HasPrefix(string(buf[:n]), "VERSELIGHT_DISCOVER") {
 			continue
+		}
+		if ip := strings.Split(addr.String(), ":")[0]; time.Since(vus[ip]) > time.Minute {
+			vus[ip] = time.Now()
+			log.Printf("recherche du PC par le téléphone %s : réponse envoyée", ip)
 		}
 		reply := mustJSON(map[string]any{"t": "verselight", "v": protoVersion, "pcId": b.st.pcID(), "name": b.name, "port": b.port})
 		pc.WriteTo(reply, addr)

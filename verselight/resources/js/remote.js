@@ -6,6 +6,7 @@
   const natif = typeof window.NL_PORT !== 'undefined' && window.Neutralino && R;
   const h = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
   if (!natif) { const b = $('#tel-btn'); if (b) b.hidden = true; return; }
+  const J = window.VLJournal || { info() {}, erreur() {}, lignes: () => [], vider() {} };
 
   let pret = false;
   function versBridge(ev, data) {
@@ -102,10 +103,10 @@
       case 'prev': R.bouger(-1); break;
       case 'clear': R.effacer(); break;
       case 'state.get': pousser(true); break;
-      default: rep({ t: 'error', message: 'Commande inconnue : ' + d.t });
+      default: J.erreur('commande inconnue du téléphone : ' + d.t); rep({ t: 'error', message: 'Commande inconnue : ' + d.t });
     }
   }
-  Neutralino.events.on('remoteCommand', (e) => { try { traiter(e.detail || {}); } catch (x) { console.error(x); } });
+  Neutralino.events.on('remoteCommand', (e) => { try { traiter(e.detail || {}); } catch (x) { J.erreur('commande du téléphone « ' + ((e.detail || {}).t || '?') + ' » : ' + (x && x.message ? x.message : x)); } });
 
   // ------------------------------------------------------------ fenêtre « Téléphone »
   const dlg = $('#tel-dlg');
@@ -155,8 +156,40 @@
     etatMaj('Version installée : ' + (window.NL_APPVERSION || '?') + (maj ? ' · nouvelle version ' + maj.version + ' disponible' : ''));
     mi.hidden = !maj;
     if (!od.open) od.showModal();
+    remplirJournal();
     if (chercher) { etatMaj('Recherche d’une mise à jour…'); verifierMaj(true); }
   }
+
+  // ------------------------------------------------------------ journal d'erreurs (Outils)
+  async function lireFichier(chemin, max) {
+    try { const t = await Neutralino.filesystem.readFile(chemin); return t.length > max ? '…' + t.slice(-max) : t || '(vide)'; } catch (e) { return '(aucun fichier)'; }
+  }
+  async function remplirJournal() {
+    const zone = $('#journal-texte');
+    if (!zone) return;
+    zone.value = 'Chargement du journal…';
+    let appdata = '';
+    try { appdata = await Neutralino.os.getEnv('APPDATA'); } catch (e) {}
+    const obs = window.VLObs;
+    const parties = [
+      `MyVerse ${window.NL_APPVERSION || '?'} · ${new Date().toLocaleString('fr-CA')} · dossier : ${window.NL_PATH || '?'}`,
+      `Module réseau : ${pret ? 'connecté' : 'ARRÊTÉ'} · pare-feu : ${parefeu || 'inconnu'} · téléphones connectés : ${connectes.length} / jumelés : ${appareils.length}`,
+      `OBS : ${obs && obs.actif() ? (obs.connecte() ? 'connecté' : 'NON CONNECTÉ') : 'désactivé'} · écran de projection : ${R.ecranPid() ? 'ouvert' : 'fermé'}`,
+      '', '===== MyVerse =====', J.lignes().join('\n') || '(vide)',
+      '', '===== module réseau (bridge.log) =====', appdata ? await lireFichier(appdata + '\\VerseLight\\bridge.log', 15000) : '(introuvable)',
+      '', '===== Neutralino (neutralinojs.log) =====', await lireFichier(window.NL_PATH + '/neutralinojs.log', 6000),
+    ];
+    zone.value = parties.join('\n');
+    zone.scrollTop = zone.scrollHeight;
+  }
+  $('#journal-maj').addEventListener('click', remplirJournal);
+  $('#journal-copier').addEventListener('click', async () => {
+    await remplirJournal();
+    const texte = $('#journal-texte').value;
+    try { await Neutralino.clipboard.writeText(texte); } catch (e) { $('#journal-texte').select(); document.execCommand('copy'); }
+    toast('Journal copié : collez-le dans votre message.');
+  });
+  $('#journal-vider').addEventListener('click', () => { J.vider(); remplirJournal(); });
   $('#outils-btn').addEventListener('click', () => ouvrirOutils(true));
   $('#maj-verif').addEventListener('click', () => ouvrirOutils(true));
   function installerMaj() {
@@ -171,13 +204,14 @@
   function evenementMaj(d) {
     if (d.state === 'download') { mb.textContent = 'Téléchargement… ' + d.pct + ' %'; etatMaj('Téléchargement… ' + d.pct + ' %'); return; }
     if (d.state === 'installing') { mb.textContent = 'Installation…'; etatMaj('Installation… MyVerse va se fermer puis se rouvrir.'); toast('Installation de la mise à jour… MyVerse va redémarrer.'); return; }
-    if (d.state === 'error') { mb.disabled = false; mi.disabled = false; mb.textContent = 'Mettre à jour'; etatMaj(d.message); toast(d.message); return; }
+    if (d.state === 'error') { J.erreur('mise à jour : ' + d.message); mb.disabled = false; mi.disabled = false; mb.textContent = 'Mettre à jour'; etatMaj(d.message); toast(d.message); return; }
     if (d.available) {
       maj = d;
       mb.hidden = false; mb.disabled = false; mi.hidden = false; mi.disabled = false;
       mb.textContent = 'Mettre à jour (' + d.version + ')';
       etatMaj('Nouvelle version disponible : ' + d.version + ' (installée : ' + (window.NL_APPVERSION || '?') + ').');
     } else if (d.manual) {
+      if (d.error) J.info('mise à jour : ' + d.error);
       mi.hidden = true;
       etatMaj(d.error || 'MyVerse est à jour (version ' + (window.NL_APPVERSION || '') + ').');
     }
@@ -185,7 +219,10 @@
 
   function evenement(d) {
     if (d.type === 'update') { evenementMaj(d); return; }
-    if (d.firewall) { parefeu = d.firewall; majParefeu(); }
+    if (d.firewall) {
+      if (d.firewall !== parefeu) (d.firewall === 'ok' ? J.info : J.erreur)('pare-feu Windows : ' + d.firewall);
+      parefeu = d.firewall; majParefeu();
+    }
     if (d.type === 'pairInfo') {
       const q = qrcode(0, 'M');
       q.addData(d.url);
@@ -194,7 +231,9 @@
       const ip = (d.ips || [])[0];
       $('#tel-info').textContent = ip ? `${d.name} · test depuis le téléphone : ouvrez http://${ip}:${d.port} dans Chrome (la page « MyVerse ✓ » doit s’afficher)` : `${d.name} · aucune adresse réseau : branchez le PC au Wi-Fi ou au réseau`;
     } else if (d.type === 'devices') {
+      const avant = connectes.length;
       appareils = d.devices || []; connectes = d.connected || [];
+      if (connectes.length !== avant) J.info('téléphones connectés : ' + (appareils.filter((a) => connectes.includes(a.deviceId)).map((a) => a.name).join(', ') || 'aucun'));
       majAppareils();
       majBouton();
     } else if (d.type === 'status') {
@@ -231,6 +270,7 @@
   function bridgePret() {
     if (pret) return;
     pret = true;
+    J.info('module réseau connecté');
     relances = 0;
     clearTimeout(minuterieRelance);
     dernierPid = -2;
@@ -249,8 +289,9 @@
   async function relancerBridge() {
     if (pret || relances >= 3) return;
     const jeton = sessionStorage.getItem('NL_TOKEN') || window.NL_TOKEN || '';
-    if (!jeton.includes('.')) return;
+    if (!jeton.includes('.')) { J.erreur('module réseau : impossible de le relancer (jeton absent)'); return; }
     relances++;
+    J.info('relance du module réseau (essai ' + relances + '/3)');
     try {
       const p = await Neutralino.os.spawnProcess('"' + window.NL_PATH + '/extensions/bridge/verselight-bridge.exe"');
       await Neutralino.os.updateSpawnedProcess(p.id, 'stdIn', JSON.stringify({ nlPort: String(window.NL_PORT), nlToken: jeton, nlConnectToken: jeton.split('.')[1], nlExtensionId: EXT }) + '\n');
@@ -260,7 +301,7 @@
   }
   planifierRelance(15000);
   Neutralino.events.on('extensionReady', (e) => { if (e.detail === EXT) bridgePret(); });
-  Neutralino.events.on('extClientDisconnect', (e) => { if (e.detail === EXT) { pret = false; connectes = []; majBouton(); planifierRelance(3000); } });
+  Neutralino.events.on('extClientDisconnect', (e) => { if (e.detail === EXT) { J.erreur('module réseau arrêté'); pret = false; connectes = []; majBouton(); planifierRelance(3000); } });
   Neutralino.events.on('ready', () => {
     Neutralino.extensions.getStats().then((s) => { if (s && s.connected && s.connected.includes(EXT)) bridgePret(); }).catch(() => {});
   });

@@ -5,7 +5,7 @@
   const h = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
   const lire = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
   const ecrire = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { toast('Impossible d’enregistrer : mémoire du navigateur pleine ou bloquée.'); } };
-  function toast(t) { const e = $('#toast'); e.textContent = t; e.classList.add('vu'); clearTimeout(e._t); e._t = setTimeout(() => e.classList.remove('vu'), 3200); }
+  function toast(t) { if (window.VLJournal) window.VLJournal.info('message : ' + t); const e = $('#toast'); e.textContent = t; e.classList.add('vu'); clearTimeout(e._t); e._t = setTimeout(() => e.classList.remove('vu'), 3200); }
 
   // ------------------------------------------------------------ écran
   let ecran = null;
@@ -49,14 +49,14 @@
     try {
       const w = await Neutralino.window.create('http://127.0.0.1:' + window.NL_PORT + '/ecran.html', {
         title: 'MyVerse — écran', icon: '/resources/icone.png', enableInspector: false,
-        alwaysOnTop: false, resizable: true, exitProcessOnClose: true, ...opts, processArgs: '--enable-server=false --enable-extensions=false',
+        alwaysOnTop: false, resizable: true, exitProcessOnClose: true, ...opts, useSavedState: false, processArgs: '--enable-server=false --enable-extensions=false',
       });
       ecranPid = w && w.pid ? w.pid : -1;
       ecrire('verselight-ecran-choisi', choix);
       toast(plein ? `Projection plein écran sur ${choix.nom}.` : 'Projection en fenêtre.');
       setTimeout(envoyer, 800);
       setTimeout(envoyer, 2000);
-    } catch (e) { toast('Impossible d’ouvrir l’écran : ' + (e.message || e)); }
+    } catch (e) { if (window.VLJournal) window.VLJournal.erreur('ouverture de l’écran : ' + JSON.stringify(e)); toast('Impossible d’ouvrir l’écran : ' + (e.message || e)); }
   }
   // ----- sortie OBS : dossier avec ecran.html (à mettre en « Source navigateur › Fichier local »)
   let dossierObs = '';
