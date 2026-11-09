@@ -164,3 +164,50 @@ dialog input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--or)
 /* ajouter des chants / des Bibles : boutons bien visibles */
 .ajout-chants { margin-top: 6px; }
 .ajout-chants .btn { flex: 1; }
+
+/* ===== mise en page « Studio » : Bibles et livres à gauche, texte au centre, l'écran à droite ===== */
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.barre { gap: 16px; flex-wrap: wrap; }
+.recherche-haut { flex: 1 1 360px; max-width: 780px; display: flex; align-items: center; gap: 10px; background: var(--encre); border: 1px solid var(--nuit3); border-radius: 12px; padding: 0 14px; color: var(--brume); }
+.recherche-haut:focus-within { border-color: var(--or); }
+.recherche-haut input { flex: 1; min-width: 0; border: 0; background: transparent; font-size: 17px; padding: 11px 0; outline: none; }
+.recherche-haut input:focus { outline: none; }
+main { grid-template-columns: minmax(0, 1fr) clamp(360px, 24vw, 520px); }
+.panneau.trois { display: grid; grid-template-columns: clamp(260px, 17vw, 340px) minmax(0, 1fr); gap: 16px; }
+.cote { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 14px; padding-right: 2px; }
+.centre { min-height: 0; display: flex; flex-direction: column; gap: 10px; background: var(--nuit); border: 1px solid var(--nuit3); border-radius: 16px; padding: 14px 16px; }
+.centre .liste { width: 100%; max-width: 1300px; align-self: center; }
+.centre .verset { font-size: 17px; }
+.centre-tete { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-height: 38px; }
+.carte { background: var(--nuit); border: 1px solid var(--nuit3); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.carte-titre { margin: 0; font: 700 12px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--or2); }
+.bibles-choix { display: flex; flex-direction: column; gap: 6px; }
+.bible-ligne { display: flex; gap: 6px; }
+.bible-nom { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; text-align: left; padding: 9px 11px; border-radius: 12px; border: 1px solid var(--nuit3); background: var(--encre); cursor: pointer; }
+.bible-nom:hover { border-color: var(--brume2); }
+.bible-nom .rond { flex: none; width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--brume2); box-sizing: border-box; }
+.bible-nom .nom { flex: 1; min-width: 0; line-height: 1.25; overflow-wrap: anywhere; }
+.bible-nom small { color: var(--brume2); font-weight: 700; }
+.bible-ligne.principale .bible-nom { background: var(--nuit3); border-color: var(--or); }
+.bible-ligne.principale .rond { border: 5px solid var(--or); }
+.bible-ligne.principale small { color: var(--or2); }
+.bible-2e { flex: none; width: 48px; border-radius: 12px; border: 1px solid var(--nuit3); background: var(--encre); color: var(--brume); font-weight: 700; cursor: pointer; }
+.bible-2e:hover { border-color: var(--brume2); }
+.bible-2e.on { border-color: var(--or2); color: var(--or2); background: rgba(246,214,138,.14); }
+.bible-2e:disabled { opacity: .25; cursor: default; }
+.btn.importer { border: 1px dashed var(--or); background: transparent; color: var(--or2); padding: 10px; }
+.lien { align-self: flex-start; border: 0; background: none; padding: 0; color: var(--or2); text-decoration: underline; cursor: pointer; font-size: 13px; }
+.muet.petit { font-size: 12px; min-height: 0; }
+.livres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; max-height: none; overflow: visible; margin: 0 0 8px; }
+.livres button { padding: 6px 4px; font-size: 12.5px; border-radius: 7px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--encre); }
+.livres button.on { background: var(--nuit3); color: var(--or2); }
+.colonne { gap: 12px; overflow: auto; }
+.direct-titre { display: flex; align-items: center; gap: 8px; }
+.point-direct { width: 10px; height: 10px; border-radius: 50%; background: #FF5A6A; }
+.btn.envoi-afficher.gros { font-size: 20px; padding: 16px; border-radius: 14px; }
+.commandes .btn { padding: 12px; font-size: 15px; }
+.reglages-ecran { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.reglages-ecran label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--brume); }
+.reglages-ecran select { width: 100%; }
+@media (max-width: 1100px) { .panneau.trois { grid-template-columns: 1fr; } .cote { overflow: visible; } }
+@media (max-width: 1000px) { main { grid-template-columns: 1fr; } }

@@ -4,6 +4,8 @@ MyVerse (Windows, Neutralino) + l'app **MyVerse** (Android) : on tape « jn 3 16
 
 ## Nouveautés 3.0
 
+- **Nouvelle interface (3.0.2)** : à gauche la liste des Bibles (un clic = elle s'affiche, « 2e » = versets bilingues, « ＋ Importer une Bible ») et les livres ; au centre le chapitre ou le chant ; à droite ce qui est à l'écran, le suivant, Afficher, Précédent / Suivant, Retirer, le fond et la taille. La grande recherche en haut cherche dans la Bible ou dans les chants selon l'onglet.
+
 - **Chants rangés tout seuls** : collez un chant complet, même pas arrangé (Chants › Nouveau, ou Importer › Coller) : MyVerse le coupe en diapositives lisibles de 3, 4 ou 5 lignes, retire les accords et reconnaît le refrain. Aperçu avant d'enregistrer.
 - **Suivant** : le verset suivant (Bible) ou le couplet suivant (chants) est affiché en entier sous l'aperçu, sur le PC et sur le téléphone.
 - **Découper une diapositive** : bouton ✂ (ou double-clic sur une strophe) : appuyez sur **Entrée** devant une ligne pour commencer une nouvelle diapositive (2 à 5 morceaux). Un long verset se découpe pareil ; Suivant passe par chaque morceau.

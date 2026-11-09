@@ -229,6 +229,8 @@
     document.querySelectorAll('.onglets button').forEach((b) => b.classList.toggle('on', b.dataset.onglet === k));
     $('#p-bible').classList.toggle('cache', k !== 'bible');
     $('#p-chants').classList.toggle('cache', k !== 'chants');
+    // la grande recherche en haut cherche dans la Bible ou dans les chants, selon l'onglet
+    document.querySelectorAll('[data-recherche]').forEach((l) => l.classList.toggle('cache', l.dataset.recherche !== k));
   }
   document.querySelectorAll('.onglets button').forEach((b) => b.addEventListener('click', () => montrerOnglet(b.dataset.onglet)));
 
@@ -236,14 +238,27 @@
   B.loadBible();
   let vue = null; // { b, c } chapitre affiché
   let sel = null; // { b, c, v1, v2 } versets choisis
-  const livres = $('#livres');
-  B.BOOKS.forEach((bk) => { const x = h('button', '', bk.name); x.addEventListener('click', () => ouvrirChapitre(bk.i, 1)); livres.appendChild(x); });
+  // livres : Ancien Testament et Nouveau Testament, noms courts (nom complet au survol)
+  const COURTS = ['Genèse', 'Exode', 'Lévitique', 'Nombres', 'Deutér.', 'Josué', 'Juges', 'Ruth', '1 Samuel', '2 Samuel', '1 Rois', '2 Rois',
+    '1 Chron.', '2 Chron.', 'Esdras', 'Néhémie', 'Esther', 'Job', 'Psaumes', 'Proverbes', 'Ecclés.', 'Cantique', 'Ésaïe', 'Jérémie',
+    'Lament.', 'Ézéchiel', 'Daniel', 'Osée', 'Joël', 'Amos', 'Abdias', 'Jonas', 'Michée', 'Nahum', 'Habacuc', 'Sophonie', 'Aggée',
+    'Zacharie', 'Malachie', 'Matthieu', 'Marc', 'Luc', 'Jean', 'Actes', 'Romains', '1 Cor.', '2 Cor.', 'Galates', 'Éphés.', 'Philipp.',
+    'Coloss.', '1 Thess.', '2 Thess.', '1 Tim.', '2 Tim.', 'Tite', 'Philémon', 'Hébreux', 'Jacques', '1 Pierre', '2 Pierre', '1 Jean',
+    '2 Jean', '3 Jean', 'Jude', 'Apoc.'];
+  B.BOOKS.forEach((bk) => {
+    const x = h('button', '', COURTS[bk.i] || bk.name);
+    x.type = 'button';
+    x.title = bk.name;
+    x.addEventListener('click', () => ouvrirChapitre(bk.i, 1));
+    ($(bk.i < 39 ? '#livres' : '#livres-nt') || $('#livres')).appendChild(x);
+  });
 
   function ouvrirChapitre(b, c, v1 = 0, v2 = 0) {
     const n = B.chapterCount(b);
     c = Math.max(1, Math.min(n, c));
     vue = { b, c };
     sel = v1 ? { b, c, v1, v2: v2 || v1 } : null;
+    document.querySelectorAll('.livres button').forEach((x, i) => x.classList.toggle('on', i === b));
     const t = $('#titre-chap');
     t.textContent = '';
     const pr = h('button', 'btn petit', '‹'); pr.title = 'Chapitre précédent'; pr.disabled = c <= 1; pr.onclick = () => ouvrirChapitre(b, c - 1);

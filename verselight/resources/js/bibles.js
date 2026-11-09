@@ -179,7 +179,7 @@
   const cache = new Map([['lsg', window.LSG]]);
   const INTEGREES = [
     { id: 'lsg', name: 'Louis Segond 1910', short: 'LSG' },
-    { id: 'kjv', name: 'King James Version 1769 (anglais)', short: 'KJV' },
+    { id: 'kjv', name: 'King James (anglais)', short: 'KJV' },
   ];
   const toutes = () => INTEGREES.concat(reglages.importees);
   const info = (id) => toutes().find((v) => v.id === id) || null;
@@ -231,6 +231,59 @@
   function majBouton() {
     const l = document.querySelector('#versions-lab');
     if (l) l.textContent = 'Version : ' + etiquette() + (reglages.seconde ? ' (bilingue)' : '');
+    remplirChoix();
+  }
+
+  // ---------------------------------------------------------------- liste des Bibles (colonne de gauche)
+  // clic sur une Bible = elle s'affiche ; « 2e » = elle s'affiche aussi sous le verset (versets bilingues)
+  function etatCarte(t) { const e = document.querySelector('#bibles-carte-etat'); if (e) e.textContent = t; }
+  function remplirChoix() {
+    const L = document.querySelector('#bibles-choix');
+    if (!L) return;
+    L.textContent = '';
+    for (const v of toutes()) {
+      const principale = v.id === reglages.principale, deuxieme = v.id === reglages.seconde;
+      const ligne = document.createElement('div');
+      ligne.className = 'bible-ligne' + (principale ? ' principale' : '') + (deuxieme ? ' seconde' : '');
+      const nom = document.createElement('button');
+      nom.type = 'button';
+      nom.className = 'bible-nom';
+      nom.setAttribute('role', 'radio');
+      nom.setAttribute('aria-checked', principale ? 'true' : 'false');
+      nom.title = principale ? 'Bible affichée à l’écran' : 'Afficher cette Bible';
+      const rond = document.createElement('span'); rond.className = 'rond';
+      const t = document.createElement('span'); t.className = 'nom'; t.textContent = v.name;
+      const c = document.createElement('small'); c.textContent = v.short;
+      nom.append(rond, t, c);
+      nom.addEventListener('click', () => choisir(v.id));
+      const deux = document.createElement('button');
+      deux.type = 'button';
+      deux.className = 'bible-2e' + (deuxieme ? ' on' : '');
+      deux.textContent = '2e';
+      deux.title = deuxieme ? 'Ne plus l’afficher sous le verset' : 'L’afficher aussi sous le verset (versets bilingues)';
+      deux.setAttribute('aria-pressed', deuxieme ? 'true' : 'false');
+      deux.disabled = principale;
+      deux.addEventListener('click', () => basculerSeconde(v.id));
+      ligne.append(nom, deux);
+      L.appendChild(ligne);
+    }
+  }
+  async function choisir(id) {
+    if (reglages.principale === id) return;
+    reglages.principale = id;
+    if (reglages.seconde === id) reglages.seconde = '';
+    ecrire('myverse-bibles', reglages);
+    etatCarte('Chargement de la Bible…');
+    await appliquer();
+    etatCarte(`« ${(info(reglages.principale) || {}).name || reglages.principale} » est affichée.`);
+  }
+  async function basculerSeconde(id) {
+    if (id === reglages.principale) return;
+    reglages.seconde = reglages.seconde === id ? '' : id;
+    ecrire('myverse-bibles', reglages);
+    etatCarte(reglages.seconde ? 'Chargement de la 2e version…' : '');
+    await appliquer();
+    etatCarte(reglages.seconde ? (seconde ? 'Versets bilingues : ' + etiquette() : 'Cette version n’a pas pu être chargée.') : 'Une seule version à l’écran.');
   }
 
   // ---------------------------------------------------------------- fenêtre « Bibles »
@@ -241,7 +294,7 @@
     sp.length = 0; ss.length = 0;
     ss.add(new Option('Aucune', ''));
     for (const v of toutes()) {
-      if (v.id !== 'kjv') sp.add(new Option(`${v.name} (${v.short})`, v.id));
+      sp.add(new Option(`${v.name} (${v.short})`, v.id));
       ss.add(new Option(`${v.name} (${v.short})`, v.id));
     }
     sp.value = reglages.principale; ss.value = reglages.seconde || '';
@@ -276,11 +329,14 @@
       $('#bible-etat').textContent = reglages.seconde ? (seconde ? 'Versets bilingues activés.' : 'Cette version n’a pas pu être chargée.') : '';
     });
     $('#bible-importer').addEventListener('click', () => $('#bible-fichier').click());
+    const imp2 = $('#bibles-importer');
+    if (imp2) imp2.addEventListener('click', () => $('#bible-fichier').click());
     $('#bible-fichier').addEventListener('change', async (e) => {
       const f = e.target.files[0];
       e.target.value = '';
       if (!f) return;
       $('#bible-etat').textContent = 'Lecture de « ' + f.name + ' »…';
+      etatCarte('Lecture de « ' + f.name + ' »…');
       try {
         const brut = window.Songs && window.Songs.decodeBytes ? window.Songs.decodeBytes(new Uint8Array(await f.arrayBuffer())) : await f.text();
         const d = analyser(f.name, brut);
@@ -291,9 +347,14 @@
         reglages.importees.push({ id, name: d.name, short: d.short, versets: d.versets });
         ecrire('myverse-bibles', reglages);
         remplir();
+        remplirChoix();
         $('#bible-etat').textContent = `« ${d.name} » importée : ${d.versets} versets. Choisissez-la comme version principale ou 2e version.`;
+        etatCarte(`« ${d.name} » importée (${d.versets} versets).`);
         if (window.VLJournal) window.VLJournal.info(`Bible importée : ${d.name} (${d.versets} versets)`);
-      } catch (x) { $('#bible-etat').textContent = 'Import impossible : ' + (x.message || x); }
+        // tout de suite : l'afficher ? (sinon : cliquer dessus dans la liste, ou « 2e » pour les versets bilingues)
+        if (window.confirm(`« ${d.name} » est importée.\n\nL’afficher maintenant à l’écran ?\n(OK = l’afficher · Annuler = la garder dans la liste)`)) await choisir(id);
+        else etatCarte(`« ${d.name} » importée : cliquez-la dans la liste pour l’afficher, ou « 2e » pour les versets bilingues.`);
+      } catch (x) { $('#bible-etat').textContent = 'Import impossible : ' + (x.message || x); etatCarte('Import impossible : ' + (x.message || x)); }
     });
   }
 

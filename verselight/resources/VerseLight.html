@@ -15,11 +15,11 @@
     <button class="on" data-onglet="bible" role="tab">Bible</button>
     <button data-onglet="chants" role="tab">Chants</button>
   </nav>
+  <label class="recherche-haut" data-recherche="bible"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><span class="sr">Chercher dans la Bible</span>
+    <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="jn 3 16 · ps 23 · rm 8.28 · ou des mots, même mal écrits"></label>
+  <label class="recherche-haut cache" data-recherche="chants"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><span class="sr">Chercher un chant</span>
+    <input id="qc" type="search" autocomplete="off" placeholder="Chercher un chant : titre, numéro ou paroles"></label>
   <div class="actions">
-    <select id="theme" title="Fond de l'écran">
-      <option value="nuit">Fond nuit</option><option value="aube">Fond aube</option>
-      <option value="noir">Fond noir</option><option value="vert">Fond vert (incrustation)</option><option value="transparent">Transparent (OBS)</option>
-    </select>
     <button id="tel-btn" class="btn" title="Télécommande Android"><span class="obs-etat">Téléphone</span></button>
     <button id="obs-btn" class="btn" title="Piloter OBS"><span id="obs-etat" class="obs-etat">OBS</span></button>
     <button id="outils-btn" class="btn" title="Mise à jour et informations">Outils</button>
@@ -29,20 +29,25 @@
 
 <main>
   <!-- ==================== BIBLE ==================== -->
-  <section id="p-bible" class="panneau">
-    <div class="recherche">
-      <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="jn 3 16 · ps 23 · rm 8.28 · ou des mots : « bon berger »">
-      <div class="ligne-outils versions"><span id="versions-lab" class="muet">Version : LSG</span><span class="grow"></span><button id="bibles-btn" type="button" class="btn petit or" title="Ajouter vos Bibles (kirundi, swahili…), choisir la version principale et la 2e version (bilingue)">＋ Ajouter / choisir une Bible</button></div>
-      <div id="livres" class="livres"></div>
-    </div>
-    <div id="titre-chap" class="titre-chap"></div>
-    <div id="versets" class="liste"></div>
-    <div class="barre-envoi">
-      <button class="btn or envoi-afficher" title="Entrée">Afficher</button>
-      <button class="btn envoi-prec" title="Flèche gauche">‹ Précédent</button>
-      <button class="btn envoi-suiv" title="Flèche droite ou espace">Suivant ›</button>
-      <button class="btn rouge envoi-retirer" title="Échap">Retirer</button>
-      <select class="envoi-mode" title="Présentation"><option value="plein">Plein écran</option><option value="bandeau">En bandeau</option></select>
+  <section id="p-bible" class="panneau trois">
+    <aside class="cote">
+      <section class="carte">
+        <h3 class="carte-titre">Bibles</h3>
+        <div id="bibles-choix" class="bibles-choix" role="radiogroup" aria-label="Bible affichée"></div>
+        <button id="bibles-importer" type="button" class="btn importer">＋ Importer une Bible</button>
+        <p id="bibles-carte-etat" class="muet petit">Cliquez une Bible pour l’afficher · <b>2e</b> = versets bilingues (sous le verset)</p>
+        <button id="bibles-btn" type="button" class="lien" title="Supprimer une Bible, choisir dans une liste">Gérer les Bibles…</button>
+      </section>
+      <section class="carte livres-carte">
+        <h3 class="carte-titre">Ancien Testament</h3>
+        <div id="livres" class="livres"></div>
+        <h3 class="carte-titre">Nouveau Testament</h3>
+        <div id="livres-nt" class="livres"></div>
+      </section>
+    </aside>
+    <div class="centre">
+      <div class="centre-tete"><div id="titre-chap" class="titre-chap"></div><span class="grow"></span><span id="versions-lab" class="muet">Version : LSG</span></div>
+      <div id="versets" class="liste"></div>
     </div>
   </section>
 
@@ -52,7 +57,6 @@
       <aside class="biblio">
         <div class="ligne-outils">
           <select id="recueil" title="Recueil"><option value="">Tous les recueils</option></select>
-          <input id="qc" type="search" placeholder="Chercher un chant" autocomplete="off">
         </div>
         <div class="ligne-outils ajout-chants">
           <button id="importer" class="btn or" title="Ajouter des chants ou un recueil : VideoPsalm, OpenLyrics, OpenSong, ChordPro, SongSelect, ProPresenter 6, PDF, texte collé, lien d’un site">＋ Importer chants / recueil</button>
@@ -65,35 +69,39 @@
         <div class="ligne-outils"><h2 id="chant-titre">Aucun chant choisi</h2><span class="grow"></span>
           <button id="modifier" class="btn petit" disabled>Modifier</button><button id="supprimer" class="btn petit danger" disabled>Supprimer</button></div>
         <div id="sections" class="sections"></div>
-        <div class="barre-envoi">
-          <button class="btn or envoi-afficher" title="Entrée">Afficher</button>
-          <button class="btn envoi-prec" title="Flèche gauche">‹ Précédent</button>
-          <button class="btn envoi-suiv" title="Flèche droite ou espace">Suivant ›</button>
-          <button class="btn rouge envoi-retirer" title="Échap">Retirer</button>
-          <select class="envoi-mode" title="Présentation"><option value="plein">Plein écran</option><option value="bandeau">En bandeau</option></select>
-        </div>
       </div>
     </div>
   </section>
 
   <!-- ==================== À L'ÉCRAN ==================== -->
   <aside class="colonne">
+    <h3 class="carte-titre direct-titre"><span class="point-direct"></span>À l’écran</h3>
     <div class="moniteur"><div id="apercu" class="apercu theme-nuit" title="Double-clic : couper cette diapositive"><div class="t"></div><div class="t2"></div><div class="r"></div></div><span id="etat-ecran" class="pastille">Écran fermé</span></div>
     <div class="suivant-boite">
       <div class="suivant-tete"><span>Suivant</span><b id="suivant-lab"></b><span class="grow"></span>
         <button id="decouper" class="btn petit" title="Couper la diapositive suivante en plusieurs (Entrée devant une ligne)" disabled>✂ Découper</button></div>
       <div id="suivant-texte" class="suivant-texte">—</div>
     </div>
+    <button class="btn or envoi-afficher gros" title="Entrée">Afficher</button>
     <div class="commandes">
       <button id="prec" class="btn" title="Flèche gauche">‹ Précédent</button>
       <button id="suiv" class="btn" title="Flèche droite ou espace">Suivant ›</button>
-      <button id="effacer" class="btn rouge" title="Échap">Effacer</button>
+      <button id="effacer" class="btn rouge" title="Échap">Retirer</button>
+    </div>
+    <div class="reglages-ecran">
+      <label>Fond
+        <select id="theme" title="Fond de l'écran">
+          <option value="nuit">Nuit</option><option value="aube">Aube</option>
+          <option value="noir">Noir</option><option value="vert">Vert (incrustation)</option><option value="transparent">Transparent (OBS)</option>
+        </select></label>
+      <label>Présentation
+        <select class="envoi-mode" title="Présentation"><option value="plein">Plein écran</option><option value="bandeau">En bandeau</option></select></label>
     </div>
     <label class="taille">Taille du texte <input id="taille" type="range" min="0.6" max="1.2" step="0.05" value="1"></label>
     <div class="aide">
       <b>Raccourcis</b>
       <span><kbd>Entrée</kbd> afficher</span><span><kbd>→</kbd> <kbd>Espace</kbd> suivant</span>
-      <span><kbd>←</kbd> précédent</span><span><kbd>Échap</kbd> effacer</span><span><kbd>/</kbd> chercher</span>
+      <span><kbd>←</kbd> précédent</span><span><kbd>Échap</kbd> retirer</span><span><kbd>/</kbd> chercher</span>
     </div>
   </aside>
 </main>
