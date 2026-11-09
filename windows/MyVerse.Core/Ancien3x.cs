@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace MyVerse;
 
@@ -12,12 +13,40 @@ public static class Ancien3x
 {
     const string ORIGINE = "http://127.0.0.1:47836";
 
-    /// <summary>Dossiers « Local Storage\leveldb » possibles de la 3.x (MyVerse.exe puis VerseLight.exe).</summary>
+    /// <summary>
+    /// Dossiers « Local Storage\leveldb » de la 3.x : profil WebView2 dans %APPDATA%\MyVerse.exe (ou VerseLight.exe),
+    /// ou à côté du programme ; le chemin exact varie selon WebView2 (EBWebView\Default…) : on le cherche.
+    /// </summary>
     public static IEnumerable<string> Dossiers()
     {
         var appdata = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        foreach (var exe in new[] { "MyVerse.exe", "VerseLight.exe" })
-            yield return Path.Combine(appdata, exe, "EBWebView", "Default", "Local Storage", "leveldb");
+        var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var bases = new[]
+        {
+            Path.Combine(appdata, "MyVerse.exe"),
+            Path.Combine(appdata, "VerseLight.exe"),
+            Path.Combine(local, "Programs", "MyVerse", "MyVerse.exe.WebView2"),
+            Path.Combine(local, "Programs", "MyVerse", "VerseLight.exe.WebView2"),
+        };
+        foreach (var b in bases)
+            foreach (var d in Chercher(b, 5)) yield return d;
+    }
+
+    static IEnumerable<string> Chercher(string dossier, int profondeur)
+    {
+        if (profondeur < 0 || !Directory.Exists(dossier)) yield break;
+        var nom = Path.GetFileName(dossier);
+        if (nom.Equals("leveldb", StringComparison.OrdinalIgnoreCase) && Path.GetFileName(Path.GetDirectoryName(dossier) ?? "").Equals("Local Storage", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return dossier;
+            yield break;
+        }
+        string[] sous;
+        try { sous = Directory.GetDirectories(dossier); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { yield break; }
+        // les caches de WebView2 sont grands et inutiles ici
+        foreach (var s in sous.Where(x => !Regex.IsMatch(Path.GetFileName(x), "cache|crashpad|shader", RegexOptions.IgnoreCase)).OrderBy(x => Path.GetFileName(x) == "EBWebView" ? 0 : 1))
+            foreach (var d in Chercher(s, profondeur - 1)) yield return d;
     }
 
     /// <summary>Clés verselight-* et myverse-* du stockage local de la 3.x (vide si introuvable).</summary>

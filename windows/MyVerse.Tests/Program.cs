@@ -336,6 +336,13 @@ if (Actif())
     Egal(d2.Chants.Count, 1, "2e démarrage : rien n'est repris une 2e fois");
 
     var ld = Ancien3x.LireDossier(Path.Combine(AppContext.BaseDirectory, "donnees", "leveldb-3x"));
+    // le dossier du profil est trouvé même dans une arborescence WebView2
+    var faux = Path.Combine(Temp(), "MyVerse.exe", "EBWebView", "Default", "Local Storage", "leveldb");
+    Directory.CreateDirectory(faux);
+    Directory.CreateDirectory(Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(faux)!)!, "Cache"));
+    var trouve = typeof(Ancien3x).GetMethod("Chercher", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!
+        .Invoke(null, new object[] { Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(faux)!)!)!)!, 5 }) as IEnumerable<string>;
+    Egal(trouve?.FirstOrDefault(), faux, "profil WebView2 de la 3.x trouvé");
     Ok(ld.TryGetValue("verselight-chants", out var ch3) && ch3.StartsWith("[{") && ch3.Contains("Grâce infinie’"), "LevelDB : chants (UTF-16, table compressée)");
     Egal(ld.TryGetValue("verselight-theme", out var th) ? th : "∅", "\"vert\"", "LevelDB : valeur la plus récente (journal)");
     Egal(ld.TryGetValue("verselight-taille", out var ta) ? ta : "∅", "1.2", "LevelDB : valeur du journal");
