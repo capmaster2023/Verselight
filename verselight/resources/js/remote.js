@@ -42,19 +42,8 @@
   }
   R.surChangement(() => pousser(false));
   let dernierPid = -2;
-  setInterval(() => { versBridge('alive'); pousserObs(); }, 5000);
-  // réglages OBS (port, mot de passe) transmis au bridge : il les donne, chiffrés, aux téléphones jumelés
-  // pour qu'ils puissent piloter OBS tout seuls quand MyVerse est fermé
-  let obsEnvoye = '', obsQuand = 0;
-  function pousserObs() {
-    const c = window.VLObs && window.VLObs.config ? window.VLObs.config() : null;
-    if (!c) return;
-    const k = JSON.stringify(c);
-    if (k === obsEnvoye && Date.now() - obsQuand < 30000) return;
-    obsEnvoye = k; obsQuand = Date.now();
-    versBridge('obs', c);
-  }
-  // envoi des chants et des Bibles au téléphone : JSON compressé (gzip) en base64
+  setInterval(() => versBridge('alive'), 5000);
+  // envoi des Bibles au téléphone (détecteur de versets) : JSON compressé (gzip) en base64
   async function gzip64(texte) {
     const flux = new Blob([texte]).stream().pipeThrough(new CompressionStream('gzip'));
     const u = new Uint8Array(await new Response(flux).arrayBuffer());
@@ -129,23 +118,17 @@
       case 'prev': R.bouger(-1); break;
       case 'clear': R.effacer(); break;
       case 'state.get': pousser(true); break;
-      // le téléphone garde une copie des chants, des réglages et des Bibles : il peut ainsi afficher
-      // dans OBS sans le PC (MyVerse fermé)
+      // le téléphone garde une copie des Bibles (version principale, noms des livres) pour le détecteur de versets
       case 'sync.get':
         (async () => {
           try {
             const e = R.etat(), VB = window.VLBibles;
             const reg = VB ? VB.reglages() : { principale: 'lsg', seconde: '' };
-            const json = JSON.stringify(R.chants().map((c) => ({ id: c.id, title: c.title, author: c.author || '', sections: c.sections.map((x) => ({ label: x.label || '', text: x.text })) })));
-            const stamp = empreinte(json);
-            const msg = {
+            rep({
               t: 'sync',
               reglages: { principale: reg.principale || 'lsg', seconde: reg.seconde || '', theme: e.theme || 'nuit', taille: e.taille || 1, presentation: e.presentation || 'plein' },
               bibles: VB && VB.liste ? VB.liste() : [{ id: 'lsg', short: 'LSG', name: 'Louis Segond 1910' }],
-              chants: { stamp },
-            };
-            if (d.chants !== stamp) msg.chants.gz = await gzip64(json);
-            rep(msg);
+            });
           } catch (x) { J.erreur('synchronisation du téléphone : ' + (x.message || x)); }
         })();
         break;
@@ -218,6 +201,26 @@
     remplirJournal();
     if (chercher) { etatMaj('Recherche d’une mise à jour…'); verifierMaj(true); }
   }
+
+  // ------------------------------------------------------------ copie des données pour MyVerse 4.0 (logiciel Windows natif)
+  // chants, réglages, Bibles choisies, découpes… : %APPDATA%\VerseLight\myverse-donnees.json, relu par la 4.0
+  let copieFaite = '';
+  async function copierDonnees() {
+    try {
+      const d = {};
+      for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (/^(verselight|myverse)-/.test(k) && k !== 'myverse-journal') d[k] = localStorage.getItem(k); }
+      const contenu = JSON.stringify(d);
+      const cle = empreinte(contenu);
+      if (cle === copieFaite) return;
+      const appdata = await Neutralino.os.getEnv('APPDATA');
+      if (!appdata) return;
+      try { await Neutralino.filesystem.createDirectory(appdata + '\\VerseLight'); } catch (e) {}
+      await Neutralino.filesystem.writeFile(appdata + '\\VerseLight\\myverse-donnees.json', JSON.stringify({ version: window.NL_APPVERSION || '', date: new Date().toISOString(), donnees: d }));
+      copieFaite = cle;
+    } catch (e) { J.erreur('copie des données : ' + (e && e.message ? e.message : e)); }
+  }
+  setTimeout(copierDonnees, 4000);
+  setInterval(copierDonnees, 15000);
 
   // ------------------------------------------------------------ journal d'erreurs (Outils)
   async function lireFichier(chemin, max) {

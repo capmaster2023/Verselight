@@ -172,10 +172,9 @@ func waitPid(pid int, max time.Duration) {
 // ------------------------------------------------------------ pare-feu
 
 var (
-	// « MyVerse OBS (TCP) » : le téléphone pilote OBS directement (obs-websocket, port 4455) quand MyVerse est fermé
-	fwRules = []string{"MyVerse (TCP)", "MyVerse (UDP)", "MyVerse (programme)", "MyVerse OBS (TCP)"}
-	// anciennes règles, et règle automatique de Windows (souvent « Bloquer ») créée quand on ferme son alerte
-	fwOld = []string{"verselight-bridge.exe", "VerseLight Bridge (TCP)", "VerseLight Bridge (UDP)"}
+	fwRules = []string{"MyVerse (TCP)", "MyVerse (UDP)", "MyVerse (programme)"}
+	// anciennes règles (dont « MyVerse OBS (TCP) » de la 3.0), et règle automatique de Windows (souvent « Bloquer »)
+	fwOld = []string{"verselight-bridge.exe", "VerseLight Bridge (TCP)", "VerseLight Bridge (UDP)", "MyVerse OBS (TCP)"}
 )
 
 func ruleExists(name string) bool {
@@ -207,7 +206,6 @@ func applyFirewallRules() error {
 		{"advfirewall", "firewall", "add", "rule", "name=MyVerse (TCP)", "dir=in", "action=allow", "protocol=TCP", "localport=47900-47909", "profile=any"},
 		{"advfirewall", "firewall", "add", "rule", "name=MyVerse (UDP)", "dir=in", "action=allow", "protocol=UDP", "localport=47901", "profile=any"},
 		{"advfirewall", "firewall", "add", "rule", "name=MyVerse (programme)", "dir=in", "action=allow", "program=" + exe, "enable=yes", "profile=any"},
-		{"advfirewall", "firewall", "add", "rule", "name=MyVerse OBS (TCP)", "dir=in", "action=allow", "protocol=TCP", "localport=4455", "profile=any"},
 	}
 	for _, a := range add {
 		if err := hiddenCmd("netsh", a...).Run(); err != nil {

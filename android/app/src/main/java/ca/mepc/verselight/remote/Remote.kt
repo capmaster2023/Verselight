@@ -72,14 +72,12 @@ class Remote(private val context: Context, val store: Store) {
             "MyVerse (Android) $version · Android ${Build.VERSION.RELEASE} · ${Build.MANUFACTURER} ${Build.MODEL}",
             "Téléphone : $ips",
             "PC jumelé : " + (p?.let { "${it.pcName} · IP du code QR : ${it.ips.joinToString(", ")} · port ${it.port} · dernière IP : ${it.lastHost ?: "aucune"}" } ?: "aucun"),
-            "État : ${link.value} · OBS direct : ${direct.etat.value} ${direct.message.value}",
+            "État : ${link.value}",
             "",
         )
         return (head + journal.value).joinToString("\n")
     }
     private var updateChecked = false
-    /** Mode « OBS direct » : le téléphone pilote OBS quand MyVerse est fermé sur le PC. */
-    val direct: Direct by lazy { Direct(context, this) }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val client = OkHttpClient.Builder()
@@ -137,7 +135,6 @@ class Remote(private val context: Context, val store: Store) {
         job = null
         socket?.close(1000, null)
         socket = null
-        direct.pcPresent()
         if (link.value != Link.NOT_PAIRED) link.value = Link.OFFLINE
     }
 
@@ -151,20 +148,12 @@ class Remote(private val context: Context, val store: Store) {
         link.value = Link.NOT_PAIRED
     }
 
-    /** Le téléphone peut travailler : relié au PC, sinon seul (Bible, chants, recherche) et avec OBS directement. */
-    fun pret(): Boolean = socket != null || store.pairing() != null
+    /** Le téléphone est relié à MyVerse sur le PC. */
+    fun pret(): Boolean = socket != null
 
-    /**
-     * Commande vers la régie du PC ; MyVerse fermé sur le PC : le téléphone répond lui-même (aperçu, recherche, chants)
-     * et affiche directement dans OBS. False seulement si le téléphone n'est pas jumelé.
-     */
+    /** Commande vers la régie du PC. Renvoie false si le PC n'est pas joignable. */
     fun send(type: String, vararg fields: Pair<String, Any?>): Boolean {
-        val s = socket
-        if (s == null) {
-            if (store.pairing() == null) return false
-            direct.commande(type, fields.toMap())
-            return true
-        }
+        val s = socket ?: return false
         val o = JSONObject().put("t", type).put("rid", (++rid).toString())
         for ((k, v) in fields) o.put(k, v)
         return s.send(o.toString())
@@ -194,7 +183,6 @@ class Remote(private val context: Context, val store: Store) {
             }
             if (!running) return
             link.value = Link.OFFLINE
-            direct.pcAbsent() // MyVerse fermé ou injoignable : le téléphone pilote OBS lui-même (si configuré)
             withTimeoutOrNull(delay) { wake.receive() }
             delay = (delay * 2).coerceAtMost(5000L)
         }
@@ -209,7 +197,6 @@ class Remote(private val context: Context, val store: Store) {
             return if (r == Result.FAILED) null else r
         }
         p.lastHost?.let { attempt(it, p.lastPort)?.let { r -> return r } }
-        direct.pcAbsent() // MyVerse ne répond pas à sa dernière adresse : OBS direct tout de suite, on continue à chercher le PC
         val found = discover(p.pcId)
         log(if (found.isEmpty()) "recherche du PC sur le Wi-Fi : aucune réponse" else "recherche du PC sur le Wi-Fi : trouvé " + found.joinToString { "${it.first}:${it.second}" })
         for ((host, port) in found) attempt(host, port)?.let { return it }
@@ -270,15 +257,14 @@ class Remote(private val context: Context, val store: Store) {
             store.save(p.copy(pcName = name, lastHost = host, lastPort = port))
             pcName.value = name
             info.value = ""
-            direct.pcPresent() // c'est MyVerse sur le PC qui pilote OBS
             socket = ws
             link.value = Link.CONNECTED
             send("state.get")
-            // copie des chants, des réglages et des Bibles pour travailler sans le PC (puis toutes les 2 minutes)
+            // copie des Bibles du PC (versions, noms des livres) pour le détecteur de versets (puis toutes les 10 minutes)
             val synchro = scope.launch {
                 while (socket === ws) {
-                    send("sync.get", "chants" to store.chantsStamp)
-                    kotlinx.coroutines.delay(120_000)
+                    send("sync.get")
+                    kotlinx.coroutines.delay(600_000)
                 }
             }
             try {
@@ -291,7 +277,7 @@ class Remote(private val context: Context, val store: Store) {
                         }
                         "state" -> screen.value = m
                         "auth.fail" -> throw Rejected(m.optString("code"), m.optString("message"))
-                        "obs" -> recevoirObs(m, p.key)
+                        "obs" -> {} // ancien relais des réglages OBS : ignoré
                         "sync" -> scope.launch {
                             try {
                                 Donnees.recevoirSync(context, store, m).forEach { id -> log("Bible « $id » demandée au PC"); send("bible.get", "id" to id) }
@@ -301,7 +287,7 @@ class Remote(private val context: Context, val store: Store) {
                         }
                         "bible" -> scope.launch {
                             try {
-                                Donnees.recevoirBible(context, m)?.let { log("Bible « $it » reçue du PC (utilisable sans le PC)") }
+                                Donnees.recevoirBible(context, m)?.let { log("Bible « $it » reçue du PC (détecteur de versets)") }
                             } catch (e: Exception) {
                                 log("Bible reçue illisible : ${e.javaClass.simpleName} ${e.message ?: ""}")
                             }
@@ -486,27 +472,6 @@ class Remote(private val context: Context, val store: Store) {
     private fun deviceName(): String =
         Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)
             ?: "${Build.MANUFACTURER} ${Build.MODEL}"
-
-    /** Réglages OBS envoyés par le PC : le mot de passe arrive chiffré avec la clé de ce téléphone (AES-GCM). */
-    private fun recevoirObs(m: JSONObject, key: ByteArray) {
-        try {
-            val chiffre = m.optString("mdp")
-            val mdp = if (chiffre.isEmpty()) "" else {
-                val brut = Base64.decode(chiffre, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
-                val c = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
-                c.init(javax.crypto.Cipher.DECRYPT_MODE, SecretKeySpec(hmacRaw(key, "verselight-obs"), "AES"), javax.crypto.spec.GCMParameterSpec(128, brut, 0, 12))
-                String(c.doFinal(brut, 12, brut.size - 12), Charsets.UTF_8)
-            }
-            val nouveau = Store.ObsConfig(m.optBoolean("actif"), m.optInt("port", 4455), mdp)
-            if (store.obs() != nouveau) {
-                store.saveObs(nouveau)
-                direct.reglagesChanges()
-                log("réglages OBS reçus du PC (port ${nouveau.port}, " + (if (nouveau.actif) "OBS activé" else "OBS désactivé dans MyVerse") + ")")
-            }
-        } catch (e: Exception) {
-            log("réglages OBS illisibles : ${e.javaClass.simpleName}")
-        }
-    }
 
     private fun b64(b: ByteArray) = Base64.encodeToString(b, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
 

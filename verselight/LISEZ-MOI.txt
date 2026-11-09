@@ -23,8 +23,7 @@ NOUVEAUTÉS 3.0
 - Bouton « Bibles » : importez votre Bible (Zefania XML, OSIS, USFX, JSON, texte), même en kirundi ;
   King James incluse ; choisissez la version principale et une 2e version (versets bilingues).
 - Recherche par mots dans toutes les Bibles, même mal écrits ; la version est indiquée.
-- Téléphone : marche aussi quand MyVerse est fermé (connexion directe à OBS, voir plus bas),
-  et détecteur des versets cités par le prédicateur.
+- Téléphone : détecteur des versets cités par le prédicateur (MyVerse doit être ouvert sur le PC).
 
 TÉLÉCOMMANDE ANDROID (MyVerse)
 - Le dossier extensions\bridge doit rester à côté de MyVerse.exe.
@@ -33,8 +32,3 @@ TÉLÉCOMMANDE ANDROID (MyVerse)
 - Bouton « Téléphone » : un code QR s'affiche. Dans l'app, « Scanner le code QR ».
   Une seule fois : ensuite le téléphone se reconnecte tout seul (même Wi-Fi).
 - Dans la même fenêtre : liste des téléphones jumelés et bouton « Révoquer ».
-
-OBS SANS LE PC (téléphone)
-- Dans MyVerse : bouton OBS > activez-le avec le port et le mot de passe WebSocket d'OBS.
-- Connectez le téléphone une fois : il reçoit les réglages OBS (mot de passe chiffré), les chants et les Bibles.
-- Ensuite, si MyVerse est fermé, le téléphone affiche directement dans OBS (barre du bas : « OBS direct »).

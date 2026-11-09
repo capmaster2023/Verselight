@@ -13,7 +13,6 @@ MyVerse (Windows, Neutralino) + l'app **MyVerse** (Android) : on tape « jn 3 16
 - **Versets bilingues** : une 2e version s'affiche sous le verset, plus petite (ex. LSG · KJV, ou LSG · votre Bible en kirundi).
 - **Vos recueils** : Chants › Importer (OpenLP, OpenSong, VideoPsalm, EasyWorship, PowerPoint, texte, PDF…) en donnant le nom du recueil, ou collez tout un recueil en texte.
 - **Recherche par mots-clés dans toutes les Bibles** (version principale, 2e version, Bibles importées) : même mal écrit (« kar dieu a tan aimer le monde » → Jean 3:16), mots surlignés, version indiquée, résultats classés.
-- **Téléphone sans le PC** : jumelez une fois ; ensuite, si MyVerse est fermé sur le PC, l'app se connecte **directement à OBS** et affiche versets et chants (Bible Louis Segond incluse dans l'app ; chants, Bibles importées, thème et réglages OBS copiés depuis le PC à chaque connexion).
 - **Détecteur de versets** (téléphone) : interrupteur dans l'onglet Bible. L'app écoute le prédicateur (« Jean chapitre trois verset seize », « Romains 8 28 », « au verset 17 »…) et propose le verset avec un bouton **Afficher**. App fermée ou écran éteint : une notification « Verset cité » avec **Afficher**.
 
 ## Récupérer les fichiers
@@ -37,20 +36,12 @@ C'est tout : ensuite l'app se reconnecte toute seule à chaque ouverture, même 
 
 - **Bible** : « mt 3 2 », « jn 3 16-18 », « ps 23 » (suggestions de livres), ou des mots (« charité patiente », même mal écrits), aperçu, **Afficher**, **Retirer**. Détecteur de versets en haut de l'onglet.
 - **Chants** : recherche par titre, numéro ou paroles ; toucher une strophe = l'afficher ; bouton **Refrain**.
-- Barre du bas : connexion (vert = PC ou OBS direct, rouge = rien), ce qui est à l'écran, ‹ Précédent / Suivant ›.
-- Réglages : boutons de volume (+ Suivant, − Précédent), garder l'écran allumé, piloter OBS quand MyVerse est fermé, couper le bip du micro, journal d'erreurs, oublier le PC.
-
-### OBS sans le PC (mode direct)
-
-1. Dans MyVerse sur le PC : bouton **OBS** → activez, port 4455, mot de passe du serveur WebSocket d'OBS (OBS › Outils › Paramètres du serveur WebSocket).
-2. Connectez le téléphone au PC au moins une fois (il reçoit alors les réglages OBS, chiffrés, ainsi que les chants et les Bibles).
-3. Ensuite, si MyVerse est fermé : la barre du bas indique **OBS direct** ; Afficher place la source « MyVerse (temporaire) » au premier plan de la scène en cours, Retirer la supprime et la scène redevient comme avant.
-
-Le pare-feu doit laisser passer OBS (TCP 4455) : l'installateur ajoute la règle « MyVerse OBS (TCP) ».
+- Barre du bas : connexion au PC (vert/rouge), ce qui est à l'écran, ‹ Précédent / Suivant ›. MyVerse doit être ouvert sur le PC.
+- Réglages : boutons de volume (+ Suivant, − Précédent), garder l'écran allumé, couper le bip du micro, journal d'erreurs, oublier le PC.
 
 ### Détecteur de versets
 
-Interrupteur **Détecteur de versets** (onglet Bible) : autorisez le micro et les notifications. Il utilise la reconnaissance vocale du téléphone (application Google, en français) et ne garde aucun enregistrement. Pour limiter les fausses alertes, « Jean 3 » seul (prénom courant) n'est proposé que si le mot « chapitre » est dit ou qu'un verset suit.
+Interrupteur **Détecteur de versets** (onglet Bible) : autorisez le micro et les notifications. MyVerse doit être ouvert sur le PC pour afficher. Il utilise la reconnaissance vocale du téléphone (application Google, en français) et ne garde aucun enregistrement. Pour limiter les fausses alertes, « Jean 3 » seul (prénom courant) n'est proposé que si le mot « chapitre » est dit ou qu'un verset suit.
 
 ## Dépôt
 
@@ -65,8 +56,7 @@ Sans secrets, l'APK est signé avec `android/app/debug.keystore` (public, mot de
 
 ## Réseau et sécurité
 
-- TCP 47900 (ou le suivant libre jusqu'à 47909) pour le téléphone, UDP 47901 pour la recherche du PC, TCP 4455 pour OBS (mode direct).
-- Le mot de passe OBS n'est jamais envoyé en clair : le PC le chiffre (AES-256-GCM) avec la clé propre à chaque téléphone, qui le garde chiffré par Android Keystore.
+- TCP 47900 (ou le suivant libre jusqu'à 47909) pour le téléphone, UDP 47901 pour la recherche du PC.
 - Le QR contient un secret aléatoire ; chaque téléphone en dérive sa propre clé (gardée chiffrée par Android Keystore). À chaque connexion : défi/réponse HMAC-SHA256, le PC prouve aussi son identité. Le secret ne circule jamais sur le réseau. Le code QR n'est valable que tant que la fenêtre Téléphone est ouverte.
 - `%APPDATA%\VerseLight\devices.json` : identifiant du PC et téléphones jumelés. Journal : `%APPDATA%\VerseLight\bridge.log`.
 

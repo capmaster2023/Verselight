@@ -12,16 +12,14 @@ import java.io.InputStreamReader
 import java.util.zip.GZIPInputStream
 
 /**
- * Ce que le téléphone garde pour travailler sans le PC : la Louis Segond (intégrée à l'app), les Bibles et les
- * chants reçus du PC, et les réglages de l'écran (version principale, 2e version, thème, taille).
+ * Bibles gardées sur le téléphone pour le détecteur de versets : la Louis Segond (intégrée à l'app) et les Bibles
+ * reçues du PC (version principale, noms des livres en kirundi, swahili…).
  */
 object Donnees {
     private val bibles = HashMap<String, BibleTexte>()
-    @Volatile private var chantsCache: List<JSONObject>? = null
 
     private fun dossier(ctx: Context) = File(ctx.filesDir, "bibles").apply { mkdirs() }
     private fun fichierBible(ctx: Context, id: String) = File(dossier(ctx), id.replace(Regex("[^A-Za-z0-9_-]"), "_") + ".mvb")
-    private fun fichierChants(ctx: Context) = File(ctx.filesDir, "chants.json")
 
     fun aBible(ctx: Context, id: String) = id == "lsg" || fichierBible(ctx, id).exists()
 
@@ -53,23 +51,10 @@ object Donnees {
         return (listOf(principale(ctx, store)) + listOfNotNull(seconde(ctx, store)) + autres).distinctBy { it.id }
     }
 
-    // ---------------------------------------------------------------- chants
-    fun chants(ctx: Context): List<JSONObject> {
-        chantsCache?.let { return it }
-        val l = try {
-            val a = JSONArray(fichierChants(ctx).readText())
-            (0 until a.length()).mapNotNull { a.optJSONObject(it) }
-        } catch (e: Exception) {
-            emptyList()
-        }
-        chantsCache = l
-        return l
-    }
-
     private fun gunzip(b64: String): InputStreamReader =
         InputStreamReader(GZIPInputStream(ByteArrayInputStream(Base64.decode(b64, Base64.DEFAULT))), Charsets.UTF_8)
 
-    /** Réponse « sync » du PC : réglages, chants (s'ils ont changé). Renvoie les Bibles à demander au PC. */
+    /** Réponse « sync » du PC : réglages des Bibles. Renvoie les Bibles à demander au PC. */
     fun recevoirSync(ctx: Context, store: Store, m: JSONObject): List<String> {
         // Bibles importées sur le PC (kirundi, swahili…) : copiées aussi, pour la recherche sans le PC
         val importees = ArrayList<String>()
@@ -82,16 +67,6 @@ object Donnees {
         dossier(ctx).listFiles()?.forEach { f ->
             val id = f.name.removeSuffix(".mvb")
             if (f.name.endsWith(".mvb") && id !in gardees) { f.delete(); synchronized(this) { bibles.remove(id) } }
-        }
-        m.optJSONObject("chants")?.let { c ->
-            val gz = c.optString("gz")
-            if (gz.isNotEmpty()) {
-                val texte = gunzip(gz).use { it.readText() }
-                JSONArray(texte) // vérifie avant d'écrire
-                fichierChants(ctx).writeText(texte)
-                chantsCache = null
-                store.chantsStamp = c.optString("stamp")
-            }
         }
         val r = reglages(store)
         return (listOf(r.optString("principale"), r.optString("seconde")) + importees)
@@ -160,8 +135,7 @@ object Donnees {
     /** Oublier ce PC : les données reçues de lui disparaissent aussi (la Louis Segond reste). */
     fun effacer(ctx: Context) {
         dossier(ctx).listFiles()?.forEach { it.delete() }
-        fichierChants(ctx).delete()
-        chantsCache = null
+        File(ctx.filesDir, "chants.json").delete()
         synchronized(this) { bibles.keys.retainAll(setOf("lsg")) }
     }
 }

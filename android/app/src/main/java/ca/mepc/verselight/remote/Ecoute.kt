@@ -322,7 +322,7 @@ class Ecoute : Service() {
     }
 }
 
-/** Bouton « Afficher » de la notification : le verset part à l'écran (PC ou OBS direct). */
+/** Bouton « Afficher » de la notification : le verset part à l'écran (par MyVerse sur le PC). */
 class AfficherRecu : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
         val ref = intent.getStringExtra("ref") ?: return
@@ -330,7 +330,7 @@ class AfficherRecu : BroadcastReceiver() {
         NotificationManagerCompat.from(ctx).cancel(1000 + id)
         Detection.retirer(id)
         if (!MyVerse.remote(ctx).send("bible.show", "ref" to ref)) {
-            Toast.makeText(ctx, "MyVerse n'est relié ni au PC ni à OBS : impossible d'afficher $ref", Toast.LENGTH_LONG).show()
+            Toast.makeText(ctx, "MyVerse n'est pas connecté au PC : impossible d'afficher $ref", Toast.LENGTH_LONG).show()
         }
     }
 }

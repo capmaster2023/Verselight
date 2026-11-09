@@ -235,9 +235,7 @@ private fun MainScreen(
     val context = LocalContext.current
     val pc by remote.pcName.collectAsState()
     val update by remote.update.collectAsState()
-    val directEtat by remote.direct.etat.collectAsState()
-    // jumelé : l'app marche toujours (PC, ou seule avec OBS directement quand MyVerse est fermé)
-    val pret = link != Link.NOT_PAIRED
+    val pret = link == Link.CONNECTED
     var tab by rememberSaveable { mutableStateOf(0) }
     var settings by remember { mutableStateOf(false) }
     var showLog by remember { mutableStateOf(false) }
@@ -279,7 +277,7 @@ private fun MainScreen(
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (tab == 0) BibleTab(remote, pret) else SongsTab(remote, pret)
         }
-        LiveBar(remote, link, directEtat)
+        LiveBar(remote, link)
     }
     if (settings) {
         AlertDialog(
@@ -293,18 +291,6 @@ private fun MainScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     SettingRow("Boutons de volume : + Suivant, − Précédent", volume, setVolume)
                     SettingRow("Garder l'écran allumé", keepOn, setKeepOn)
-                    var direct by remember { mutableStateOf(remote.store.obsDirect) }
-                    SettingRow("Piloter OBS quand MyVerse est fermé sur le PC", direct) {
-                        direct = it
-                        remote.store.obsDirect = it
-                        if (!it) remote.direct.pcPresent() else if (link != Link.CONNECTED) { remote.direct.reglagesChanges(); remote.direct.pcAbsent() }
-                    }
-                    val directMsg by remote.direct.message.collectAsState()
-                    Text("OBS direct : " + when {
-                        link == Link.CONNECTED -> "inutile pour l'instant (MyVerse est ouvert sur le PC et pilote OBS)"
-                        directMsg.isNotBlank() -> directMsg
-                        else -> "en attente"
-                    }, color = Brume, fontSize = 13.sp)
                     var bip by remember { mutableStateOf(remote.store.couperBip) }
                     SettingRow("Détecteur de versets : couper le bip du micro", bip) { bip = it; remote.store.couperBip = it }
                     Text("PC : $pc", color = Brume, fontSize = 13.sp)
@@ -325,20 +311,13 @@ private fun SettingRow(label: String, value: Boolean, onChange: (Boolean) -> Uni
 
 /** Barre fixe : connexion, ce qui est à l'écran, Précédent / Suivant. */
 @Composable
-private fun LiveBar(remote: Remote, link: Link, direct: Direct.Etat) {
+private fun LiveBar(remote: Remote, link: Link) {
     val state by remote.screen.collectAsState()
-    val directMsg by remote.direct.message.collectAsState()
     val haptic = LocalHapticFeedback.current
-    val enDirect = link != Link.CONNECTED && direct == Direct.Etat.PRET
-    val connected = link == Link.CONNECTED || enDirect
+    val connected = link == Link.CONNECTED
     val (line, next) = when {
-        !connected -> when {
-            direct == Direct.Etat.CONNEXION -> "MyVerse fermé sur le PC · connexion à OBS…"
-            direct == Direct.Etat.ERREUR || direct == Direct.Etat.ARRET && directMsg.isNotBlank() -> "MyVerse fermé sur le PC · OBS : $directMsg"
-            link == Link.CONNECTING -> "Connexion au PC…"
-            else -> "Recherche du PC…"
-        } to ""
-        state == null -> (if (enDirect) "OBS direct (MyVerse fermé sur le PC)" else "Connecté") to ""
+        !connected -> (if (link == Link.CONNECTING) "Connexion au PC…" else "Hors ligne · recherche du PC… (MyVerse doit être ouvert sur le PC)") to ""
+        state == null -> "Connecté" to ""
         else -> {
             val s = state!!
             val mode = s.optString("mode")
@@ -349,15 +328,14 @@ private fun LiveBar(remote: Remote, link: Link, direct: Direct.Etat) {
                 "chant" -> listOf(s.optString("titre"), first).filter { it.isNotBlank() }.joinToString(" · ")
                 else -> "Écran vide"
             }
-            val ligne = if (s.optBoolean("ecranOuvert", true)) now else "$now (écran fermé)"
-            (if (enDirect) "$ligne · OBS direct" else ligne) to s.optString("suivant")
+            (if (s.optBoolean("ecranOuvert", true)) now else "$now (écran fermé)") to s.optString("suivant")
         }
     }
     Row(
         Modifier.fillMaxWidth().background(Nuit).padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(12.dp).background(if (connected) Vert else if (link == Link.CONNECTING || direct == Direct.Etat.CONNEXION) Or else Rouge, CircleShape))
+        Box(Modifier.size(12.dp).background(if (connected) Vert else if (link == Link.CONNECTING) Or else Rouge, CircleShape))
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(line, color = Blanc, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -366,12 +344,12 @@ private fun LiveBar(remote: Remote, link: Link, direct: Direct.Etat) {
         Spacer(Modifier.width(8.dp))
         OutlinedButton(
             onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); remote.send("prev") },
-            modifier = Modifier.height(58.dp),
+            enabled = connected, modifier = Modifier.height(58.dp),
         ) { Text("‹", fontSize = 26.sp) }
         Spacer(Modifier.width(8.dp))
         Button(
             onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); remote.send("next") },
-            modifier = Modifier.height(58.dp),
+            enabled = connected, modifier = Modifier.height(58.dp),
         ) { Text("Suivant ›", fontSize = 17.sp, fontWeight = FontWeight.Bold) }
     }
 }
@@ -549,7 +527,7 @@ private fun SongsTab(remote: Remote, connected: Boolean) {
                 }
             }
             if (results.isEmpty()) item {
-                Text(if (connected) "Aucun chant trouvé." else "En attente du PC (ou d'OBS)…", color = Brume, modifier = Modifier.padding(16.dp))
+                Text(if (connected) "Aucun chant trouvé." else "En attente du PC…", color = Brume, modifier = Modifier.padding(16.dp))
             }
         }
     }
@@ -693,7 +671,7 @@ private fun DetecteurBar(remote: Remote, connected: Boolean) {
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         if (remote.send("bible.show", "ref" to s.label)) Detection.retirer(s.id)
-                        else Toast.makeText(context, "Ni le PC ni OBS ne sont joignables.", Toast.LENGTH_SHORT).show()
+                        else Toast.makeText(context, "MyVerse n'est pas connecté au PC.", Toast.LENGTH_SHORT).show()
                     },
                     enabled = connected,
                     modifier = Modifier.padding(start = 6.dp).height(44.dp),
