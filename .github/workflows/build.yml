@@ -90,6 +90,19 @@ jobs:
           "code de sortie : $($p.ExitCode)"
           exit $p.ExitCode
 
+      - name: Source navigateur OBS (image réellement visible)
+        run: |
+          $edge = "${env:ProgramFiles(x86)}/Microsoft/Edge/Application/msedge.exe"
+          if (-not (Test-Path $edge)) { $edge = "$env:ProgramFiles/Microsoft/Edge/Application/msedge.exe" }
+          node windows/tests/obs-browser.cjs "$edge" "$PWD/ci/obs-browser.png"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Add-Type -AssemblyName System.Drawing
+          $image = [System.Drawing.Bitmap]::new("$PWD/ci/obs-browser.png")
+          $pixel = $image.GetPixel([int]($image.Width / 2), [int]($image.Height / 2))
+          $image.Dispose()
+          "Pixel OBS : $($pixel.R),$($pixel.G),$($pixel.B)" | Tee-Object -FilePath ci/obs-browser.txt
+          if ($pixel.R -ne 200 -or $pixel.G -ne 30 -or $pixel.B -ne 40) { throw "Le fond masque la vidéo dans la source navigateur OBS" }
+
       - name: Règles du pare-feu (MyChurch.exe --parefeu)
         run: |
           $p = Start-Process -FilePath "out\MyChurch\MyChurch.exe" -ArgumentList "--parefeu" -PassThru
@@ -307,6 +320,9 @@ jobs:
           # notes de version : windows/NOTES-<version>.md s'il existe
           if [ -f "windows/NOTES-$V.md" ]; then NOTES=(--notes-file "windows/NOTES-$V.md"); else NOTES=(--notes "MyChurch $V : logiciel Windows natif (installateur MyVerse-Setup, dossier portable) et APK Android (MyChurch.apk)."); fi
           if gh release view "$TAG" >/dev/null 2>&1; then
+            if [[ "$V" == *-* ]]; then
+              gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/$TAG" -f sha="$GITHUB_SHA" -F force=true
+            fi
             gh release upload "$TAG" "${FILES[@]}" --clobber
           else
             gh release create "$TAG" "${FILES[@]}" "${BETA[@]}" --target "$GITHUB_SHA" --title "MyChurch $V" "${NOTES[@]}"
