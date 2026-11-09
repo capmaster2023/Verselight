@@ -21,6 +21,9 @@
   #scene.cache { opacity: 0; }
   #texte { font-size: 6rem; line-height: 1.32; max-width: 100%; text-wrap: balance; text-shadow: 0 .3rem 1.6rem rgba(0,0,0,.55); }
   #texte .ligne { display: block; }
+  /* 2e version (bilingue) : sous le texte, plus petite */
+  #texte2 { margin-top: 2.2rem; max-width: 100%; font-style: italic; line-height: 1.3; opacity: .86; text-wrap: balance; text-shadow: 0 .3rem 1.6rem rgba(0,0,0,.55); }
+  #texte2:empty { display: none; }
   #ref { margin-top: 3.2rem; font-family: var(--sans); font-weight: 700; font-size: 3.2rem; letter-spacing: .04em; color: var(--or2); }
   #ref:empty { display: none; }
   .mode-verset #texte { font-style: normal; }
@@ -34,35 +37,40 @@
 </head>
 <body class="theme-nuit">
 <div id="fond"></div>
-<div id="scene" class="cache"><div id="texte"></div><div id="ref"></div></div>
+<div id="scene" class="cache"><div id="texte"></div><div id="texte2"></div><div id="ref"></div></div>
 <div id="msg">Écran MyVerse<br><small>Double-cliquez pour le plein écran (ou F11).<br>Placez cette fenêtre sur le projecteur.</small></div>
 <script>
-const scene = document.getElementById('scene'), texte = document.getElementById('texte'), refEl = document.getElementById('ref');
+const scene = document.getElementById('scene'), texte = document.getElementById('texte'), texte2 = document.getElementById('texte2'), refEl = document.getElementById('ref');
 let courant = null;
 function ajuster() {
   // plus grande taille qui tient dans l'écran
   let lo = 2, hi = 11, best = 2;
   const maxH = scene.clientHeight - (refEl.textContent ? refEl.offsetHeight + 40 : 0);
+  const avec2 = !!texte2.textContent;
+  const taille = (r) => { texte.style.fontSize = r + 'rem'; if (avec2) texte2.style.fontSize = (r * 0.68) + 'rem'; };
   for (let i = 0; i < 14; i++) {
     const mid = (lo + hi) / 2;
-    texte.style.fontSize = mid + 'rem';
-    if (texte.scrollHeight <= maxH + 2 && texte.scrollWidth <= scene.clientWidth + 2) { best = mid; lo = mid; } else hi = mid;
+    taille(mid);
+    const haut = avec2 ? texte.scrollHeight + texte2.scrollHeight + texte2.offsetTop - (texte.offsetTop + texte.offsetHeight) : texte.scrollHeight;
+    if (haut <= maxH + 2 && texte.scrollWidth <= scene.clientWidth + 2 && (!avec2 || texte2.scrollWidth <= scene.clientWidth + 2)) { best = mid; lo = mid; } else hi = mid;
   }
-  texte.style.fontSize = best + 'rem';
+  taille(best);
 }
 function afficher(e) {
   document.body.className = 'theme-' + (e.theme || 'nuit') + ' vivant mode-' + (e.mode || 'vide') + ' pres-' + (e.presentation || 'plein');
   const vide = !e.mode || e.mode === 'vide';
-  const cle = JSON.stringify([e.mode, e.lignes, e.ref, e.taille, e.presentation]);
+  const deux = e.mode === 'verset' && e.second && e.second.texte ? e.second.texte : '';
+  const cle = JSON.stringify([e.mode, e.lignes, e.ref, e.taille, e.presentation, deux]);
   if (cle === courant) return;
   courant = cle;
   scene.classList.add('cache');
   setTimeout(() => {
     texte.textContent = '';
     for (const l of e.lignes || []) { const s = document.createElement('span'); s.className = 'ligne'; s.textContent = l; texte.appendChild(s); }
+    texte2.textContent = deux;
     refEl.textContent = e.ref || '';
     ajuster();
-    if (e.taille) texte.style.fontSize = (parseFloat(texte.style.fontSize) * e.taille) + 'rem';
+    if (e.taille) { texte.style.fontSize = (parseFloat(texte.style.fontSize) * e.taille) + 'rem'; if (deux) texte2.style.fontSize = (parseFloat(texte2.style.fontSize) * e.taille) + 'rem'; }
     if (!vide) scene.classList.remove('cache');
   }, courant && !vide ? 380 : 0);
 }

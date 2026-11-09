@@ -2,7 +2,7 @@ name: Build MyVerse
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -161,7 +161,7 @@ jobs:
 
   report:
     name: Rapport (branche ci-logs)
-    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: always() && github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')
     needs: [windows, android]
     runs-on: ubuntu-latest
     steps:
@@ -172,7 +172,7 @@ jobs:
           path: /tmp/a
         continue-on-error: true
       - run: |
-          { echo "commit ${GITHUB_SHA}"; echo "windows=${{ needs.windows.result }}"; echo "android=${{ needs.android.result }}"; } > /tmp/status.txt
+          { echo "commit ${GITHUB_SHA}"; echo "branche ${GITHUB_REF_NAME}"; echo "windows=${{ needs.windows.result }}"; echo "android=${{ needs.android.result }}"; } > /tmp/status.txt
           tail -c 60000 /tmp/a/ci-android.log > /tmp/android.log 2>/dev/null || echo "-" > /tmp/android.log
           git config user.name "github-actions"; git config user.email "actions@github.com"
           git checkout --orphan ci-logs && git rm -rqf . && cp /tmp/status.txt status.txt && cp /tmp/android.log android.log
@@ -180,7 +180,8 @@ jobs:
 
   release:
     name: Publication (GitHub Release)
-    if: github.event_name == 'push'
+    # la branche « dev » sert à vérifier la compilation : seules « main » et les tags publient une version
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     needs: [windows, android]
     runs-on: ubuntu-latest
     steps:

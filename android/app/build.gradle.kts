@@ -16,8 +16,8 @@ android {
         applicationId = "ca.mepc.verselight.remote"
         minSdk = 26
         targetSdk = 35
-        versionCode = (System.getenv("VERSION_CODE") ?: "218").toInt()
-        versionName = System.getenv("VERSION_NAME") ?: "2.1.8"
+        versionCode = (System.getenv("VERSION_CODE") ?: "300").toInt()
+        versionName = System.getenv("VERSION_NAME") ?: "3.0.0"
     }
 
     signingConfigs {

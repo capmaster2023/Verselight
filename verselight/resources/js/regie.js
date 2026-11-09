@@ -153,11 +153,37 @@
     a.className = 'apercu theme-' + etat.theme + (etat.mode !== 'vide' ? ' vivant' : '') + (etat.mode === 'chant' ? ' chant' : '');
     a.querySelector('.t').textContent = etat.lignes.join('\n');
     a.querySelector('.r').textContent = etat.ref || '';
+    a.querySelector('.t2').textContent = etat.mode === 'verset' && etat.second ? etat.second.texte : '';
     const p = $('#etat-ecran');
     p.textContent = ecranOuvert() ? (etat.mode === 'vide' ? 'Écran ouvert · vide' : 'À l’écran') : 'Écran fermé';
     p.classList.toggle('ouvert', ecranOuvert());
     marquerDirect();
+    majSuivant();
     for (const f of ecouteurs) try { f(); } catch (e) {}
+  }
+  // la diapositive qui viendra avec « Suivant » (verset suivant, morceau suivant, couplet suivant)
+  function suivante() {
+    if (!cible) return null;
+    if (cible.type === 'chant') {
+      const c = trouver(cible.id), s = c && c.sections[cible.i + 1];
+      return s ? { type: 'chant', id: cible.id, i: cible.i + 1, label: s.label || 'Strophe', texte: s.text } : null;
+    }
+    if (cible.type === 'verset') {
+      if (cible.parts > 1 && cible.part + 1 < cible.parts) {
+        return { type: 'verset', b: cible.b, c: cible.c, v: cible.v1, label: `${B.refLabel(cible.b, cible.c, cible.v1)} · morceau ${cible.part + 2}/${cible.parts}`, texte: morceaux(cible.b, cible.c, cible.v1)[cible.part + 1] };
+      }
+      let c = cible.c, v = cible.v2 + 1;
+      if (v > B.verses(cible.b, c).length) { if (c < B.chapterCount(cible.b)) { c++; v = 1; } else return null; }
+      const p = morceaux(cible.b, c, v);
+      return { type: 'verset', b: cible.b, c, v, label: B.refLabel(cible.b, c, v) + (p ? ` · morceau 1/${p.length}` : ''), texte: p ? p[0] : B.verses(cible.b, c)[v - 1] };
+    }
+    return null;
+  }
+  function majSuivant() {
+    const s = suivante();
+    $('#suivant-lab').textContent = s ? s.label : '';
+    $('#suivant-texte').textContent = s ? s.texte : '—';
+    $('#decouper').disabled = !s;
   }
   const ecouteurs = [];
   function ouvrirEcran() {
@@ -256,14 +282,22 @@
     });
     document.querySelectorAll('#sections .section').forEach((s) => s.classList.toggle('direct', !!cible && cible.type === 'chant' && cible.id === chantOuvert && cible.i === +s.dataset.i));
   }
+  // versets coupés en plusieurs diapositives (✂ Découper) : clé « livre.chapitre.verset » -> morceaux
+  let decoupes = lire('myverse-decoupes', {});
+  const cleVerset = (b, c, v) => `${b}.${c}.${v}`;
+  function morceaux(b, c, v) { const p = decoupes[cleVerset(b, c, v)]; return Array.isArray(p) && p.length > 1 ? p : null; }
   function afficherVerset(r) {
     const n = B.verses(r.b, r.c).length;
     if (!n) return;
     const v1 = Math.max(1, Math.min(n, r.v1)), v2 = Math.max(v1, Math.min(n, r.v2));
-    cible = { type: 'verset', b: r.b, c: r.c, v1, v2 };
+    const parts = v1 === v2 ? morceaux(r.b, r.c, v1) : null;
+    const part = parts ? (r.part === -1 ? parts.length - 1 : Math.max(0, Math.min(parts.length - 1, r.part || 0))) : 0;
+    cible = { type: 'verset', b: r.b, c: r.c, v1, v2, part, parts: parts ? parts.length : 0 };
     assurerEcran();
     oeilObs(true);
-    etat = { ...etat, mode: 'verset', lignes: [B.versesText(r.b, r.c, v1, v2)], ref: B.refLabel(r.b, r.c, v1, v2) + ' (LSG)' };
+    const VB = window.VLBibles;
+    const t2 = !parts && VB ? VB.texte2(r.b, r.c, v1, v2) : '';
+    etat = { ...etat, mode: 'verset', lignes: [parts ? parts[part] : B.versesText(r.b, r.c, v1, v2)], ref: B.refLabel(r.b, r.c, v1, v2) + ` (${VB ? VB.etiquette() : 'LSG'})`, second: t2 ? { texte: t2 } : null };
     if (vue && (vue.b !== r.b || vue.c !== r.c) && onglet === 'bible') ouvrirChapitre(r.b, r.c, v1, v2);
     envoyer();
   }
@@ -274,29 +308,42 @@
   $('#q').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); clearTimeout(minuterie); chercher(); if (sel) afficherVerset(sel); }
   });
-  function chercher() {
+  let recherches = 0;
+  async function chercher() {
     const q = $('#q').value.trim();
     if (!q) return;
     const r = B.parseRef(q);
     if (r && /\d/.test(q)) { ouvrirChapitre(r.b, r.c, r.v1, r.v2); return; }
     if (r && q.length <= 4) { ouvrirChapitre(r.b, r.c); return; }
     if (q.length < 3) return;
-    const res = B.search(q, 120);
+    // mots (même mal écrits) cherchés dans toutes les Bibles installées : version principale, 2e version, Bibles importées
+    const n = ++recherches;
+    let res = [];
+    try { res = window.VLRecherche ? await window.VLRecherche.chercher(q, { limite: 120 }) : B.search(q, 120); }
+    catch (e) { if (window.VLJournal) window.VLJournal.erreur('Recherche « ' + q + ' » : ' + (e.message || e)); }
+    if (n !== recherches || $('#q').value.trim() !== q) return; // une recherche plus récente est en cours
     vue = null; sel = null;
     $('#titre-chap').textContent = res.length ? `${res.length}${res.length >= 120 ? '+' : ''} résultat${res.length > 1 ? 's' : ''} pour « ${q} »` : '';
     const L = $('#versets');
     L.textContent = '';
     if (!res.length) { L.appendChild(h('div', 'vide', r ? '' : 'Aucun verset trouvé. Essayez une référence comme « jn 3 16 » ou d’autres mots.')); if (r) ouvrirChapitre(r.b, r.c); return; }
+    const termes = res.termes;
     for (const x of res) {
       const row = h('div', 'verset');
       const t = h('span');
-      t.append(h('span', 'ref', B.refLabel(x.b, x.c, x.v)), document.createTextNode(x.text));
+      const ref = h('span', 'ref', B.refLabel(x.b, x.c, x.v));
+      if (x.principale === false) ref.appendChild(h('span', 'ver', x.version));
+      t.appendChild(ref);
+      if (window.VLRecherche && termes) for (const m of window.VLRecherche.morceaux(x.text, termes)) t.appendChild(m.mot ? h('mark', '', m.t) : document.createTextNode(m.t));
+      else t.appendChild(document.createTextNode(x.text));
       row.append(h('span', 'n', String(x.v)), t);
       row.addEventListener('click', () => ouvrirChapitre(x.b, x.c, x.v, x.v));
       row.addEventListener('dblclick', () => afficherVerset({ b: x.b, c: x.c, v1: x.v, v2: x.v }));
       L.appendChild(row);
     }
   }
+  // l'index de recherche se prépare en arrière-plan : la première recherche est instantanée
+  setTimeout(() => { if (window.VLRecherche) window.VLRecherche.preparer(); }, 2500);
 
   // ------------------------------------------------------------ chants
   let chants = lire('verselight-chants', []);
@@ -346,6 +393,8 @@
       if (i < 9) lab.appendChild(h('kbd', '', String(i + 1)));
       e.append(lab, document.createTextNode(s.text));
       e.addEventListener('click', () => afficherSection(id, i));
+      e.addEventListener('dblclick', () => editer(c, i));
+      e.title = 'Clic : afficher · double-clic : modifier ou couper (Entrée devant une ligne)';
       box.appendChild(e);
     });
     listeChants();
@@ -357,7 +406,7 @@
     cible = { type: 'chant', id, i };
     assurerEcran();
     oeilObs(true);
-    etat = { ...etat, mode: 'chant', lignes: c.sections[i].text.split('\n').filter((l) => l.trim()), ref: '' };
+    etat = { ...etat, mode: 'chant', lignes: c.sections[i].text.split('\n').filter((l) => l.trim()), ref: '', second: null };
     envoyer();
   }
   $('#qc').addEventListener('input', listeChants);
@@ -367,7 +416,8 @@
   $('#import [data-imp="fichiers"]').addEventListener('click', () => { $('#import').close(); $('#fichiers').click(); });
   // utilisé par import-recueils.js
   window.VL = {
-    ajouterChants(liste) { for (const s of liste) chants.push({ id: Math.random().toString(36).slice(2, 10), title: s.title, author: s.author || '', sections: s.sections }); sauver(); listeChants(); },
+    ajouterChants(liste) { const rec = recueilImport(); for (const s of liste) chants.push({ id: Math.random().toString(36).slice(2, 10), title: s.title, author: rec || s.author || '', sections: s.sections }); sauver(); listeChants(); },
+    editerNouveau: () => { $('#import').close(); editer(null); setTimeout(() => $('#ed-texte').focus(), 50); },
     toast, natif: () => natif,
   };
   $('#fichiers').accept = S.ACCEPT;
@@ -376,7 +426,7 @@
     for (const f of e.target.files) {
       try {
         for (const s of await S.readSongFile(f)) {
-          chants.push({ id: Math.random().toString(36).slice(2, 10), title: s.title || f.name, author: s.author || '', sections: s.sections });
+          chants.push({ id: Math.random().toString(36).slice(2, 10), title: s.title || f.name, author: recueilImport() || s.author || '', sections: s.sections });
           n++;
         }
       } catch (x) { err.push(f.name + ' : ' + x.message); }
@@ -386,13 +436,63 @@
     toast((n ? `${n} chant${n > 1 ? 's' : ''} importé${n > 1 ? 's' : ''}.` : '') + (err.length ? ' Erreurs : ' + err.join(' · ') : ''));
   });
 
-  let edition = null;
-  function editer(c) {
+  const recueilImport = () => ($('#imp-recueil') ? $('#imp-recueil').value.trim() : '');
+  let edition = null, edBrut = '', edRecueil = '';
+  function editer(c, focus) {
     edition = c ? c.id : null;
+    edBrut = '';
+    edRecueil = c ? '' : recueilImport();
+    $('#ed-brut').hidden = true;
     $('#ed-titre').value = c ? c.title : '';
     $('#ed-texte').value = c ? c.sections.map((s) => `[${s.label}]\n${s.text}`).join('\n\n') : '';
+    apercuEditeur();
     $('#editeur').showModal();
+    if (c && focus != null) {
+      // curseur au début de la strophe double-cliquée
+      const ta = $('#ed-texte');
+      const pos = c.sections.slice(0, focus).reduce((n, s) => n + `[${s.label}]\n${s.text}`.length + 2, 0);
+      setTimeout(() => { ta.focus(); ta.setSelectionRange(pos, pos); ta.scrollTop = Math.max(0, ta.value.slice(0, pos).split('\n').length - 3) * 21; }, 30);
+    }
   }
+  // ---------- rangement automatique et aperçu des diapositives
+  const A = window.Arrange;
+  function apercuEditeur() {
+    const secs = S.splitSections($('#ed-texte').value);
+    const box = $('#ed-apercu');
+    box.textContent = '';
+    $('#ed-compte').textContent = secs.length ? `(${secs.length})` : '';
+    secs.forEach((s, i) => {
+      const e = h('div', 'ed-diapo' + (s.text.split('\n').length > 6 ? ' long' : ''));
+      e.title = s.text.split('\n').length > 6 ? 'Diapositive longue : appuyez sur Entrée devant une ligne pour la couper' : '';
+      e.append(h('b', '', `${i + 1}. ${s.label || 'Strophe'}`), document.createTextNode(s.text));
+      box.appendChild(e);
+    });
+  }
+  const sansEntetes = (t) => t.split('\n').filter((l) => !/^\s*\[[^\]]*\]\s*$/.test(l)).join('\n');
+  function rangerTexte(brut, silence) {
+    const r = A.ranger(brut, { max: $('#ed-lignes').value, titre: $('#ed-titre').value });
+    if (!r.sections.length) return;
+    if (!$('#ed-titre').value.trim() && r.title) $('#ed-titre').value = r.title;
+    $('#ed-texte').value = A.versTexte(r.sections);
+    $('#ed-brut').hidden = !edBrut;
+    apercuEditeur();
+    if (!silence) toast(`Chant rangé : ${r.sections.length} diapositive${r.sections.length > 1 ? 's' : ''}.`);
+  }
+  $('#ed-texte').addEventListener('paste', (e) => {
+    const t = (e.clipboardData || window.clipboardData).getData('text') || '';
+    const ta = e.target;
+    const tout = ta.selectionStart === 0 && ta.selectionEnd === ta.value.length;
+    // un chant complet collé dans un éditeur vide (ou tout sélectionné) : rangé directement
+    if (t.split('\n').filter((l) => l.trim()).length >= 3 && (!ta.value.trim() || tout)) {
+      e.preventDefault();
+      edBrut = t;
+      rangerTexte(t);
+    }
+  });
+  $('#ed-texte').addEventListener('input', apercuEditeur);
+  $('#ed-ranger').addEventListener('click', () => { if (!edBrut) edBrut = sansEntetes($('#ed-texte').value); rangerTexte(edBrut); });
+  $('#ed-lignes').addEventListener('change', () => { if (!edBrut) edBrut = sansEntetes($('#ed-texte').value); rangerTexte(edBrut); });
+  $('#ed-brut').addEventListener('click', () => { $('#ed-texte').value = edBrut; apercuEditeur(); });
   $('#nouveau').addEventListener('click', () => editer(null));
   $('#modifier').addEventListener('click', () => editer(trouver(chantOuvert)));
   $('#editeur').addEventListener('close', () => {
@@ -401,9 +501,78 @@
     const sections = S.splitSections($('#ed-texte').value);
     if (!sections.length) { toast('Le chant est vide.'); return; }
     if (edition) Object.assign(trouver(edition), { title: titre, sections });
-    else { edition = Math.random().toString(36).slice(2, 10); chants.push({ id: edition, title: titre, author: '', sections }); }
+    else { edition = Math.random().toString(36).slice(2, 10); chants.push({ id: edition, title: titre, author: edRecueil, sections }); }
     sauver(); ouvrirChant(edition);
   });
+  // ---------- ✂ Découper : Entrée devant une ligne (ou dans un verset) = nouvelle diapositive
+  let aDecouper = null;
+  function morceauxTexte(t, cible_) {
+    if (cible_.type === 'verset') return t.split('\n').map((l) => l.trim()).filter(Boolean); // une ligne = une diapositive
+    return t.split(/\n\s*\n/).map((b) => b.split('\n').map((l) => l.trim()).filter(Boolean).join('\n')).filter(Boolean);
+  }
+  function apercuDecoupe() {
+    const parts = morceauxTexte($('#decoupe-texte').value, aDecouper);
+    const box = $('#decoupe-apercu');
+    box.textContent = '';
+    $('#decoupe-compte').textContent = `(${parts.length})`;
+    parts.forEach((p, i) => { const e = h('div', 'ed-diapo'); e.append(h('b', '', String(i + 1)), document.createTextNode(p)); box.appendChild(e); });
+  }
+  function ouvrirDecoupe(t) {
+    if (!t) return;
+    aDecouper = t;
+    if (t.type === 'verset') {
+      const p = morceaux(t.b, t.c, t.v);
+      $('#decoupe-aide').textContent = `${B.refLabel(t.b, t.c, t.v)} — placez le curseur dans le texte et appuyez sur Entrée : chaque ligne devient une diapositive.`;
+      $('#decoupe-texte').value = p ? p.join('\n') : B.verses(t.b, t.c)[t.v - 1];
+    } else {
+      const c = trouver(t.id), sec = c && c.sections[t.i];
+      if (!sec) return;
+      $('#decoupe-aide').textContent = `${c.title} — ${sec.label || 'Strophe'} : appuyez sur Entrée devant une ligne pour commencer une nouvelle diapositive.`;
+      $('#decoupe-texte').value = sec.text;
+    }
+    apercuDecoupe();
+    $('#decoupe-dlg').showModal();
+    $('#decoupe-texte').focus();
+  }
+  $('#decoupe-texte').addEventListener('input', apercuDecoupe);
+  $('#decoupe-reset').addEventListener('click', () => {
+    const t = $('#decoupe-texte').value;
+    $('#decoupe-texte').value = aDecouper.type === 'verset' ? t.split('\n').map((l) => l.trim()).filter(Boolean).join(' ') : t.split('\n').filter((l) => l.trim()).join('\n');
+    apercuDecoupe();
+  });
+  $('#decoupe-dlg').addEventListener('close', () => {
+    if ($('#decoupe-dlg').returnValue !== 'ok' || !aDecouper) return;
+    const t = aDecouper;
+    const parts = morceauxTexte($('#decoupe-texte').value, t);
+    if (!parts.length) return;
+    if (t.type === 'verset') {
+      if (parts.length > 1) decoupes[cleVerset(t.b, t.c, t.v)] = parts; else delete decoupes[cleVerset(t.b, t.c, t.v)];
+      ecrire('myverse-decoupes', decoupes);
+      // le verset à l'écran est mis à jour tout de suite
+      if (cible && cible.type === 'verset' && cible.b === t.b && cible.c === t.c && cible.v1 === t.v && cible.v2 === t.v) afficherVerset({ b: t.b, c: t.c, v1: t.v, v2: t.v, part: 0 });
+      else majSuivant();
+      toast(parts.length > 1 ? `${B.refLabel(t.b, t.c, t.v)} : ${parts.length} diapositives.` : 'Verset remis en une seule diapositive.');
+    } else {
+      const c = trouver(t.id);
+      if (!c || !c.sections[t.i]) return;
+      const label = c.sections[t.i].label || 'Strophe';
+      const base = label.replace(/\s*\(\d+\/\d+\)$/, '');
+      const nouvelles = parts.map((p, j) => ({ label: parts.length > 1 ? `${base} (${j + 1}/${parts.length})` : base, text: p }));
+      c.sections.splice(t.i, 1, ...nouvelles);
+      sauver();
+      if (chantOuvert === t.id) ouvrirChant(t.id);
+      if (cible && cible.type === 'chant' && cible.id === t.id && cible.i === t.i) afficherSection(t.id, t.i); else majSuivant();
+      toast(`${label} : ${parts.length} diapositive${parts.length > 1 ? 's' : ''}.`);
+    }
+  });
+  $('#decouper').addEventListener('click', () => ouvrirDecoupe(suivante()));
+  $('#apercu').addEventListener('dblclick', () => {
+    if (!cible) return;
+    if (cible.type === 'chant') ouvrirDecoupe({ type: 'chant', id: cible.id, i: cible.i });
+    else if (cible.v1 === cible.v2) ouvrirDecoupe({ type: 'verset', b: cible.b, c: cible.c, v: cible.v1 });
+    else toast('Découper : affichez un seul verset à la fois.');
+  });
+
   $('#supprimer').addEventListener('click', () => {
     const c = trouver(chantOuvert);
     if (!c || !confirm(`Supprimer « ${c.title} » ?`)) return;
@@ -419,12 +588,17 @@
       return;
     }
     if (cible && cible.type === 'verset') {
+      // d'abord les morceaux d'un verset découpé
+      if (cible.parts > 1 && cible.part + d >= 0 && cible.part + d < cible.parts) {
+        afficherVerset({ b: cible.b, c: cible.c, v1: cible.v1, v2: cible.v2, part: cible.part + d });
+        return;
+      }
       const n = B.verses(cible.b, cible.c).length;
       let v = d > 0 ? cible.v2 + 1 : cible.v1 - 1;
       let c = cible.c;
       if (v > n && c < B.chapterCount(cible.b)) { c++; v = 1; }
       if (v < 1 && c > 1) { c--; v = B.verses(cible.b, c).length; }
-      if (v >= 1 && v <= B.verses(cible.b, c).length) { sel = { b: cible.b, c, v1: v, v2: v }; if (!vue || vue.c !== c) ouvrirChapitre(cible.b, c, v, v); afficherVerset(sel); marquer(); }
+      if (v >= 1 && v <= B.verses(cible.b, c).length) { sel = { b: cible.b, c, v1: v, v2: v }; if (!vue || vue.c !== c) ouvrirChapitre(cible.b, c, v, v); afficherVerset({ ...sel, part: d < 0 ? -1 : 0 }); marquer(); }
       return;
     }
     if (onglet === 'bible' && sel) afficherVerset(sel);
@@ -479,14 +653,14 @@
     return { b: r.b, c: r.c, v1, v2, entier: !r.v1 };
   }
   window.VLRegie = {
-    etat: () => etat, cible: () => cible, ecranOuvert: () => !!ecranOuvert(), trouver, chants: () => chants, ecranPid: () => ecranPid, dossierObs: () => preparerObs(),
+    etat: () => etat, cible: () => cible, suivante: () => suivante(), ecranOuvert: () => !!ecranOuvert(), trouver, chants: () => chants, ecranPid: () => ecranPid, dossierObs: () => preparerObs(),
     surChangement: (f) => ecouteurs.push(f),
     apercu(txt) {
       const r = lireRef(txt);
       if (!r) return null;
       const versets = [];
       for (let v = r.v1; v <= r.v2; v++) versets.push({ v, t: B.verses(r.b, r.c)[v - 1] });
-      return { ref: B.refLabel(r.b, r.c, r.entier ? 0 : r.v1, r.v2) + ' (LSG)', lignes: [B.versesText(r.b, r.c, r.v1, r.v2)], versets, livre: B.bookName(r.b), c: r.c };
+      return { ref: B.refLabel(r.b, r.c, r.entier ? 0 : r.v1, r.v2) + ` (${window.VLBibles ? window.VLBibles.etiquette() : 'LSG'})`, lignes: [B.versesText(r.b, r.c, r.v1, r.v2)], versets, livre: B.bookName(r.b), c: r.c };
     },
     afficherRef(txt) {
       const r = lireRef(txt);
@@ -498,6 +672,11 @@
       return true;
     },
     afficherSection, bouger, effacer,
+    // nouvelle version de la Bible choisie : on redessine le chapitre et le verset à l'écran
+    rafraichir() {
+      if (vue) ouvrirChapitre(vue.b, vue.c, sel ? sel.v1 : 0, sel ? sel.v2 : 0);
+      if (cible && cible.type === 'verset') afficherVerset({ b: cible.b, c: cible.c, v1: cible.v1, v2: cible.v2, part: cible.part });
+    },
   };
 
   // ------------------------------------------------------------ départ

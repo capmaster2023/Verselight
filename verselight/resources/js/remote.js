@@ -17,22 +17,14 @@
   // ------------------------------------------------------------ état envoyé aux téléphones
   function etatTel() {
     const e = R.etat(), c = R.cible();
-    let titre = '', suivant = '';
-    if (c && c.type === 'chant') {
-      const s = R.trouver(c.id);
-      if (s) {
-        titre = s.title;
-        const n = s.sections[c.i + 1];
-        suivant = n ? (n.label || 'Strophe') + ' · ' + n.text.split('\n')[0] : '';
-      }
-    } else if (c && c.type === 'verset') {
-      const n = B.verses(c.b, c.c).length;
-      if (c.v2 < n) suivant = B.refLabel(c.b, c.c, c.v2 + 1) + ' · ' + B.verses(c.b, c.c)[c.v2];
-      else if (c.c < B.chapterCount(c.b)) suivant = B.refLabel(c.b, c.c + 1, 1) + ' · ' + B.verses(c.b, c.c + 1)[0];
-    }
+    let titre = '';
+    if (c && c.type === 'chant') { const s = R.trouver(c.id); if (s) titre = s.title; }
+    const n = R.suivante();
+    const suivant = n ? n.label + ' · ' + n.texte.split('\n')[0] : '';
     const obs = window.VLObs || {};
     return {
       mode: e.mode, lignes: e.lignes, ref: e.ref, titre, suivant,
+      suivantLabel: n ? n.label : '', suivantTexte: n ? n.texte : '',
       chant: c && c.type === 'chant' ? { id: c.id, i: c.i } : null,
       ecranOuvert: R.ecranOuvert(),
       obsActif: obs.actif ? !!obs.actif() : false, obsConnecte: obs.connecte ? !!obs.connecte() : false,
@@ -82,6 +74,16 @@
       case 'bible.preview': {
         const a = R.apercu(d.ref);
         rep(a ? { t: 'preview', ...a } : { t: 'error', message: `Référence introuvable : « ${d.ref || ''} »` });
+        break;
+      }
+      case 'bible.search': {
+        const q = String(d.q || '').trim();
+        // mots même mal écrits, dans toutes les Bibles installées ; « v » = version où le verset a été trouvé
+        (async () => {
+          let res = [];
+          try { res = q.length >= 3 ? (window.VLRecherche ? await window.VLRecherche.chercher(q, { limite: 60 }) : B.search(q, 60)) : []; } catch (e) {}
+          rep({ t: 'search', q, liste: res.map((x) => ({ ref: B.refLabel(x.b, x.c, x.v), text: x.text, v: x.principale === false ? x.version : '' })) });
+        })();
         break;
       }
       case 'bible.show':

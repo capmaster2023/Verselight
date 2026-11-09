@@ -357,19 +357,37 @@ private fun BibleTab(remote: Remote, link: Link) {
     val haptic = LocalHapticFeedback.current
     var q by rememberSaveable { mutableStateOf("") }
     var preview by remember { mutableStateOf<JSONObject?>(null) }
+    var results by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var error by remember { mutableStateOf("") }
     val connected = link == Link.CONNECTED
+    val state by remote.screen.collectAsState()
 
     LaunchedEffect(q, connected) {
-        if (q.isBlank()) { preview = null; error = ""; return@LaunchedEffect }
+        if (q.isBlank()) { preview = null; results = emptyList(); error = ""; return@LaunchedEffect }
         delay(350)
         remote.send("bible.preview", "ref" to q)
     }
     LaunchedEffect(Unit) {
         remote.events.collect { e ->
             when (e.optString("t")) {
-                "preview" -> { preview = e; error = "" }
-                "error" -> if (e.optString("message").startsWith("Référence")) { preview = null; error = e.optString("message") }
+                "preview" -> { preview = e; results = emptyList(); error = "" }
+                "error" -> if (e.optString("message").startsWith("Référence")) {
+                    preview = null
+                    val mots = q.trim()
+                    // pas une référence : recherche par mots (« charité patiente »)
+                    if (mots.length >= 3 && mots.none { it.isDigit() }) {
+                        error = "Recherche de « $mots »…"
+                        remote.send("bible.search", "q" to mots)
+                    } else {
+                        results = emptyList()
+                        error = e.optString("message")
+                    }
+                }
+                "search" -> if (e.optString("q") == q.trim()) {
+                    val a = e.optJSONArray("liste")
+                    results = if (a == null) emptyList() else (0 until a.length()).map { a.getJSONObject(it) }
+                    error = if (results.isEmpty()) "Aucun verset trouvé pour « ${q.trim()} »." else ""
+                }
             }
         }
     }
@@ -420,10 +438,21 @@ private fun BibleTab(remote: Remote, link: Link) {
                         }
                     }
                 }
+                results.isNotEmpty() -> LazyColumn {
+                    item { Text("${results.size} verset(s) · touchez pour l'ouvrir", color = Brume, fontSize = 13.sp, modifier = Modifier.padding(bottom = 6.dp)) }
+                    items(results) { r ->
+                        Column(Modifier.fillMaxWidth().clickable { q = r.optString("ref") }.padding(vertical = 8.dp)) {
+                            val version = r.optString("v")
+                            Text(r.optString("ref") + if (version.isNotBlank()) "  · $version" else "", color = Or, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text(r.optString("text"), color = Blanc, fontSize = 15.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
                 error.isNotEmpty() -> Text(error, color = Brume, fontSize = 16.sp)
-                else -> Text("Tapez une référence : « mt 3 2 », « jn 3 16-18 », « ps 23 ».", color = Brume, fontSize = 16.sp)
+                else -> Text("Tapez une référence (« mt 3 2 », « jn 3 16-18 », « ps 23 ») ou des mots (« charité patiente »).", color = Brume, fontSize = 16.sp)
             }
         }
+        NextCard(state, connected)
         Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Button(
                 onClick = { show() }, enabled = connected && q.isNotBlank(),
@@ -537,6 +566,7 @@ private fun SongView(remote: Remote, song: JSONObject, state: JSONObject?, conne
                 }
             }
         }
+        NextCard(state, connected)
         Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Button(
                 onClick = { showSection(refrain) }, enabled = connected && refrain >= 0,
@@ -572,4 +602,20 @@ private fun JournalDialog(remote: Remote, onClose: () -> Unit) {
         },
         dismissButton = { TextButton(onClick = onClose) { Text("Fermer") } },
     )
+}
+
+/** La diapositive qui viendra avec « Suivant » : verset suivant (ou morceau) ou couplet suivant, en entier. */
+@Composable
+private fun NextCard(state: JSONObject?, connected: Boolean) {
+    val label = state?.optString("suivantLabel").orEmpty()
+    val texte = state?.optString("suivantTexte").orEmpty()
+    val mode = state?.optString("mode").orEmpty()
+    if (!connected || texte.isBlank() || (mode != "verset" && mode != "chant")) return
+    Column(
+        Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            .background(Nuit2, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Text("Suivant · $label", color = Or, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(texte, color = Blanc, fontSize = 15.sp, lineHeight = 21.sp, maxLines = 4, overflow = TextOverflow.Ellipsis)
+    }
 }

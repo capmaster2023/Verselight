@@ -31,6 +31,7 @@
   <section id="p-bible" class="panneau">
     <div class="recherche">
       <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="jn 3 16 · ps 23 · rm 8.28 · ou des mots : « bon berger »">
+      <div class="ligne-outils versions"><span id="versions-lab" class="muet">Version : LSG</span><span class="grow"></span><button id="bibles-btn" type="button" class="btn petit" title="Version principale, 2e version (bilingue), importer vos Bibles">Bibles…</button></div>
       <div id="livres" class="livres"></div>
     </div>
     <div id="titre-chap" class="titre-chap"></div>
@@ -74,7 +75,12 @@
 
   <!-- ==================== À L'ÉCRAN ==================== -->
   <aside class="colonne">
-    <div class="moniteur"><div id="apercu" class="apercu theme-nuit"><div class="t"></div><div class="r"></div></div><span id="etat-ecran" class="pastille">Écran fermé</span></div>
+    <div class="moniteur"><div id="apercu" class="apercu theme-nuit" title="Double-clic : couper cette diapositive"><div class="t"></div><div class="t2"></div><div class="r"></div></div><span id="etat-ecran" class="pastille">Écran fermé</span></div>
+    <div class="suivant-boite">
+      <div class="suivant-tete"><span>Suivant</span><b id="suivant-lab"></b><span class="grow"></span>
+        <button id="decouper" class="btn petit" title="Couper la diapositive suivante en plusieurs (Entrée devant une ligne)" disabled>✂ Découper</button></div>
+      <div id="suivant-texte" class="suivant-texte">—</div>
+    </div>
     <div class="commandes">
       <button id="prec" class="btn" title="Flèche gauche">‹ Précédent</button>
       <button id="suiv" class="btn" title="Flèche droite ou espace">Suivant ›</button>
@@ -93,14 +99,52 @@
   <form method="dialog">
     <h2>Chant</h2>
     <label>Titre<input id="ed-titre" required></label>
-    <label>Paroles <small>Laissez une ligne vide entre les strophes. Écrivez [Refrain] ou [Couplet 2] au début d'une strophe pour la nommer.</small>
-      <textarea id="ed-texte" rows="16"></textarea></label>
+    <div class="ligne-outils ed-barre">
+      <span class="muet">Collez un chant complet, même en désordre : il est rangé tout seul.</span><span class="grow"></span>
+      <label class="en-ligne">Lignes par diapositive
+        <select id="ed-lignes"><option value="auto">Auto (3 à 5)</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></label>
+      <button id="ed-ranger" type="button" class="btn petit or">Ranger</button>
+      <button id="ed-brut" type="button" class="btn petit" hidden>Texte d’origine</button>
+    </div>
+    <div class="ed-grille">
+      <label>Paroles <small><b>Entrée devant une ligne = nouvelle diapositive.</b> Une ligne vide sépare les diapositives ; [Refrain] ou [Couplet 2] au début pour les nommer.</small>
+        <textarea id="ed-texte" rows="18" spellcheck="false"></textarea></label>
+      <div><div class="ed-tete">Diapositives <b id="ed-compte"></b></div><div id="ed-apercu" class="ed-apercu"></div></div>
+    </div>
     <div class="ligne-outils"><span class="grow"></span><button value="annuler" class="btn">Annuler</button><button id="ed-ok" value="ok" class="btn or">Enregistrer</button></div>
+  </form>
+</dialog>
+<dialog id="bibles-dlg">
+  <form method="dialog">
+    <h2>Bibles</h2>
+    <label>Version principale<select id="bible-principale"></select></label>
+    <label>2e version (affichée sous le verset : versets bilingues)<select id="bible-seconde"></select></label>
+    <h3 class="outils-titre">Vos Bibles</h3>
+    <ul id="bibles-liste" class="tel-liste"></ul>
+    <button id="bible-importer" type="button" class="btn or">Importer une Bible…</button>
+    <p class="muet">Formats acceptés : Zefania XML, OSIS XML, USFX, JSON, ou texte (une ligne par verset : « Genèse 1:1 Au commencement… »). Toutes les langues (kirundi, swahili, anglais…) : les livres sont rangés dans l’ordre de la Bible.</p>
+    <p id="bible-etat" class="muet"></p>
+    <div class="ligne-outils"><span class="grow"></span><button value="fermer" class="btn">Fermer</button></div>
+  </form>
+</dialog>
+<input id="bible-fichier" type="file" accept=".xml,.json,.txt,.usfx,.osis,.zef" hidden>
+<dialog id="decoupe-dlg">
+  <form method="dialog">
+    <h2>Découper la diapositive</h2>
+    <p class="muet" id="decoupe-aide"></p>
+    <div class="ed-grille">
+      <textarea id="decoupe-texte" rows="12" spellcheck="false"></textarea>
+      <div><div class="ed-tete">Diapositives <b id="decoupe-compte"></b></div><div id="decoupe-apercu" class="ed-apercu"></div></div>
+    </div>
+    <div class="ligne-outils"><button id="decoupe-reset" type="button" class="btn">Un seul morceau</button><span class="grow"></span><button value="annuler" class="btn">Annuler</button><button value="ok" class="btn or">Enregistrer</button></div>
   </form>
 </dialog>
 <dialog id="import">
   <form method="dialog">
     <h2>Importer des chants</h2>
+    <label>Nom du recueil <small>(facultatif : les chants importés seront rangés sous ce nom)</small><input id="imp-recueil" placeholder="ex. Cantiques Kirundi, Chorale 2026"></label>
+    <button type="button" class="btn choix" data-imp="coller"><b>Coller un chant</b><small>Copiez les paroles (WhatsApp, site, Word…) : MyVerse les range en diapositives de 3 à 5 lignes</small></button>
+    <button type="button" class="btn choix" data-imp="texte"><b>Recueil en texte (.txt)</b><small>Plusieurs chants numérotés « 1. Titre » dans un seul fichier texte</small></button>
     <button type="button" class="btn choix" data-imp="fichiers"><b>Fichiers de chants</b><small>VideoPsalm, OpenLyrics, OpenSong, ChordPro, SongSelect, ProPresenter 6, texte</small></button>
     <button type="button" class="btn choix" data-imp="pdf"><b>Recueil en PDF</b><small>Un livre de cantiques numérotés (ex. cantiques en kirundi)</small></button>
     <label class="choix-web"><b>Depuis un site web</b><small>Collez le lien d'un chant ou d'une page qui liste les chants (ex. indirimbo.com/agakiza)</small>
@@ -158,6 +202,7 @@
     <div class="ligne-outils"><span class="grow"></span><button value="fermer" class="btn">Fermer</button></div>
   </form>
 </dialog>
+<input id="recueil-txt" type="file" accept=".txt,text/plain" hidden>
 <input id="pdf" type="file" accept=".pdf,application/pdf" hidden>
 <div id="toast" class="toast"></div>
 
@@ -165,9 +210,12 @@
 <script src="js/neutralino.js"></script>
 <script src="js/bible-lsg1910.js"></script>
 <script src="js/bible.js"></script>
+<script src="js/bibles.js"></script>
+<script src="js/recherche.js"></script>
 <script src="js/chants-formats.js"></script>
 <script src="js/pdf.min.js"></script>
 <script src="js/chants-inclus.js"></script>
+<script src="js/arrange.js"></script>
 <script src="js/regie.js"></script>
 <script src="js/import-recueils.js"></script>
 <script src="js/obs.js"></script>

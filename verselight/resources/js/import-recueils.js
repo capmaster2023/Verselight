@@ -96,6 +96,58 @@
     return chants.map((c) => ({ title: c.title, sections: strophes(c.lignes) })).filter((c) => c.sections.length);
   }
 
+  // ============================================================ coller un chant / recueil en texte
+  $('#import [data-imp="coller"]').addEventListener('click', () => window.VL.editerNouveau());
+  $('#import [data-imp="texte"]').addEventListener('click', () => $('#recueil-txt').click());
+
+  // Plusieurs chants dans un seul texte : « 12. TITRE », « 12 » seul, séparateurs (---, ***, ===) ou 2 lignes vides
+  function chantsDepuisTexte(texte) {
+    const lignes = String(texte).replace(/\r\n?/g, '\n').split('\n');
+    const majuscules = (s) => { const l = s.replace(/[^A-Za-zÀ-ÿ]/g, ''); return l.length > 2 && l === l.toUpperCase(); };
+    const chants = [];
+    let cur = null, vides = 0, attendu = null;
+    const fermer = () => { if (cur && cur.lignes.some((l) => l.trim())) chants.push(cur); cur = null; };
+    for (const brut of lignes) {
+      const l = brut.trim();
+      if (!l) { vides++; if (cur) cur.lignes.push(''); continue; }
+      const sep = /^([-*=#_~])\1{2,}$/.test(l);
+      const m = l.match(/^(\d{1,4})\s*[.)\-–:]?\s+(.{2,90})$/) || l.match(/^(\d{1,4})[.)]?$/);
+      const suite = m && (attendu === null || (+m[1] >= attendu && +m[1] <= attendu + 3));
+      const entete = m && suite && (!m[2] || majuscules(m[2]) || (vides >= 2) || !cur);
+      if (sep) { fermer(); vides = 0; continue; }
+      if (entete) {
+        fermer();
+        cur = { title: m[2] ? `${m[1]}. ${m[2].trim()}` : '', num: +m[1], lignes: [] };
+        attendu = +m[1] + 1;
+      } else if (!cur || vides >= 2) {
+        fermer();
+        cur = { title: '', lignes: [l] };
+      } else cur.lignes.push(l);
+      if (cur && !cur.title && cur.lignes.length === 0 && !entete) cur.lignes.push(l);
+      if (cur && !cur.title && cur.num && cur.lignes.length === 1) { cur.title = `${cur.num}. ${cur.lignes[0]}`; cur.lignes = []; }
+      vides = 0;
+    }
+    fermer();
+    return chants.map((c) => {
+      const r = window.Arrange.ranger(c.lignes.join('\n'), { titre: c.title });
+      return { title: r.title || c.title || (c.lignes.find((l) => l.trim()) || 'Sans titre').slice(0, 60), sections: r.sections };
+    }).filter((c) => c.sections.length);
+  }
+  window.VLRecueilTexte = chantsDepuisTexte;
+  $('#recueil-txt').addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    try {
+      const texte = S.decodeBytes ? S.decodeBytes(new Uint8Array(await f.arrayBuffer())) : await f.text();
+      const chants = chantsDepuisTexte(texte);
+      if (!chants.length) { etat('Aucun chant trouvé dans ce fichier.'); return; }
+      if (!$('#imp-recueil').value.trim()) $('#imp-recueil').value = f.name.replace(/\.[^.]+$/, '');
+      window.VL.ajouterChants(chants);
+      etat(`${chants.length} chant${chants.length > 1 ? 's' : ''} importé${chants.length > 1 ? 's' : ''} dans le recueil « ${$('#imp-recueil').value.trim()} ».`);
+    } catch (x) { etat('Erreur de lecture : ' + (x.message || x)); }
+  });
+
   $('#import [data-imp="pdf"]').addEventListener('click', () => $('#pdf').click());
   $('#pdf').addEventListener('change', async (e) => {
     const f = e.target.files[0];
@@ -106,8 +158,9 @@
       const lignes = await lignesPdf(new Uint8Array(await f.arrayBuffer()));
       const chants = chantsDepuisLignes(lignes);
       if (!chants.length) { etat('Aucun chant numéroté trouvé dans ce PDF (le texte est peut-être une image scannée).'); return; }
+      if (!$('#imp-recueil').value.trim()) $('#imp-recueil').value = f.name.replace(/\.[^.]+$/, '');
       window.VL.ajouterChants(chants);
-      etat(`${chants.length} chants importés de « ${f.name} ». Vérifiez quelques chants : un PDF mal formé peut couper des strophes.`);
+      etat(`${chants.length} chants importés dans le recueil « ${$('#imp-recueil').value.trim()} ». Vérifiez quelques chants : un PDF mal formé peut couper des strophes.`);
     } catch (x) { etat('Erreur de lecture du PDF : ' + (x.message || x)); }
   });
 

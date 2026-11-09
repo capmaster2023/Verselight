@@ -125,7 +125,7 @@ function versesText(b, c, v1, v2) {
   for (let v = v1; v <= v2 && v <= vs.length; v++) out.push(vs[v - 1]);
   return out.join(' ');
 }
-function _setData(d) { data = d; }
+function _setData(d) { data = d; normCache = null; }
 
 window.Bible = { BOOKS, norm, loadBible, bible, chapterCount, verses, bookName, refLabel, parseRef, search, versesText, _setData };
 })();

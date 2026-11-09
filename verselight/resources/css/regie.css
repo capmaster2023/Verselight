@@ -132,3 +132,31 @@ dialog input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--or)
 .outils-titre { margin: 6px 0; font-size: 15px; color: var(--or); }
 #outils-dlg { min-width: 460px; }
 .journal { width: 100%; min-width: 640px; height: 260px; box-sizing: border-box; font: 12px/1.45 Consolas, 'Courier New', monospace; background: #070B1E; color: #DCE3FF; border: 1px solid var(--nuit2); border-radius: 8px; padding: 8px; white-space: pre; overflow: auto; }
+
+/* éditeur de chant : rangement automatique et aperçu des diapositives */
+#editeur { width: min(1100px, 94vw); }
+.ed-barre { gap: 8px; margin: 4px 0 8px; flex-wrap: wrap; }
+.en-ligne { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.en-ligne select { width: auto; }
+.ed-grille { display: grid; grid-template-columns: 1.1fr 1fr; gap: 14px; align-items: start; }
+.ed-grille textarea { min-height: 360px; font-size: 14px; line-height: 1.5; }
+.ed-tete { font-size: 13px; color: var(--brume2); margin-bottom: 6px; }
+.ed-apercu { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; max-height: 420px; overflow: auto; }
+.ed-diapo { background: var(--nuit2); border-radius: 10px; padding: 8px 10px; white-space: pre-line; font-size: 12.5px; line-height: 1.4; }
+.ed-diapo b { display: block; color: var(--or); font-size: 11.5px; margin-bottom: 3px; }
+.ed-diapo.long { outline: 2px solid #c0504d; }
+
+/* diapositive suivante */
+.suivant-boite { background: var(--nuit2); border-radius: 12px; padding: 8px 10px; margin: 8px 0; }
+.suivant-tete { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--brume2); }
+.suivant-tete b { color: var(--or); font-size: 12.5px; }
+.suivant-texte { white-space: pre-line; font-size: 13px; line-height: 1.45; max-height: 120px; overflow: auto; margin-top: 4px; color: var(--blanc); }
+#decoupe-dlg { width: min(980px, 94vw); }
+#decoupe-dlg textarea { min-height: 260px; font-size: 15px; line-height: 1.5; }
+.apercu .t2 { font-style: italic; opacity: .82; font-size: .78em; margin-top: .4em; white-space: pre-line; }
+.apercu .t2:empty { display: none; }
+.versions { margin: 6px 0 2px; font-size: 12.5px; }
+
+/* recherche par mots : mots trouvés surlignés, version où le verset a été trouvé */
+.verset mark { background: rgba(228, 175, 65, .28); color: inherit; border-radius: 3px; padding: 0 1px; }
+.verset .ref .ver { margin-left: 6px; padding: 0 5px; border-radius: 4px; background: var(--or); color: #0A1028; font-size: 10px; }
