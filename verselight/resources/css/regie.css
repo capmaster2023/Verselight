@@ -129,3 +129,5 @@ dialog input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--or)
 .tel-qr-msg { color: #10183A; font-weight: 700; padding: 20px; text-align: center; }
 .version { border: 0; background: none; color: var(--brume2); font-size: 12px; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
 .version:hover { color: var(--blanc); background: var(--nuit2); }
+.outils-titre { margin: 6px 0; font-size: 15px; color: var(--or); }
+#outils-dlg { min-width: 460px; }

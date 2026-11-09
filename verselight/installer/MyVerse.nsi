@@ -4,7 +4,7 @@ Unicode true
 !include "MUI2.nsh"
 
 !ifndef VERSION
-  !define VERSION "2.1.5"
+  !define VERSION "2.1.6"
 !endif
 !define APP "MyVerse"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\MyVerse"

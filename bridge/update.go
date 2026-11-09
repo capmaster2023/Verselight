@@ -68,8 +68,12 @@ func (b *bridge) checkUpdate(current string, manual bool) {
 		return
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		b.updateEvent(map[string]any{"available": false, "manual": manual, "error": "Mises à jour inaccessibles : le dépôt GitHub de MyVerse est privé (il doit être public pour que Outils › Mise à jour fonctionne)."})
+		return
+	}
 	if resp.StatusCode != http.StatusOK {
-		b.updateEvent(map[string]any{"available": false, "manual": manual, "error": fmt.Sprintf("Impossible de vérifier les mises à jour (GitHub : %d). Le dépôt doit être public.", resp.StatusCode)})
+		b.updateEvent(map[string]any{"available": false, "manual": manual, "error": fmt.Sprintf("Impossible de vérifier les mises à jour (GitHub : %d). Réessayez plus tard.", resp.StatusCode)})
 		return
 	}
 	var rel release

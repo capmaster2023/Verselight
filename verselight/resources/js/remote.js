@@ -144,27 +144,42 @@
   vb.textContent = 'v' + (window.NL_APPVERSION || '');
   vb.hidden = false;
   function verifierMaj(manuel) {
-    if (!pret) { if (manuel) toast('Module réseau pas encore prêt, réessayez dans quelques secondes.'); return; }
-    if (manuel) toast('Recherche de mise à jour…');
+    if (!pret) { if (manuel) { etatMaj('Démarrage du module réseau… nouvel essai dans quelques secondes.'); majEnAttente = true; relances = 0; relancerBridge(); } return; }
     versBridge('update.check', { current: window.NL_APPVERSION || '0', manual: !!manuel });
   }
-  vb.addEventListener('click', () => verifierMaj(true));
-  mb.addEventListener('click', () => {
-    if (!maj || !confirm(`Installer MyVerse ${maj.version} ? MyVerse va se fermer puis se rouvrir tout seul (vos chants et réglages sont gardés).`)) return;
-    mb.disabled = true;
+  vb.addEventListener('click', () => ouvrirOutils(true));
+  const od = $('#outils-dlg'), me = $('#maj-etat'), mi = $('#maj-installer');
+  function etatMaj(t) { me.textContent = t; }
+  function ouvrirOutils(chercher) {
+    etatMaj('Version installée : ' + (window.NL_APPVERSION || '?') + (maj ? ' · nouvelle version ' + maj.version + ' disponible' : ''));
+    mi.hidden = !maj;
+    if (!od.open) od.showModal();
+    if (chercher) { etatMaj('Recherche d’une mise à jour…'); verifierMaj(true); }
+  }
+  $('#outils-btn').addEventListener('click', () => ouvrirOutils(true));
+  $('#maj-verif').addEventListener('click', () => ouvrirOutils(true));
+  function installerMaj() {
+    if (!maj) return;
+    mb.disabled = true; mi.disabled = true;
     mb.textContent = 'Téléchargement…';
+    etatMaj('Téléchargement de MyVerse ' + maj.version + '…');
     versBridge('update.install', { url: maj.url });
-  });
+  }
+  mi.addEventListener('click', installerMaj);
+  mb.addEventListener('click', () => ouvrirOutils(false));
   function evenementMaj(d) {
-    if (d.state === 'download') { mb.textContent = 'Téléchargement… ' + d.pct + ' %'; return; }
-    if (d.state === 'installing') { mb.textContent = 'Installation…'; toast('Installation de la mise à jour… MyVerse va redémarrer.'); return; }
-    if (d.state === 'error') { mb.disabled = false; mb.textContent = 'Mettre à jour'; toast(d.message); return; }
+    if (d.state === 'download') { mb.textContent = 'Téléchargement… ' + d.pct + ' %'; etatMaj('Téléchargement… ' + d.pct + ' %'); return; }
+    if (d.state === 'installing') { mb.textContent = 'Installation…'; etatMaj('Installation… MyVerse va se fermer puis se rouvrir.'); toast('Installation de la mise à jour… MyVerse va redémarrer.'); return; }
+    if (d.state === 'error') { mb.disabled = false; mi.disabled = false; mb.textContent = 'Mettre à jour'; etatMaj(d.message); toast(d.message); return; }
     if (d.available) {
       maj = d;
-      mb.hidden = false; mb.disabled = false;
+      mb.hidden = false; mb.disabled = false; mi.hidden = false; mi.disabled = false;
       mb.textContent = 'Mettre à jour (' + d.version + ')';
-      if (d.manual) toast('MyVerse ' + d.version + ' est disponible.');
-    } else if (d.manual) toast(d.error || 'MyVerse est à jour (' + (window.NL_APPVERSION || '') + ').');
+      etatMaj('Nouvelle version disponible : ' + d.version + ' (installée : ' + (window.NL_APPVERSION || '?') + ').');
+    } else if (d.manual) {
+      mi.hidden = true;
+      etatMaj(d.error || 'MyVerse est à jour (version ' + (window.NL_APPVERSION || '') + ').');
+    }
   }
 
   function evenement(d) {
@@ -223,9 +238,10 @@
     pousser(true);
     majBouton();
     if (dlg.open) { $('#tel-info').textContent = ''; qrAttente(); versBridge('pairStart'); versBridge('devices'); }
-    if (!majVerifiee) { majVerifiee = true; setTimeout(() => verifierMaj(false), 8000); }
+    if (majEnAttente) { majEnAttente = false; verifierMaj(true); }
+    else if (!majVerifiee) { majVerifiee = true; setTimeout(() => verifierMaj(false), 8000); }
   }
-  let majVerifiee = false;
+  let majVerifiee = false, majEnAttente = false;
   // le bridge s'est arrêté ou n'a pas démarré : MyVerse le relance lui-même
   let relances = 0, minuterieRelance = null;
   function planifierRelance(ms) { clearTimeout(minuterieRelance); minuterieRelance = setTimeout(relancerBridge, ms); }

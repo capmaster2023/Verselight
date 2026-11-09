@@ -21,6 +21,7 @@
     </select>
     <button id="tel-btn" class="btn" title="Télécommande Android"><span class="obs-etat">Téléphone</span></button>
     <button id="obs-btn" class="btn" title="Piloter OBS"><span id="obs-etat" class="obs-etat">OBS</span></button>
+    <button id="outils-btn" class="btn" title="Mise à jour et informations">Outils</button>
     <button id="ouvrir" class="btn or">Écran de projection ▾</button>
   </div>
 </header>
@@ -133,6 +134,19 @@
         <button id="tel-pf-btn" type="button" class="btn petit" hidden>Autoriser dans le pare-feu</button>
       </div>
     </div>
+    <div class="ligne-outils"><span class="grow"></span><button value="fermer" class="btn">Fermer</button></div>
+  </form>
+</dialog>
+<dialog id="outils-dlg">
+  <form method="dialog">
+    <h2>Outils</h2>
+    <h3 class="outils-titre">Mise à jour</h3>
+    <p id="maj-etat" class="muet"></p>
+    <div class="ligne-outils">
+      <button id="maj-verif" type="button" class="btn">Rechercher une mise à jour</button>
+      <button id="maj-installer" type="button" class="btn or" hidden>Installer la mise à jour</button>
+    </div>
+    <p class="muet">L’installation ferme MyVerse quelques secondes puis le rouvre. Chants, réglages et téléphones jumelés sont gardés.</p>
     <div class="ligne-outils"><span class="grow"></span><button value="fermer" class="btn">Fermer</button></div>
   </form>
 </dialog>

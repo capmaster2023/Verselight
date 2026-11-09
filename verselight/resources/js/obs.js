@@ -39,18 +39,11 @@
       setTimeout(() => { if (attente.has(id)) { attente.delete(id); res(null); } }, 3000);
     });
   }
-  // source temporaire : créée à « Afficher » dans la scène en cours, supprimée à « Retirer »
+  // « Afficher » : la source MyVerse passe AU PREMIER PLAN de la scène en cours (créée si besoin, rien à configurer).
+  // « Retirer » : la source temporaire est supprimée et la scène redevient comme avant (sources remises à leur place).
   const AUTO = 'MyVerse (temporaire)';
-  async function creerTemporaire() {
-    const dossier = window.VLRegie && window.VLRegie.dossierObs ? await window.VLRegie.dossierObs() : '';
-    const scene = await req('GetCurrentProgramScene');
-    const nomScene = scene && scene.responseData && (scene.responseData.currentProgramSceneName || scene.responseData.sceneName);
-    if (!dossier || !nomScene) return;
-    await req('CreateInput', {
-      sceneName: nomScene, inputName: AUTO, inputKind: 'browser_source', sceneItemEnabled: true,
-      inputSettings: { is_local_file: true, local_file: dossier.replace(/\\/g, '/') + '/ecran.html', width: 1920, height: 1080 },
-    });
-  }
+  const places = new Map(); // sources de l'utilisateur déplacées au premier plan : leur place d'origine
+  const ok_ = (r) => !!(r && r.requestStatus && r.requestStatus.result);
 
   // une source qui affiche MyVerse : capture de la fenêtre « MyVerse — écran » ou source navigateur VerseLight-OBS
   const estMyVerse = new Map();
@@ -63,24 +56,68 @@
     estMyVerse.set(it.sourceName, oui);
     return oui;
   }
-  // allume ou éteint l'œil de la source dans toutes les scènes où elle se trouve
-  async function oeil(visible) {
-    if (!cfg.actif || !ok) return;
-    const scenes = await req('GetSceneList');
-    if (!scenes || !scenes.responseData) return;
-    let trouve = false;
-    for (const sc of scenes.responseData.scenes) {
-      const items = await req('GetSceneItemList', { sceneName: sc.sceneName });
-      for (const it of (items && items.responseData ? items.responseData.sceneItems : [])) {
-        if (it.sourceName === AUTO) { trouve = true; continue; }
-        if (it.sourceName === cfg.source || await sourceMyVerse(it)) {
-          trouve = true;
-          if (it.sceneItemEnabled !== visible) await req('SetSceneItemEnabled', { sceneName: sc.sceneName, sceneItemId: it.sceneItemId, sceneItemEnabled: visible });
-        }
+  async function scenePrincipale() {
+    const r = await req('GetCurrentProgramScene');
+    return r && r.responseData ? (r.responseData.currentProgramSceneName || r.responseData.sceneName) : null;
+  }
+  async function elements(scene) {
+    const r = await req('GetSceneItemList', { sceneName: scene });
+    return r && r.responseData ? r.responseData.sceneItems : [];
+  }
+  async function premierPlan(scene, id) {
+    const n = (await elements(scene)).length;
+    if (n > 0) await req('SetSceneItemIndex', { sceneName: scene, sceneItemId: id, sceneItemIndex: n - 1 });
+  }
+
+  async function montrer() {
+    const scene = await scenePrincipale();
+    if (!scene) return;
+    const items = await elements(scene);
+    let id = null;
+    const auto = items.find((it) => it.sourceName === AUTO);
+    if (auto) id = auto.sceneItemId;
+    if (id === null) for (const it of items) {
+      if (it.sourceName === cfg.source || await sourceMyVerse(it)) {
+        const cle = scene + '|' + it.sceneItemId;
+        if (!places.has(cle)) places.set(cle, { scene, id: it.sceneItemId, index: it.sceneItemIndex, visible: it.sceneItemEnabled });
+        if (!it.sceneItemEnabled) await req('SetSceneItemEnabled', { sceneName: scene, sceneItemId: it.sceneItemId, sceneItemEnabled: true });
+        id = it.sceneItemId;
+        break;
       }
     }
-    if (!visible) { await req('RemoveInput', { inputName: AUTO }); return; }
-    if (!trouve) await creerTemporaire();
+    if (id === null) {
+      // aucune source MyVerse dans cette scène : source navigateur temporaire
+      if (ok_(await req('GetInputSettings', { inputName: AUTO }))) {
+        const r = await req('CreateSceneItem', { sceneName: scene, sourceName: AUTO, sceneItemEnabled: true });
+        if (ok_(r)) id = r.responseData.sceneItemId;
+      } else {
+        const dossier = window.VLRegie && window.VLRegie.dossierObs ? await window.VLRegie.dossierObs() : '';
+        if (!dossier) return;
+        const r = await req('CreateInput', {
+          sceneName: scene, inputName: AUTO, inputKind: 'browser_source', sceneItemEnabled: true,
+          inputSettings: { is_local_file: true, local_file: dossier.replace(/\\/g, '/') + '/ecran.html', width: 1920, height: 1080 },
+        });
+        if (ok_(r)) id = r.responseData.sceneItemId;
+      }
+    }
+    if (id !== null) await premierPlan(scene, id);
+  }
+
+  async function cacher() {
+    await req('RemoveInput', { inputName: AUTO });
+    for (const p of places.values()) {
+      await req('SetSceneItemEnabled', { sceneName: p.scene, sceneItemId: p.id, sceneItemEnabled: false });
+      await req('SetSceneItemIndex', { sceneName: p.scene, sceneItemId: p.id, sceneItemIndex: p.index });
+    }
+    places.clear();
+  }
+
+  // une commande à la fois (Afficher puis Retirer très vite restent dans l'ordre)
+  let file = Promise.resolve();
+  function oeil(visible) {
+    if (!cfg.actif || !ok) return Promise.resolve();
+    file = file.then(() => (visible ? montrer() : cacher())).catch(() => {});
+    return file;
   }
   window.VLObs = { oeil, connecte: () => ok, actif: () => cfg.actif };
 
