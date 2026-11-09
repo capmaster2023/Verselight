@@ -53,6 +53,7 @@ type phone struct {
 
 type bridge struct {
 	st   *store
+	dir  string
 	name string
 	port int
 
@@ -60,18 +61,31 @@ type bridge struct {
 	nl   *wsConn
 	info nlInfo
 
-	mu        sync.Mutex
-	ecranPid  int // fenêtre de projection, fermée avec MyVerse
-	phones    map[*phone]bool
-	state     json.RawMessage
-	pairKey   []byte
-	pairUntil time.Time
+	appPID int    // MyVerse.exe qui a lancé ce bridge
+	appExe string //   et son chemin (pour le relancer)
+
+	mu         sync.Mutex
+	ecranPid   int // fenêtre de projection, fermée avec MyVerse
+	lastRegie  time.Time
+	restarting bool
+	phones     map[*phone]bool
+	state      json.RawMessage
+	pairKey    []byte
+	pairUntil  time.Time
 }
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "--migrer-profil" {
-		migrateProfile(os.Args[2:])
-		return
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "--migrer-profil":
+			migrateProfile(os.Args[2:])
+			return
+		case "--parefeu": // lancé en administrateur (installateur ou demande UAC du bridge)
+			if err := applyFirewallRules(); err != nil {
+				os.Exit(1)
+			}
+			return
+		}
 	}
 	dir := os.Getenv("VERSELIGHT_DATA_DIR")
 	if dir == "" {
@@ -82,14 +96,20 @@ func main() {
 		dir = filepath.Join(base, "VerseLight")
 	}
 	os.MkdirAll(dir, 0o700)
-	if f, err := os.OpenFile(filepath.Join(dir, "bridge.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600); err == nil {
+	if f, err := os.OpenFile(filepath.Join(dir, "bridge.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600); err == nil {
+		if st, e := f.Stat(); e == nil && st.Size() > 512<<10 {
+			f.Truncate(0)
+		}
 		log.SetOutput(io.MultiWriter(f, os.Stderr))
 	}
 	log.Printf("verselight-bridge %s", version)
+	appPID, appExe := findAppProcess()
 
-	if !singleInstance() {
-		log.Print("un autre bridge tourne déjà : arrêt")
-		return
+	// une seule copie de MyVerse à la fois
+	if !tryMutex() {
+		if !otherInstance(appPID) {
+			return
+		}
 	}
 
 	info, err := readInfo(os.Stdin)
@@ -106,7 +126,7 @@ func main() {
 	if n := os.Getenv("COMPUTERNAME"); n != "" {
 		host = n
 	}
-	b := &bridge{st: st, name: host, phones: map[*phone]bool{}, info: info}
+	b := &bridge{st: st, dir: dir, name: host, phones: map[*phone]bool{}, info: info, appPID: appPID, appExe: appExe}
 
 	ln, port, err := listenFirstFree()
 	if err != nil {
@@ -122,19 +142,110 @@ func main() {
 		http.Serve(ln, mux)
 	}()
 	go b.checkFirewall(false)
+	go b.watchdog()
 
-	// la régie : quand cette connexion tombe, VerseLight est fermé, on s'arrête
+	// la régie : quand cette connexion tombe, MyVerse est fermé, on s'arrête
 	if err := b.runNeutralino(); err != nil {
 		log.Printf("Neutralino : %v", err)
 	}
-	log.Print("MyVerse fermé : arrêt du bridge")
 	b.mu.Lock()
+	restarting := b.restarting
 	pid := b.ecranPid
 	b.mu.Unlock()
+	if restarting {
+		select {} // restartApp relance MyVerse puis termine le processus
+	}
+	log.Print("MyVerse fermé : arrêt du bridge")
 	if pid > 0 {
 		killTree(pid) // ferme aussi la fenêtre de projection restée ouverte
 	}
 	os.Exit(0) // libère tout de suite le port et le verrou pour le prochain lancement
+}
+
+// otherInstance : un autre MyVerse tourne déjà. Renvoie vrai si ce bridge doit continuer.
+// - l'autre fonctionne : on le ramène au premier plan et on ferme ce double (fenêtre blanche) ;
+// - l'autre est bloqué (fenêtre blanche) : on le ferme et on prend sa place.
+func otherInstance(myApp int) bool {
+	client := &http.Client{Timeout: 1500 * time.Millisecond}
+	for p := firstPort; p <= lastPort; p++ {
+		resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/instance", p))
+		if err != nil {
+			continue
+		}
+		var r struct {
+			MyVerse bool `json:"myverse"`
+			Alive   bool `json:"alive"`
+		}
+		json.NewDecoder(resp.Body).Decode(&r)
+		resp.Body.Close()
+		if !r.MyVerse {
+			continue
+		}
+		if r.Alive {
+			log.Print("MyVerse est déjà ouvert : on le ramène au premier plan")
+			if resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/focus", p)); err == nil {
+				resp.Body.Close()
+			}
+			killPID(myApp)
+			return false
+		}
+		log.Print("l'ancien MyVerse est bloqué : on le ferme")
+		if resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/quit", p)); err == nil {
+			resp.Body.Close()
+		}
+		break
+	}
+	if waitMutex(20 * time.Second) {
+		return true
+	}
+	log.Print("un autre bridge tourne déjà : arrêt")
+	return false
+}
+
+// watchdog : si la page de MyVerse ne s'est jamais manifestée (fenêtre restée blanche), on relance MyVerse.
+func (b *bridge) watchdog() {
+	time.Sleep(35 * time.Second)
+	if b.regieAlive(0) {
+		return
+	}
+	b.restartApp()
+}
+
+func (b *bridge) regieAlive(within time.Duration) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.lastRegie.IsZero() {
+		return false
+	}
+	return within == 0 || time.Since(b.lastRegie) < within
+}
+
+func (b *bridge) restartApp() {
+	if b.appPID == 0 || b.appExe == "" {
+		return
+	}
+	guard := filepath.Join(b.dir, "relance-auto.txt")
+	if t, err := os.ReadFile(guard); err == nil {
+		if last, err := time.Parse(time.RFC3339, strings.TrimSpace(string(t))); err == nil && time.Since(last) < 10*time.Minute {
+			log.Print("fenêtre MyVerse vide, mais déjà relancée il y a peu : on ne relance pas")
+			return
+		}
+	}
+	os.WriteFile(guard, []byte(time.Now().Format(time.RFC3339)), 0o600)
+	log.Print("fenêtre MyVerse restée vide : redémarrage automatique")
+	b.mu.Lock()
+	b.restarting = true
+	ecran := b.ecranPid
+	b.mu.Unlock()
+	killTree(ecran)
+	killPID(b.appPID) // pas /T : ce bridge doit survivre pour relancer MyVerse
+	time.Sleep(2 * time.Second)
+	cleanupWebViews(filepath.Base(b.appExe))
+	time.Sleep(time.Second)
+	if err := startDetached(b.appExe); err != nil {
+		log.Printf("relance : %v", err)
+	}
+	os.Exit(0)
 }
 
 func readInfo(r io.Reader) (nlInfo, error) {
@@ -262,7 +373,19 @@ func (b *bridge) sendDevices() {
 	b.toRegie("bridgeEvent", map[string]any{"type": "devices", "devices": b.st.list(), "connected": b.connectedIDs()})
 }
 
+// événements qui prouvent que la page de MyVerse est vivante (pas une fenêtre blanche)
+var regieEvents = map[string]bool{
+	"appClientConnect": true, "alive": true, "state": true, "reply": true, "status": true, "devices": true,
+	"pairStart": true, "pairStop": true, "revoke": true, "firewall": true, "ecranPid": true,
+	"update.check": true, "update.install": true,
+}
+
 func (b *bridge) fromRegie(event string, data json.RawMessage) {
+	if regieEvents[event] {
+		b.mu.Lock()
+		b.lastRegie = time.Now()
+		b.mu.Unlock()
+	}
 	switch event {
 	case "state":
 		b.mu.Lock()
@@ -394,6 +517,10 @@ type hello struct {
 }
 
 func (b *bridge) handlePhone(w http.ResponseWriter, r *http.Request) {
+	if !strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+		b.handleHTTP(w, r)
+		return
+	}
 	ws, err := wsUpgrade(w, r)
 	if err != nil {
 		return
@@ -584,6 +711,33 @@ func localIPs() []string {
 
 // ------------------------------------------------------------ pare-feu
 
+// handleHTTP : page de test (ouvrir http://IP-du-PC:47900 sur le téléphone) et commandes locales entre copies de MyVerse.
+func (b *bridge) handleHTTP(w http.ResponseWriter, r *http.Request) {
+	local := strings.HasPrefix(r.RemoteAddr, "127.0.0.1:")
+	switch {
+	case local && r.URL.Path == "/instance":
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mustJSON(map[string]any{"myverse": true, "alive": b.regieAlive(20 * time.Second)}))
+	case local && r.URL.Path == "/focus":
+		w.Write([]byte("ok"))
+		go focusWindowOf(b.appPID)
+	case local && r.URL.Path == "/quit":
+		w.Write([]byte("ok"))
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			b.mu.Lock()
+			ecran := b.ecranPid
+			b.mu.Unlock()
+			killTree(ecran)
+			killTree(b.appPID)
+			os.Exit(0)
+		}()
+	default:
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprintf(w, `<!doctype html><meta name="viewport" content="width=device-width"><body style="font:20px sans-serif;background:#0A1028;color:#F7F4EC;padding:24px"><h1 style="color:#E4AF41">MyVerse ✓</h1><p>Le PC <b>%s</b> est joignable sur le port %d.</p><p>Si l'app ne se connecte pas, ouvrez MyVerse sur le PC et scannez de nouveau le code QR (bouton « Téléphone »).</p></body>`, b.name, b.port)
+	}
+}
+
 func (b *bridge) checkFirewall(userAsked bool) {
 	if firewallRulesPresent() {
 		if b.st.firewall() != "ok" {
@@ -597,7 +751,7 @@ func (b *bridge) checkFirewall(userAsked bool) {
 		b.toRegie("bridgeEvent", map[string]any{"type": "firewall", "firewall": b.st.firewall()})
 		return
 	}
-	res := addFirewallRules(firstPort, lastPort, discoveryPort)
+	res := addFirewallRules()
 	b.st.setFirewall(res)
 	log.Printf("pare-feu : %s", res)
 	b.toRegie("bridgeEvent", map[string]any{"type": "firewall", "firewall": res})

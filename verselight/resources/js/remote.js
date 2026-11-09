@@ -49,6 +49,7 @@
   }
   R.surChangement(() => pousser(false));
   let dernierPid = -2;
+  setInterval(() => versBridge('alive'), 5000);
   setInterval(() => {
     pousser(false); // OBS connecté/déconnecté
     const pid = Math.max(0, R.ecranPid() || 0);
@@ -112,11 +113,11 @@
   function majParefeu() {
     const p = $('#tel-pf');
     const msg = {
-      ok: 'Pare-feu Windows : autorisé (réseau privé).',
+      ok: 'Pare-feu Windows : autorisé.',
       refused: 'Pare-feu : autorisation refusée. Le téléphone ne pourra pas se connecter. Cliquez « Autoriser dans le pare-feu » puis acceptez la demande Windows.',
       error: 'Pare-feu : la règle n’a pas pu être ajoutée. Cliquez « Autoriser dans le pare-feu ».',
     }[parefeu] || 'Pare-feu : vérification…';
-    p.textContent = msg + ' Le Wi-Fi du PC doit être en réseau « Privé ».';
+    p.textContent = msg;
     p.className = 'muet' + (parefeu && parefeu !== 'ok' ? ' alerte' : '');
     $('#tel-pf-btn').hidden = parefeu === 'ok';
   }
@@ -174,7 +175,8 @@
       q.addData(d.url);
       q.make();
       $('#tel-qr').innerHTML = q.createSvgTag(5, 4);
-      $('#tel-info').textContent = `${d.name} · ${(d.ips || []).join(', ') || 'aucune adresse réseau'} · port ${d.port}`;
+      const ip = (d.ips || [])[0];
+      $('#tel-info').textContent = ip ? `${d.name} · test depuis le téléphone : ouvrez http://${ip}:${d.port} dans Chrome (la page « MyVerse ✓ » doit s’afficher)` : `${d.name} · aucune adresse réseau : branchez le PC au Wi-Fi ou au réseau`;
     } else if (d.type === 'devices') {
       appareils = d.devices || []; connectes = d.connected || [];
       majAppareils();
@@ -204,6 +206,7 @@
     dlg.showModal();
     versBridge('pairStart');
     versBridge('devices');
+    versBridge('firewall');
   });
   dlg.addEventListener('close', () => { versBridge('pairStop'); $('#tel-qr').innerHTML = ''; });
   $('#tel-pf-btn').addEventListener('click', () => { parefeu = ''; majParefeu(); versBridge('firewall'); });

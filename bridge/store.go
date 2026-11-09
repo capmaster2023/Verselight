@@ -25,7 +25,7 @@ type device struct {
 
 type storeData struct {
 	PcID     string   `json:"pcId"`
-	Firewall string   `json:"firewall,omitempty"` // "", "ok", "refused", "error"
+	Firewall string   `json:"firewall2,omitempty"` // règles MyVerse (tous profils) : "", "ok", "refused", "error"
 	Devices  []device `json:"devices"`
 }
 

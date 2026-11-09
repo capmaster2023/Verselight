@@ -39,6 +39,17 @@
       setTimeout(() => { if (attente.has(id)) { attente.delete(id); res(null); } }, 3000);
     });
   }
+  // une source qui affiche MyVerse : capture de la fenêtre « MyVerse — écran » ou source navigateur VerseLight-OBS
+  const estMyVerse = new Map();
+  async function sourceMyVerse(it) {
+    if (!['window_capture', 'game_capture', 'browser_source'].includes(it.inputKind)) return false;
+    if (estMyVerse.has(it.sourceName)) return estMyVerse.get(it.sourceName);
+    const r = await req('GetInputSettings', { inputName: it.sourceName });
+    const s = (r && r.responseData && r.responseData.inputSettings) || {};
+    const oui = /MyVerse|VerseLight/i.test([s.window, s.local_file, s.url].join(' '));
+    estMyVerse.set(it.sourceName, oui);
+    return oui;
+  }
   // allume ou éteint l'œil de la source dans toutes les scènes où elle se trouve
   async function oeil(visible) {
     if (!cfg.actif || !ok) return;
@@ -48,13 +59,13 @@
     for (const sc of scenes.responseData.scenes) {
       const items = await req('GetSceneItemList', { sceneName: sc.sceneName });
       for (const it of (items && items.responseData ? items.responseData.sceneItems : [])) {
-        if (it.sourceName === cfg.source) {
+        if (it.sourceName === cfg.source || await sourceMyVerse(it)) {
           trouve = true;
           if (it.sceneItemEnabled !== visible) await req('SetSceneItemEnabled', { sceneName: sc.sceneName, sceneItemId: it.sceneItemId, sceneItemEnabled: visible });
         }
       }
     }
-    if (!trouve) window.VL && window.VL.toast(`OBS : aucune source nommée « ${cfg.source} ».`);
+    if (!trouve) window.VL && window.VL.toast(`OBS : aucune source MyVerse trouvée (ni capture de la fenêtre « MyVerse — écran », ni source nommée « ${cfg.source} »).`);
   }
   window.VLObs = { oeil, connecte: () => ok, actif: () => cfg.actif };
 

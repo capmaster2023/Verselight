@@ -4,7 +4,7 @@ Unicode true
 !include "MUI2.nsh"
 
 !ifndef VERSION
-  !define VERSION "2.1.3"
+  !define VERSION "2.1.4"
 !endif
 !define APP "MyVerse"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\MyVerse"
@@ -50,6 +50,10 @@ Section "MyVerse"
   SetOutPath "$INSTDIR\extensions\bridge"
   File "app\extensions\bridge\verselight-bridge.exe"
   SetOutPath "$INSTDIR"
+
+  ; pare-feu Windows (une seule autorisation) : pour que le téléphone puisse joindre le PC, même sur un Wi-Fi « public »
+  IfSilent +2
+  ExecShellWait "runas" "$INSTDIR\extensions\bridge\verselight-bridge.exe" "--parefeu" SW_HIDE
 
   CreateShortcut "$DESKTOP\MyVerse.lnk" "$INSTDIR\MyVerse.exe" "" "$INSTDIR\myverse.ico"
   CreateShortcut "$SMPROGRAMS\MyVerse.lnk" "$INSTDIR\MyVerse.exe" "" "$INSTDIR\myverse.ico"

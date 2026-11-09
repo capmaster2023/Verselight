@@ -259,7 +259,11 @@ class Remote(private val context: Context, val store: Store) {
             when {
                 store.pairing() != null && r != Result.REVOKED -> loop()
                 else -> {
-                    if (info.value.isEmpty()) info.value = "PC introuvable. Vérifiez que le téléphone est sur le même Wi-Fi que le PC et que VerseLight est ouvert."
+                    if (info.value.isEmpty()) {
+                        val ip = sortBySubnet(p.ips).firstOrNull()
+                        info.value = "PC introuvable. Vérifiez que MyVerse est ouvert sur le PC et que le téléphone est sur le même Wi-Fi." +
+                            (if (ip != null) " Test : ouvrez http://$ip:${p.port} dans Chrome sur ce téléphone. Si la page « MyVerse ✓ » ne s'affiche pas, c'est le Wi-Fi ou le pare-feu du PC (MyVerse › Téléphone › Autoriser dans le pare-feu)." else "")
+                    }
                     link.value = Link.NOT_PAIRED
                 }
             }
