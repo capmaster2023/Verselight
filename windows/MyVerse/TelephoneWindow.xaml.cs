@@ -140,7 +140,6 @@ public partial class TelephoneWindow : FenetreDialogue
         App.Parefeu_ = "demande";
         MajParefeu();
         var r = await Task.Run(MyVerse.Parefeu.Demander);
-        if (r == "ok") App.Telephone.Store.Parefeu = MyVerse.Parefeu.Marque;
         Journal.Info("pare-feu Windows : " + r);
         App.Parefeu_ = r;
         demande = false;

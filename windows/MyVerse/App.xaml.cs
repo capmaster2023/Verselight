@@ -41,6 +41,14 @@ public partial class App : Application
             Shutdown(code);
             return;
         }
+        // vérification (dépannage, compilation sur GitHub) : code 0 si les règles du pare-feu sont en place
+        if (args.Contains("--parefeu-verifier"))
+        {
+            bool ok = false;
+            try { ok = MyVerse.Parefeu.Present(); } catch (Exception) { }
+            Shutdown(ok ? 0 : 2);
+            return;
+        }
         int i = Array.IndexOf(args, "--autotest");
         if (i >= 0) AutoTest = i + 1 < args.Length ? args[i + 1] : Path.Combine(Path.GetTempPath(), "myverse-autotest");
         if (AutoTest == null && !UneSeuleCopie())

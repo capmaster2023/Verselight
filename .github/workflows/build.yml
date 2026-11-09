@@ -65,10 +65,17 @@ jobs:
           if (-not $p.WaitForExit(120000)) { $p.Kill(); "délai dépassé" | Tee-Object -FilePath ci/autotest/autotest.txt -Append; exit 1 }
           "code de sortie : $($p.ExitCode)" | Tee-Object -FilePath ci/autotest/autotest.txt -Append
           foreach ($r in @("MyVerse (TCP)", "MyVerse (UDP)", "MyVerse (programme)")) {
-            netsh advfirewall firewall show rule name="$r" | Select-Object -First 12 | Tee-Object -FilePath ci/autotest/autotest.txt -Append
-            if ($LASTEXITCODE -ne 0) { "règle absente : $r" | Tee-Object -FilePath ci/autotest/autotest.txt -Append; exit 1 }
+            $sortie = netsh advfirewall firewall show rule name="$r" verbose
+            $code = $LASTEXITCODE
+            $sortie | Select-Object -First 16 | Tee-Object -FilePath ci/autotest/autotest.txt -Append
+            if ($code -ne 0) { "règle absente : $r" | Tee-Object -FilePath ci/autotest/autotest.txt -Append; exit 1 }
           }
-          exit $p.ExitCode
+          if ($p.ExitCode -ne 0) { exit $p.ExitCode }
+          $v = Start-Process -FilePath "out\MyVerse\MyVerse.exe" -ArgumentList "--parefeu-verifier" -PassThru
+          $null = $v.Handle
+          $v.WaitForExit(120000) | Out-Null
+          "vérification du pare-feu par MyVerse : code $($v.ExitCode) (0 = en place)" | Tee-Object -FilePath ci/autotest/autotest.txt -Append
+          exit $v.ExitCode
 
       - name: Installateur (NSIS) et dossier portable
         if: success()

@@ -13,30 +13,42 @@ public static class Parefeu
     // anciennes règles de la 3.x, et règles automatiques de Windows (souvent « Bloquer ») au nom du programme
     static readonly string[] Anciennes = { "verselight-bridge.exe", "VerseLight Bridge (TCP)", "VerseLight Bridge (UDP)", "MyVerse OBS (TCP)", "MyVerse", "myverse.exe" };
 
-    static int Netsh(params string[] args)
+    static int Netsh(params string[] args) => Netsh(out _, args);
+
+    static int Netsh(out string sortie, params string[] args)
     {
         var psi = new ProcessStartInfo("netsh") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var a in args) psi.ArgumentList.Add(a);
         using var p = Process.Start(psi)!;
-        p.StandardOutput.ReadToEnd();
+        var lecture = p.StandardOutput.ReadToEndAsync();
         p.StandardError.ReadToEnd();
         p.WaitForExit(20000);
+        sortie = lecture.Wait(5000) ? lecture.Result : "";
         return p.HasExited ? p.ExitCode : -1;
     }
 
     static bool Existe(string nom) => Netsh("advfirewall", "firewall", "show", "rule", "name=" + nom) == 0;
 
+    /// <summary>La règle « programme » autorise bien ce MyVerse.exe (et non le module réseau de la 3.x).</summary>
+    static bool RegleProgramme()
+    {
+        if (Netsh(out var s, "advfirewall", "firewall", "show", "rule", "name=MyVerse (programme)", "verbose") != 0) return false;
+        return s.Contains(Programme, StringComparison.OrdinalIgnoreCase);
+    }
+
     static string Programme => Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "MyVerse.exe");
 
-    /// <summary>Les règles de la 4.0 sont en place pour ce MyVerse.exe (marque : chemin du programme).</summary>
-    public static bool Present(string? marque)
+    /// <summary>
+    /// Les règles de la 4.0 sont en place pour ce MyVerse.exe (posées par l'installateur ou par « Autoriser dans le pare-feu »),
+    /// sans règle automatique de Windows au nom du programme (souvent « Bloquer »).
+    /// </summary>
+    public static bool Present(string? marque = null)
     {
         if (!OperatingSystem.IsWindows()) return true;
         try
         {
-            if (!Regles.All(Existe)) return false;
-            if (Existe("MyVerse") || Existe("myverse.exe")) return false; // règle automatique de Windows : peut-être « Bloquer »
-            return marque == "ok4|" + Programme;
+            if (!Existe("MyVerse (TCP)") || !Existe("MyVerse (UDP)") || !RegleProgramme()) return false;
+            return !Existe("MyVerse") && !Existe("myverse.exe");
         }
         catch (Win32Exception) { return false; }
     }

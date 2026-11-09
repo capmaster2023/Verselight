@@ -198,7 +198,9 @@ public partial class MainWindow : Window
         {
             _ = Task.Run(() =>
             {
-                var ok = Parefeu.Present(App.Telephone.Store.Parefeu);
+                bool ok;
+                try { ok = Parefeu.Present(); }
+                catch (Exception e) { Journal.Erreur("pare-feu", e); ok = false; }
                 Dispatcher.BeginInvoke(new Action(() => { App.Parefeu_ = ok ? "ok" : "missing"; MajTelephone(); }));
             });
             _ = VerifierMaj(false, 8000);
