@@ -21,7 +21,7 @@
         const id = { op: 1, d: { rpcVersion: 1 } };
         if (m.d.authentication) id.d.authentication = await sha((await sha(cfg.mdp + m.d.authentication.salt)) + m.d.authentication.challenge);
         ws.send(JSON.stringify(id));
-      } else if (m.op === 2) { ok = true; pastille('OBS : connecté', true); creerSource(); }
+      } else if (m.op === 2) { ok = true; pastille('OBS : connecté', true); }
       else if (m.op === 7) { const r = attente.get(m.d.requestId); if (r) { attente.delete(m.d.requestId); r(m.d); } }
     };
     ws.onclose = (ev) => {
@@ -39,28 +39,17 @@
       setTimeout(() => { if (attente.has(id)) { attente.delete(id); res(null); } }, 3000);
     });
   }
-  // à la connexion : si aucune source MyVerse n'existe dans OBS, on la crée dans la scène en cours
-  async function creerSource() {
-    try {
-      const liste = await req('GetInputList');
-      const entrees = (liste && liste.responseData && liste.responseData.inputs) || [];
-      for (const e of entrees) {
-        if (e.inputName === cfg.source) return;
-        if (await sourceMyVerse({ sourceName: e.inputName, inputKind: e.inputKind })) return;
-      }
-      const dossier = window.VLRegie && window.VLRegie.dossierObs ? await window.VLRegie.dossierObs() : '';
-      const scene = await req('GetCurrentProgramScene');
-      const nomScene = scene && scene.responseData && (scene.responseData.currentProgramSceneName || scene.responseData.sceneName);
-      if (!dossier || !nomScene) return;
-      const r = await req('CreateInput', {
-        sceneName: nomScene, inputName: cfg.source, inputKind: 'browser_source', sceneItemEnabled: false,
-        inputSettings: { is_local_file: true, local_file: dossier.replace(/\\/g, '/') + '/ecran.html', width: 1920, height: 1080 },
-      });
-      if (r && r.requestStatus && r.requestStatus.result) {
-        estMyVerse.set(cfg.source, true);
-        window.VL && window.VL.toast(`OBS : source « ${cfg.source} » ajoutée dans la scène « ${nomScene} ».`);
-      }
-    } catch (e) {}
+  // source temporaire : créée à « Afficher » dans la scène en cours, supprimée à « Retirer »
+  const AUTO = 'MyVerse (temporaire)';
+  async function creerTemporaire() {
+    const dossier = window.VLRegie && window.VLRegie.dossierObs ? await window.VLRegie.dossierObs() : '';
+    const scene = await req('GetCurrentProgramScene');
+    const nomScene = scene && scene.responseData && (scene.responseData.currentProgramSceneName || scene.responseData.sceneName);
+    if (!dossier || !nomScene) return;
+    await req('CreateInput', {
+      sceneName: nomScene, inputName: AUTO, inputKind: 'browser_source', sceneItemEnabled: true,
+      inputSettings: { is_local_file: true, local_file: dossier.replace(/\\/g, '/') + '/ecran.html', width: 1920, height: 1080 },
+    });
   }
 
   // une source qui affiche MyVerse : capture de la fenêtre « MyVerse — écran » ou source navigateur VerseLight-OBS
@@ -83,13 +72,15 @@
     for (const sc of scenes.responseData.scenes) {
       const items = await req('GetSceneItemList', { sceneName: sc.sceneName });
       for (const it of (items && items.responseData ? items.responseData.sceneItems : [])) {
+        if (it.sourceName === AUTO) { trouve = true; continue; }
         if (it.sourceName === cfg.source || await sourceMyVerse(it)) {
           trouve = true;
           if (it.sceneItemEnabled !== visible) await req('SetSceneItemEnabled', { sceneName: sc.sceneName, sceneItemId: it.sceneItemId, sceneItemEnabled: visible });
         }
       }
     }
-    if (!trouve) window.VL && window.VL.toast(`OBS : aucune source MyVerse trouvée (ni capture de la fenêtre « MyVerse — écran », ni source nommée « ${cfg.source} »).`);
+    if (!visible) { await req('RemoveInput', { inputName: AUTO }); return; }
+    if (!trouve) await creerTemporaire();
   }
   window.VLObs = { oeil, connecte: () => ok, actif: () => cfg.actif };
 
