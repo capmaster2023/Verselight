@@ -2,6 +2,9 @@ package ca.mepc.verselight.remote
 
 import java.text.Normalizer
 
+/** Une référence : livre (0 = Genèse), chapitre, versets v1 à v2 (v1 = 0 : chapitre entier). */
+data class Ref(val b: Int, val c: Int, val v1: Int, val v2: Int)
+
 /** Livres de la Bible et abréviations : les mêmes que bible.js dans VerseLight. */
 object Books {
     private val BOOKS = listOf(
@@ -31,6 +34,45 @@ object Books {
 
     fun norm(s: String): String =
         Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "")
+
+    val count: Int get() = BOOKS.size
+    fun name(i: Int): String = BOOKS.getOrNull(i)?.first ?: ""
+
+    private val alias: Map<String, Int> by lazy {
+        val m = HashMap<String, Int>()
+        BOOKS.forEachIndexed { i, (_, compact, ab) -> ab.forEach { m[it] = i }; m[compact] = i }
+        m
+    }
+
+    /** Comme norm, et les apostrophes deviennent des espaces (« l’Éternel » → « l eternel »). */
+    fun normRef(s: String): String = norm(s).replace(Regex("[’'`]"), " ").replace("œ", "oe").replace("æ", "ae")
+
+    /** Référence tapée (« jn 3 16 », « Jean 3:16-18 », « 1 co 13 », « ps 23 », « premier jean 1,9 ») : même logique que bible.js.
+     *  v1 = 0 : chapitre entier. Les limites (nombre de chapitres et de versets) sont vérifiées par la Bible. */
+    fun parseRef(input: String): Ref? {
+        var s = normRef(input).trim()
+        if (s.isEmpty()) return null
+        s = s.replace(Regex("\\bchap(itre)?s?\\b"), " ").replace(Regex("\\bversets?\\b"), ":").replace(Regex("\\bv(?=\\s*\\d)"), ":")
+            .replace(Regex("\\b(premiere|premier|1ere|1re|1er)\\b"), "1").replace(Regex("\\b(deuxieme|seconde|second|2e|2eme)\\b"), "2")
+            .replace(Regex("\\b(troisieme|3e|3eme)\\b"), "3").replace(Regex("^(iii)\\s+(?=[a-z])"), "3 ").replace(Regex("^(ii)\\s+(?=[a-z])"), "2 ")
+            .replace(Regex("^(i)\\s+(?=[a-z])"), "1 ").replace(Regex("\\s+"), " ").trim()
+        val m = Regex("^([123])?\\s*([a-z][a-z ]*?)\\s*(?:(\\d{1,3})(?:\\s*[:.,]\\s*|\\s+)?(\\d{1,3})?(?:\\s*[-–à]\\s*(\\d{1,3}))?)?$").find(s) ?: return null
+        val num = m.groupValues[1]
+        val word = m.groupValues[2].replace(" ", "")
+        val key = num + word
+        var b = alias[key] ?: -1
+        if (b < 0 && word.length >= 3) {
+            val cands = BOOKS.withIndex().filter { it.value.second.startsWith(key) }
+            if (cands.size == 1) b = cands[0].index
+            else if (cands.size > 1 && num.isEmpty()) b = cands[0].index
+            if (b < 0 && num.isEmpty()) BOOKS.withIndex().firstOrNull { it.value.second.startsWith("1$word") }?.let { b = it.index }
+        }
+        if (b < 0) return null
+        val c = m.groupValues[3].toIntOrNull() ?: 1
+        val v1 = m.groupValues[4].toIntOrNull() ?: 0
+        val v2 = m.groupValues[5].toIntOrNull() ?: v1
+        return Ref(b, c, v1, maxOf(v1, v2))
+    }
 
     /** Livres proposés pendant qu'on tape le nom (avant le numéro du chapitre). */
     fun suggest(input: String): List<String> {

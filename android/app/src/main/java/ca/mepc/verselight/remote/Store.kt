@@ -38,6 +38,40 @@ class Store(context: Context) {
         get() = prefs.getBoolean("keepScreenOn", true)
         set(v) = prefs.edit().putBoolean("keepScreenOn", v).apply()
 
+    /** Piloter OBS directement quand MyVerse est fermé sur le PC. */
+    var obsDirect: Boolean
+        get() = prefs.getBoolean("obsDirect", true)
+        set(v) = prefs.edit().putBoolean("obsDirect", v).apply()
+
+    /** Détecteur de versets : couper le bip de relance de l'écoute. */
+    var couperBip: Boolean
+        get() = prefs.getBoolean("couperBip", true)
+        set(v) = prefs.edit().putBoolean("couperBip", v).apply()
+
+    /** Réglages de l'écran reçus du PC (JSON : principale, seconde, theme, taille, presentation). */
+    var reglages: String
+        get() = prefs.getString("reglages", "{}") ?: "{}"
+        set(v) = prefs.edit().putString("reglages", v).apply()
+
+    var chantsStamp: String
+        get() = prefs.getString("chantsStamp", "") ?: ""
+        set(v) = prefs.edit().putString("chantsStamp", v).apply()
+
+    /** Réglages OBS reçus du PC ; le mot de passe est gardé chiffré par le Keystore. */
+    data class ObsConfig(val actif: Boolean, val port: Int, val mdp: String)
+
+    fun obs(): ObsConfig? {
+        if (!prefs.contains("obsPort")) return null
+        val brut = prefs.getString("obsMdp", "") ?: ""
+        val mdp = if (brut.isEmpty()) "" else decrypt(brut)?.toString(Charsets.UTF_8) ?: return null
+        return ObsConfig(prefs.getBoolean("obsActif", false), prefs.getInt("obsPort", 4455), mdp)
+    }
+
+    fun saveObs(c: ObsConfig) {
+        prefs.edit().putBoolean("obsActif", c.actif).putInt("obsPort", c.port)
+            .putString("obsMdp", if (c.mdp.isEmpty()) "" else encrypt(c.mdp.toByteArray(Charsets.UTF_8))).apply()
+    }
+
     fun pairing(): Pairing? {
         val pcId = prefs.getString("pcId", null) ?: return null
         val key = decrypt(prefs.getString("key", null) ?: return null) ?: return null
@@ -70,7 +104,8 @@ class Store(context: Context) {
 
     fun forget() {
         prefs.edit().remove("pcId").remove("pcName").remove("key").remove("ips")
-            .remove("port").remove("lastHost").remove("lastPort").apply()
+            .remove("port").remove("lastHost").remove("lastPort")
+            .remove("obsActif").remove("obsPort").remove("obsMdp").remove("reglages").remove("chantsStamp").apply()
     }
 
     // ---------------------------------------------------------------- Android Keystore (AES-GCM)

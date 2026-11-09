@@ -42,7 +42,31 @@
   }
   R.surChangement(() => pousser(false));
   let dernierPid = -2;
-  setInterval(() => versBridge('alive'), 5000);
+  setInterval(() => { versBridge('alive'); pousserObs(); }, 5000);
+  // réglages OBS (port, mot de passe) transmis au bridge : il les donne, chiffrés, aux téléphones jumelés
+  // pour qu'ils puissent piloter OBS tout seuls quand MyVerse est fermé
+  let obsEnvoye = '', obsQuand = 0;
+  function pousserObs() {
+    const c = window.VLObs && window.VLObs.config ? window.VLObs.config() : null;
+    if (!c) return;
+    const k = JSON.stringify(c);
+    if (k === obsEnvoye && Date.now() - obsQuand < 30000) return;
+    obsEnvoye = k; obsQuand = Date.now();
+    versBridge('obs', c);
+  }
+  // envoi des chants et des Bibles au téléphone : JSON compressé (gzip) en base64
+  async function gzip64(texte) {
+    const flux = new Blob([texte]).stream().pipeThrough(new CompressionStream('gzip'));
+    const u = new Uint8Array(await new Response(flux).arrayBuffer());
+    let s = '';
+    for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+    return btoa(s);
+  }
+  function empreinte(s) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+    return (h >>> 0).toString(16) + '-' + s.length;
+  }
   setInterval(() => {
     pousser(false); // OBS connecté/déconnecté
     const pid = Math.max(0, R.ecranPid() || 0);
@@ -105,6 +129,39 @@
       case 'prev': R.bouger(-1); break;
       case 'clear': R.effacer(); break;
       case 'state.get': pousser(true); break;
+      // le téléphone garde une copie des chants, des réglages et des Bibles : il peut ainsi afficher
+      // dans OBS sans le PC (MyVerse fermé)
+      case 'sync.get':
+        (async () => {
+          try {
+            const e = R.etat(), VB = window.VLBibles;
+            const reg = VB ? VB.reglages() : { principale: 'lsg', seconde: '' };
+            const json = JSON.stringify(R.chants().map((c) => ({ id: c.id, title: c.title, author: c.author || '', sections: c.sections.map((x) => ({ label: x.label || '', text: x.text })) })));
+            const stamp = empreinte(json);
+            const msg = {
+              t: 'sync',
+              reglages: { principale: reg.principale || 'lsg', seconde: reg.seconde || '', theme: e.theme || 'nuit', taille: e.taille || 1, presentation: e.presentation || 'plein' },
+              bibles: VB && VB.liste ? VB.liste() : [{ id: 'lsg', short: 'LSG', name: 'Louis Segond 1910' }],
+              chants: { stamp },
+            };
+            if (d.chants !== stamp) msg.chants.gz = await gzip64(json);
+            rep(msg);
+          } catch (x) { J.erreur('synchronisation du téléphone : ' + (x.message || x)); }
+        })();
+        break;
+      case 'bible.get':
+        (async () => {
+          try {
+            const VB = window.VLBibles;
+            const data = VB && VB.donnees ? await VB.donnees(String(d.id || '')) : null;
+            const v = VB && VB.liste ? VB.liste().find((x) => x.id === d.id) : null;
+            if (!data || !data.books || !v) { rep({ t: 'error', message: 'Bible introuvable sur le PC.' }); return; }
+            const json = JSON.stringify({ name: v.name, short: v.short, books: data.books.map((b) => ({ name: (b && b.name) || '', ch: (b && b.ch) || [] })) });
+            rep({ t: 'bible', id: v.id, short: v.short, name: v.name, gz: await gzip64(json) });
+            J.info('Bible « ' + v.short + ' » envoyée au téléphone ' + (d.deviceName || ''));
+          } catch (x) { J.erreur('envoi de la Bible au téléphone : ' + (x.message || x)); }
+        })();
+        break;
       default: J.erreur('commande inconnue du téléphone : ' + d.t); rep({ t: 'error', message: 'Commande inconnue : ' + d.t });
     }
   }

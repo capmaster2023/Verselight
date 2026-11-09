@@ -62,6 +62,7 @@ function afficher(e) {
   const deux = e.mode === 'verset' && e.second && e.second.texte ? e.second.texte : '';
   const cle = JSON.stringify([e.mode, e.lignes, e.ref, e.taille, e.presentation, deux]);
   if (cle === courant) return;
+  const avant = courant;
   courant = cle;
   scene.classList.add('cache');
   setTimeout(() => {
@@ -72,7 +73,7 @@ function afficher(e) {
     ajuster();
     if (e.taille) { texte.style.fontSize = (parseFloat(texte.style.fontSize) * e.taille) + 'rem'; if (deux) texte2.style.fontSize = (parseFloat(texte2.style.fontSize) * e.taille) + 'rem'; }
     if (!vide) scene.classList.remove('cache');
-  }, courant && !vide ? 380 : 0);
+  }, avant && !vide ? 380 : 0);
 }
 window.addEventListener('message', (ev) => { if (ev.data && ev.data.verselight) afficher(ev.data.etat); });
 // raccourcis depuis l'écran de projection (clavier, télécommande de présentation)

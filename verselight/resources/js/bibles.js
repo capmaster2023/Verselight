@@ -309,6 +309,9 @@
     return out;
   }
 
-  window.VLBibles = { etiquette, texte2, analyser, appliquer, versions, reglages: () => reglages, seconde: () => !!seconde };
+  const liste = () => toutes().map((v) => ({ id: v.id, short: v.short, name: v.name }));
+  const donnees = async (id) => (id === reglages.principale ? (B.bible() || await charger(id)) : await charger(id));
+
+  window.VLBibles = { etiquette, texte2, analyser, appliquer, versions, liste, donnees, reglages: () => reglages, seconde: () => !!seconde };
   if (reglages.principale !== 'lsg' || reglages.seconde) appliquer(); else majBouton();
 })();

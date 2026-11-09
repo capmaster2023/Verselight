@@ -71,13 +71,22 @@
     if (n > 0) await req('SetSceneItemIndex', { sceneName: scene, sceneItemId: id, sceneItemIndex: n - 1 });
   }
 
+  // le téléphone (MyVerse fermé sur le PC) met sa propre page dans la source temporaire : on remet celle du PC
+  async function remettreFichier() {
+    const r = await req('GetInputSettings', { inputName: AUTO });
+    const s = (r && r.responseData && r.responseData.inputSettings) || {};
+    if (s.is_local_file && /VerseLight-OBS/i.test(s.local_file || '')) return;
+    const dossier = window.VLRegie && window.VLRegie.dossierObs ? await window.VLRegie.dossierObs() : '';
+    if (dossier) await req('SetInputSettings', { inputName: AUTO, inputSettings: { is_local_file: true, local_file: dossier.replace(/\\/g, '/') + '/ecran.html' } });
+  }
+
   async function montrer() {
     const scene = await scenePrincipale();
     if (!scene) return;
     const items = await elements(scene);
     let id = null;
     const auto = items.find((it) => it.sourceName === AUTO);
-    if (auto) id = auto.sceneItemId;
+    if (auto) { id = auto.sceneItemId; await remettreFichier(); }
     if (id === null) for (const it of items) {
       if (it.sourceName === cfg.source || await sourceMyVerse(it)) {
         const cle = scene + '|' + it.sceneItemId;
@@ -90,6 +99,7 @@
     if (id === null) {
       // aucune source MyVerse dans cette scène : source navigateur temporaire
       if (ok_(await req('GetInputSettings', { inputName: AUTO }))) {
+        await remettreFichier();
         const r = await req('CreateSceneItem', { sceneName: scene, sourceName: AUTO, sceneItemEnabled: true });
         if (ok_(r)) id = r.responseData.sceneItemId;
       } else {
@@ -121,7 +131,7 @@
     file = file.then(() => (visible ? montrer() : cacher())).catch(() => {});
     return file;
   }
-  window.VLObs = { oeil, connecte: () => ok, actif: () => cfg.actif };
+  window.VLObs = { oeil, connecte: () => ok, actif: () => cfg.actif, config: () => ({ actif: !!cfg.actif, port: +cfg.port || 4455, mdp: cfg.mdp || '' }) };
 
   // réglages
   $('#obs-btn').addEventListener('click', () => {

@@ -20,7 +20,7 @@ import (
 )
 
 const wsGUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-const wsMaxMessage = 4 << 20
+const wsMaxMessage = 16 << 20 // une Bible envoyée au téléphone (compressée) tient largement
 
 type wsConn struct {
 	conn   net.Conn

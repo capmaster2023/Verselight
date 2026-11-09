@@ -181,3 +181,31 @@ func TestReadInfo(t *testing.T) {
 		t.Fatal(info, err)
 	}
 }
+
+func TestObsSeal(t *testing.T) {
+	key := deriveKey([]byte("secret-du-qr"), "pc", "tel")
+	s, err := sealFor(key, "mot de passe OBS é")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(s, "passe") {
+		t.Fatal("mot de passe en clair")
+	}
+	got, err := openFor(key, s)
+	if err != nil || got != "mot de passe OBS é" {
+		t.Fatalf("déchiffrement : %q %v", got, err)
+	}
+	if _, err := openFor(deriveKey([]byte("autre"), "pc", "tel"), s); err == nil {
+		t.Fatal("une autre clé ne doit pas déchiffrer")
+	}
+	m := obsMessage(&obsConfig{Actif: true, Port: 0, Mdp: ""}, key)
+	if !strings.Contains(string(m), `"port":4455`) || !strings.Contains(string(m), `"mdp":""`) {
+		t.Fatalf("message : %s", m)
+	}
+	// vecteur pour le test Kotlin/Python : clé = 32 octets 0x01..0x20
+	k := make([]byte, 32)
+	for i := range k {
+		k[i] = byte(i + 1)
+	}
+	t.Logf("obsKey(1..32) = %x", obsKey(k))
+}

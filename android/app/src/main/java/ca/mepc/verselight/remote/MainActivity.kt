@@ -88,8 +88,6 @@ private val Brume = Color(0xFF8E99C7)
 private val Rouge = Color(0xFFFF5A6A)
 private val Vert = Color(0xFF2BD67B)
 
-private var shared: Remote? = null
-
 class MainActivity : ComponentActivity() {
     private lateinit var remote: Remote
     private val keepOn = mutableStateOf(true)
@@ -101,7 +99,8 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
         super.onCreate(savedInstanceState)
-        remote = shared ?: Remote(applicationContext, Store(applicationContext)).also { shared = it }
+        remote = MyVerse.remote(applicationContext)
+        Ecoute.canaux(applicationContext)
         keepOn.value = remote.store.keepScreenOn
         volumeKeys.value = remote.store.volumeKeys
         setContent {
@@ -124,18 +123,21 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        Detection.premierPlan = true
         remote.start()
         remote.checkUpdate()
     }
 
     override fun onStop() {
         super.onStop()
-        if (!isChangingConfigurations) remote.stop()
+        Detection.premierPlan = false
+        // le détecteur de versets tourne : on reste connecté pour afficher depuis la notification
+        if (!isChangingConfigurations && !Detection.actif.value) remote.stop()
     }
 
     // boutons de volume : + = Suivant, − = Précédent
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (volumeKeys.value && remote.link.value == Link.CONNECTED) {
+        if (volumeKeys.value && remote.pret()) {
             when (keyCode) {
                 KeyEvent.KEYCODE_VOLUME_UP -> { if (event.repeatCount == 0) remote.send("next"); return true }
                 KeyEvent.KEYCODE_VOLUME_DOWN -> { if (event.repeatCount == 0) remote.send("prev"); return true }
@@ -145,7 +147,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
-        if (volumeKeys.value && remote.link.value == Link.CONNECTED &&
+        if (volumeKeys.value && remote.pret() &&
             (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN)
         ) return true
         return super.onKeyUp(keyCode, event)
@@ -233,6 +235,8 @@ private fun MainScreen(
     val context = LocalContext.current
     val pc by remote.pcName.collectAsState()
     val update by remote.update.collectAsState()
+    val directEtat by remote.direct.etat.collectAsState()
+    val pret = link == Link.CONNECTED || directEtat == Direct.Etat.PRET
     var tab by rememberSaveable { mutableStateOf(0) }
     var settings by remember { mutableStateOf(false) }
     var showLog by remember { mutableStateOf(false) }
@@ -272,9 +276,9 @@ private fun MainScreen(
             }
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            if (tab == 0) BibleTab(remote, link) else SongsTab(remote, link)
+            if (tab == 0) BibleTab(remote, pret) else SongsTab(remote, pret)
         }
-        LiveBar(remote, link)
+        LiveBar(remote, link, directEtat)
     }
     if (settings) {
         AlertDialog(
@@ -288,6 +292,20 @@ private fun MainScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     SettingRow("Boutons de volume : + Suivant, − Précédent", volume, setVolume)
                     SettingRow("Garder l'écran allumé", keepOn, setKeepOn)
+                    var direct by remember { mutableStateOf(remote.store.obsDirect) }
+                    SettingRow("Piloter OBS quand MyVerse est fermé sur le PC", direct) {
+                        direct = it
+                        remote.store.obsDirect = it
+                        if (!it) remote.direct.pcPresent() else if (link != Link.CONNECTED) { remote.direct.reglagesChanges(); remote.direct.pcAbsent() }
+                    }
+                    val directMsg by remote.direct.message.collectAsState()
+                    Text("OBS direct : " + when {
+                        link == Link.CONNECTED -> "inutile pour l'instant (MyVerse est ouvert sur le PC et pilote OBS)"
+                        directMsg.isNotBlank() -> directMsg
+                        else -> "en attente"
+                    }, color = Brume, fontSize = 13.sp)
+                    var bip by remember { mutableStateOf(remote.store.couperBip) }
+                    SettingRow("Détecteur de versets : couper le bip du micro", bip) { bip = it; remote.store.couperBip = it }
                     Text("PC : $pc", color = Brume, fontSize = 13.sp)
                     TextButton(onClick = { settings = false; showLog = true }) { Text("Journal d'erreurs", color = Or2) }
                 }
@@ -306,13 +324,14 @@ private fun SettingRow(label: String, value: Boolean, onChange: (Boolean) -> Uni
 
 /** Barre fixe : connexion, ce qui est à l'écran, Précédent / Suivant. */
 @Composable
-private fun LiveBar(remote: Remote, link: Link) {
+private fun LiveBar(remote: Remote, link: Link, direct: Direct.Etat) {
     val state by remote.screen.collectAsState()
     val haptic = LocalHapticFeedback.current
-    val connected = link == Link.CONNECTED
+    val enDirect = link != Link.CONNECTED && direct == Direct.Etat.PRET
+    val connected = link == Link.CONNECTED || enDirect
     val (line, next) = when {
-        !connected -> (if (link == Link.CONNECTING) "Connexion au PC…" else "Hors ligne · recherche du PC…") to ""
-        state == null -> "Connecté" to ""
+        !connected -> (if (link == Link.CONNECTING) "Connexion au PC…" else if (direct == Direct.Etat.CONNEXION) "PC introuvable · connexion directe à OBS…" else "Hors ligne · recherche du PC…") to ""
+        state == null -> (if (enDirect) "OBS direct (MyVerse fermé sur le PC)" else "Connecté") to ""
         else -> {
             val s = state!!
             val mode = s.optString("mode")
@@ -323,7 +342,8 @@ private fun LiveBar(remote: Remote, link: Link) {
                 "chant" -> listOf(s.optString("titre"), first).filter { it.isNotBlank() }.joinToString(" · ")
                 else -> "Écran vide"
             }
-            (if (s.optBoolean("ecranOuvert", true)) now else "$now (écran fermé)") to s.optString("suivant")
+            val ligne = if (s.optBoolean("ecranOuvert", true)) now else "$now (écran fermé)"
+            (if (enDirect) "$ligne · OBS direct" else ligne) to s.optString("suivant")
         }
     }
     Row(
@@ -352,14 +372,13 @@ private fun LiveBar(remote: Remote, link: Link) {
 // -------------------------------------------------------------------- Bible
 
 @Composable
-private fun BibleTab(remote: Remote, link: Link) {
+private fun BibleTab(remote: Remote, connected: Boolean) {
     val focus = LocalFocusManager.current
     val haptic = LocalHapticFeedback.current
     var q by rememberSaveable { mutableStateOf("") }
     var preview by remember { mutableStateOf<JSONObject?>(null) }
     var results by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var error by remember { mutableStateOf("") }
-    val connected = link == Link.CONNECTED
     val state by remote.screen.collectAsState()
 
     LaunchedEffect(q, connected) {
@@ -409,6 +428,7 @@ private fun BibleTab(remote: Remote, link: Link) {
             keyboardActions = KeyboardActions(onGo = { show() }),
             trailingIcon = { if (q.isNotEmpty()) TextButton(onClick = { q = "" }) { Text("✕", color = Brume) } },
         )
+        DetecteurBar(remote, connected)
         val suggestions = Books.suggest(q)
         if (suggestions.isNotEmpty()) {
             LazyRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -476,13 +496,12 @@ private fun ClearButton(remote: Remote, enabled: Boolean, modifier: Modifier) {
 // -------------------------------------------------------------------- Chants
 
 @Composable
-private fun SongsTab(remote: Remote, link: Link) {
+private fun SongsTab(remote: Remote, connected: Boolean) {
     val focus = LocalFocusManager.current
     val state by remote.screen.collectAsState()
     var q by rememberSaveable { mutableStateOf("") }
     var results by remember { mutableStateOf(listOf<JSONObject>()) }
     var song by remember { mutableStateOf<JSONObject?>(null) }
-    val connected = link == Link.CONNECTED
 
     LaunchedEffect(q, connected) {
         delay(300)
@@ -523,7 +542,7 @@ private fun SongsTab(remote: Remote, link: Link) {
                 }
             }
             if (results.isEmpty()) item {
-                Text(if (connected) "Aucun chant trouvé." else "En attente du PC…", color = Brume, modifier = Modifier.padding(16.dp))
+                Text(if (connected) "Aucun chant trouvé." else "En attente du PC (ou d'OBS)…", color = Brume, modifier = Modifier.padding(16.dp))
             }
         }
     }
@@ -617,5 +636,63 @@ private fun NextCard(state: JSONObject?, connected: Boolean) {
     ) {
         Text("Suivant · $label", color = Or, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(texte, color = Blanc, fontSize = 15.sp, lineHeight = 21.sp, maxLines = 4, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** Détecteur de versets : écoute le prédicateur et propose les versets cités (bouton Afficher). */
+@Composable
+private fun DetecteurBar(remote: Remote, connected: Boolean) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val actif by Detection.actif.collectAsState()
+    val statut by Detection.statut.collectAsState()
+    val entendu by Detection.entendu.collectAsState()
+    val suggestions by Detection.suggestions.collectAsState()
+    val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
+        if (res[Manifest.permission.RECORD_AUDIO] == true || ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) Ecoute.demarrer(context)
+        else Toast.makeText(context, "Le micro est nécessaire pour détecter les versets cités.", Toast.LENGTH_LONG).show()
+    }
+    fun basculer(on: Boolean) {
+        if (!on) { Ecoute.arreter(context); return }
+        val manque = ArrayList<String>()
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) manque.add(Manifest.permission.RECORD_AUDIO)
+        if (android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) manque.add(Manifest.permission.POST_NOTIFICATIONS)
+        if (manque.isEmpty()) Ecoute.demarrer(context) else permissions.launch(manque.toTypedArray())
+    }
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp).background(Nuit, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Détecteur de versets", color = Or2, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                val info = when {
+                    actif && entendu.isNotBlank() -> "« …${entendu.takeLast(70)} »"
+                    actif -> statut.ifBlank { "À l'écoute…" }
+                    statut.isNotBlank() -> statut
+                    else -> "Écoute le prédicateur et propose les versets cités"
+                }
+                Text(info, color = Brume, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            Switch(checked = actif, onCheckedChange = { basculer(it) })
+        }
+        suggestions.take(2).forEach { s ->
+            Row(
+                Modifier.fillMaxWidth().padding(top = 6.dp).background(Nuit2, RoundedCornerShape(10.dp)).padding(start = 10.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(s.label, color = Or, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text(s.texte, color = Blanc, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+                Button(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        if (remote.send("bible.show", "ref" to s.label)) Detection.retirer(s.id)
+                        else Toast.makeText(context, "Ni le PC ni OBS ne sont joignables.", Toast.LENGTH_SHORT).show()
+                    },
+                    enabled = connected,
+                    modifier = Modifier.padding(start = 6.dp).height(44.dp),
+                ) { Text("Afficher", fontWeight = FontWeight.Bold) }
+                TextButton(onClick = { Detection.retirer(s.id) }) { Text("✕", color = Brume) }
+            }
+        }
     }
 }

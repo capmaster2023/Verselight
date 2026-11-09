@@ -49,6 +49,7 @@ type phone struct {
 	ws       *wsConn
 	deviceID string
 	name     string
+	key      []byte // clé du téléphone (chiffrement des réglages OBS)
 }
 
 type bridge struct {
@@ -75,6 +76,7 @@ type bridge struct {
 	state      json.RawMessage
 	pairKey    []byte
 	pairUntil  time.Time
+	obs        *obsConfig // réglages OBS de MyVerse (pour piloter OBS depuis le téléphone)
 }
 
 func main() {
@@ -393,7 +395,7 @@ func (b *bridge) sendDevices() {
 var regieEvents = map[string]bool{
 	"appClientConnect": true, "alive": true, "state": true, "reply": true, "status": true, "devices": true,
 	"pairStart": true, "pairStop": true, "revoke": true, "firewall": true, "ecranPid": true,
-	"update.check": true, "update.install": true,
+	"update.check": true, "update.install": true, "obs": true,
 }
 
 func (b *bridge) fromRegie(event string, data json.RawMessage) {
@@ -464,6 +466,8 @@ func (b *bridge) fromRegie(event string, data json.RawMessage) {
 		}
 		json.Unmarshal(data, &r)
 		go b.installUpdate(r.URL)
+	case "obs":
+		b.setObs(data)
 	case "firewall":
 		go b.checkFirewall(true)
 	case "ecranPid":
@@ -615,14 +619,18 @@ func (b *bridge) handlePhone(w http.ResponseWriter, r *http.Request) {
 	ws.idle = phoneIdle
 
 	log.Printf("téléphone connecté : %s", who)
-	p := &phone{ws: ws, deviceID: h.DeviceID, name: name}
+	p := &phone{ws: ws, deviceID: h.DeviceID, name: name, key: key}
 	b.mu.Lock()
 	b.phones[p] = true
 	st := b.state
+	obs := b.obs
 	b.mu.Unlock()
 	ws.WriteText(mustJSON(map[string]any{"t": "welcome", "v": protoVersion, "pcName": b.name, "paired": h.Pair}))
 	if len(st) > 0 {
 		ws.WriteText(stateMessage(st))
+	}
+	if m := obsMessage(obs, key); m != nil {
+		ws.WriteText(m)
 	}
 	b.sendDevices()
 	defer func() {
