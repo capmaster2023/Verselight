@@ -95,20 +95,20 @@ public partial class ImportWindow : FenetreDialogue
         if (zips.Count > 0) Importer(zips, f => ChantsFormats.LireZip(f, erreurs));
         if (zips.Count == d.FileNames.Length) return;
         int n = 0;
-        var erreurs = new List<string>();
+        var err = new List<string>();
         var tous = new List<Chant>();
         foreach (var f in d.FileNames.Where(f => !f.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)))
         {
             try { tous.AddRange(ChantsFormats.LireFichier(f)); }
             catch (Exception x) when (x is IOException or UnauthorizedAccessException or InvalidDataException or System.Text.Json.JsonException or FormatException)
             {
-                erreurs.Add(Path.GetFileName(f) + " : " + x.Message);
+                err.Add(Path.GetFileName(f) + " : " + x.Message);
             }
         }
         n = App.Regie.AjouterChants(tous, Recueil);
-        var msg = (n > 0 ? $"{Pluriel(n, "chant")} importé{(n > 1 ? "s" : "")}." : "") + (erreurs.Count > 0 ? " Erreurs : " + string.Join(" · ", erreurs) : "");
+        var msg = (n > 0 ? $"{Pluriel(n, "chant")} importé{(n > 1 ? "s" : "")}." : "") + (err.Count > 0 ? " Erreurs : " + string.Join(" · ", err) : "");
         Dire(msg.Trim());
-        if (erreurs.Count > 0) Journal.Erreur("import de chants : " + string.Join(" · ", erreurs));
+        if (err.Count > 0) Journal.Erreur("import de chants : " + string.Join(" · ", err));
     }
 
     /// <summary>Lignes de texte d'un PDF (mots et leur position) pour y trouver les chants numérotés.</summary>
