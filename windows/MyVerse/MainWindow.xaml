@@ -76,7 +76,7 @@
                             </Ellipse.Effect>
                         </Ellipse>
                         <TextBlock Text="MyVerse" FontFamily="{StaticResource Titre}" FontWeight="Bold" FontSize="20" Margin="10,0,0,0" VerticalAlignment="Center" Foreground="{StaticResource OrDegrade}" />
-                        <TextBlock Text="Bible et chants" Foreground="{StaticResource Brume2}" FontSize="13" Margin="10,2,0,0" VerticalAlignment="Center" />
+                        <TextBlock x:Name="SousTitre" Text="Bible et chants" Foreground="{StaticResource Brume2}" FontSize="13" Margin="10,2,0,0" VerticalAlignment="Center" />
                         <Button x:Name="VersionBtn" Style="{StaticResource BtnPlat}" Padding="6,2" Margin="6,2,0,0" FontSize="12" Foreground="{StaticResource Brume2}" ToolTip="Vérifier les mises à jour" Content="v4" />
                         <Button x:Name="MajBtn" Style="{StaticResource BtnPetitOr}" Margin="4,0,0,0" Visibility="Collapsed" Content="Mettre à jour" />
                     </StackPanel>
@@ -136,7 +136,7 @@
                             </StackPanel>
                         </Button>
                         <Button x:Name="OutilsBtn" Style="{StaticResource Btn}" Content="Outils" ToolTip="Mise à jour, journal d'erreurs" Margin="0,0,10,0" />
-                        <Button x:Name="EcranBtn" Style="{StaticResource BtnOr}" Content="Écran de projection ▾" />
+                        <Button x:Name="EcranBtn" Style="{StaticResource BtnOr}" Content="Écran de projection ▾" ToolTip="Choisir l'écran de projection (projecteur, télé, OBS)" />
                     </StackPanel>
                 </Grid>
             </Border>
@@ -262,13 +262,11 @@
 
                     <Border Grid.Column="2" Style="{StaticResource Carte}" Padding="16,14">
                         <DockPanel>
-                            <DockPanel DockPanel.Dock="Top" MinHeight="38" Margin="0,0,0,10">
-                                <TextBlock x:Name="VersionsLab" DockPanel.Dock="Right" Style="{StaticResource Muet}" VerticalAlignment="Center" Text="Version : LSG" />
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Button x:Name="ChapPrec" Style="{StaticResource BtnPetit}" Content="‹" ToolTip="Chapitre précédent" Visibility="Collapsed" />
-                                    <TextBlock x:Name="TitreChap" Style="{StaticResource Titre2}" Margin="10,0" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                    <Button x:Name="ChapSuiv" Style="{StaticResource BtnPetit}" Content="›" ToolTip="Chapitre suivant" Visibility="Collapsed" />
-                                </StackPanel>
+                            <DockPanel DockPanel.Dock="Top" MinHeight="38" Margin="0,0,0,10" LastChildFill="False">
+                                <TextBlock x:Name="VersionsLab" DockPanel.Dock="Right" Style="{StaticResource Muet}" VerticalAlignment="Center" Text="Version : LSG" Margin="12,0,0,0" TextWrapping="NoWrap" />
+                                <Button x:Name="ChapPrec" DockPanel.Dock="Left" Style="{StaticResource BtnPetit}" Content="‹" ToolTip="Chapitre précédent" Visibility="Collapsed" VerticalAlignment="Center" />
+                                <TextBlock x:Name="TitreChap" DockPanel.Dock="Left" Style="{StaticResource Titre2}" Margin="10,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <Button x:Name="ChapSuiv" DockPanel.Dock="Left" Style="{StaticResource BtnPetit}" Content="›" ToolTip="Chapitre suivant" Visibility="Collapsed" VerticalAlignment="Center" />
                             </DockPanel>
                             <ScrollViewer x:Name="DefilVersets" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,0">
                                 <StackPanel x:Name="Versets" MaxWidth="1300" />

@@ -233,7 +233,14 @@ public partial class MainWindow : Window
         double w = ActualWidth > 0 ? ActualWidth : Width;
         Colonne.Width = Math.Clamp(w * 0.24, 360, 520);
         ColonneCote.Width = new GridLength(Math.Clamp(w * 0.17, 260, 340));
+        // petit écran (1024 px) : barre du haut plus courte, la recherche garde sa place
+        bool compact = w < 1360;
+        SousTitre.Visibility = VersionBtn.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        EcranBtn.Content = compact ? "Écran ▾" : "Écran de projection ▾";
+        ObsCompact = compact;
+        MajObs();
     }
+    bool ObsCompact;
 
     // ------------------------------------------------------------ message court
     public void Toast(string t)
@@ -442,6 +449,7 @@ public partial class MainWindow : Window
         R.Selection = sel;
         for (int i = 0; i < boutonsLivres.Count; i++) boutonsLivres[i].Style = Style_(i == b ? "BtnLivreOn" : "BtnLivre");
         TitreChap.Text = $"{Livres.Nom(b)} {c}";
+        TitreChap.ToolTip = null;
         ChapPrec.Visibility = ChapSuiv.Visibility = Visibility.Visible;
         ChapPrec.IsEnabled = c > 1;
         ChapSuiv.IsEnabled = c < n;
@@ -588,6 +596,7 @@ public partial class MainWindow : Window
         R.Selection = null;
         ChapPrec.Visibility = ChapSuiv.Visibility = Visibility.Collapsed;
         TitreChap.Text = res.Count > 0 ? $"{res.Count}{(res.Count >= 120 ? "+" : "")} résultat{(res.Count > 1 ? "s" : "")} pour « {q} »" : "";
+        TitreChap.ToolTip = TitreChap.Text;
         Versets.Children.Clear();
         DefilVersets.ScrollToTop();
         if (res.Count == 0)
@@ -815,7 +824,8 @@ public partial class MainWindow : Window
     void MajObs()
     {
         var o = App.Obs;
-        ObsTexte.Text = o.Statut;
+        ObsTexte.Text = ObsCompact ? "OBS" : o.Statut;
+        ObsBtn.ToolTip = "Piloter OBS · " + o.Statut;
         ObsPoint.Fill = Pinceau(o.Connecte ? "Vert" : "Brume2");
         App.Telephone.Actualiser();
     }

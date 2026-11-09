@@ -38,7 +38,8 @@ public static class AutoTest
         try
         {
             w.UpdateLayout();
-            if (w.Content is not FrameworkElement el) { Echec("capture sans contenu : " + nom); return; }
+            // la racine visuelle de la fenêtre : tout l'intérieur, fond et marges compris
+            if ((VisualTreeHelper.GetChildrenCount(w) > 0 ? VisualTreeHelper.GetChild(w, 0) : w.Content) is not FrameworkElement el) { Echec("capture sans contenu : " + nom); return; }
             int wd = (int)Math.Ceiling(el.ActualWidth), h = (int)Math.Ceiling(el.ActualHeight);
             if (wd <= 0 || h <= 0) { Echec("capture vide : " + nom); return; }
             var rtb = new RenderTargetBitmap(wd, h, 96, 96, PixelFormats.Pbgra32);

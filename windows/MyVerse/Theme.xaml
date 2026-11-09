@@ -679,7 +679,6 @@
         <Setter Property="FontFamily" Value="{StaticResource Sans}" />
         <Setter Property="FontSize" Value="15" />
         <Setter Property="ShowInTaskbar" Value="False" />
-        <Setter Property="WindowStartupLocation" Value="CenterOwner" />
         <Setter Property="UseLayoutRounding" Value="True" />
         <Setter Property="TextOptions.TextFormattingMode" Value="Ideal" />
     </Style>

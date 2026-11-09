@@ -11,6 +11,7 @@ public class FenetreDialogue : Window
     public FenetreDialogue()
     {
         Style = (Style)Application.Current.FindResource("Dialogue");
+        WindowStartupLocation = WindowStartupLocation.CenterOwner;
         SourceInitialized += (_, _) => Natif.TitreSombre(this);
         PreviewKeyDown += (_, e) =>
         {

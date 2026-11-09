@@ -145,7 +145,8 @@ public sealed class Donnees
         foreach (var c in Chants)
         {
             if (string.IsNullOrEmpty(c.Id)) c.Id = Chant.NouvelId();
-            c.Title ??= "Sans titre";
+            c.Title = Texte.Espaces.Replace(c.Title ?? "", " ").Trim();
+            if (c.Title.Length == 0) c.Title = "Sans titre";
             c.Author ??= "";
             c.Sections ??= new List<Section>();
             foreach (var s in c.Sections) { s.Label ??= ""; s.Text ??= ""; }
