@@ -684,6 +684,41 @@ if (Actif())
     var notes = "La grâce qui transforme\n1. Sauvés par grâce — Éphésiens 2:8-9\n2. Rm 5.8 et 2 Co 5:17\nAppel : Jean 3:16, puis Psaume 23. Une 2 fois, Rom 8, le 3:16, culte à 10:30";
     Egal(string.Join(" | ", rg.RefsDansNotes(notes).Select(x => x.Libelle)), "Éphésiens 2:8-9 | Romains 5:8 | 2 Corinthiens 5:17 | Jean 3:16 | Psaumes 23", "versets trouvés dans les notes");
 
+    // 5.2 (design Aube) : compte à rebours, heures, éléments faits, résumé, annonces
+    var t0 = new DateTime(2026, 11, 15, 9, 55, 0);
+    rg.Horloge = () => t0;
+    rg.OublierResume();
+    var eCpt = rg.AjouterCompteAgenda(5);
+    Egal(rg.Agenda.Elements[0].Id, eCpt.Id, "compte à rebours : en tête du déroulé");
+    rg.AfficherElement(eCpt);
+    Egal(string.Join("|", rg.Etat.Lignes), "Le culte commence dans|05:00", "compte à rebours à l'écran");
+    rg.Horloge = () => t0.AddSeconds(61);
+    Ok(rg.TicCompte() && rg.Etat.Lignes[1] == "03:59", "le compte à rebours avance : " + rg.Etat.Lignes[1]);
+    rg.Horloge = () => t0.AddMinutes(7);
+    rg.TicCompte();
+    Egal(rg.Etat.Lignes[1], "00:00", "compte à rebours fini");
+    Ok(rg.EstFait(eCpt) && !rg.EstFait(eC), "élément fait (pas encore le chant)");
+    Egal(Regie.LireHeure("10h12"), "10:12", "heure « 10h12 »");
+    Egal(Regie.LireHeure("9h") + "|" + (Regie.LireHeure("25:00") ?? "null"), "09:00|null", "heures « 9h » et « 25:00 »");
+    rg.HeureAgenda(eC.Id, "10h");
+    Egal(rg.Agenda.Elements.First(x => x.Id == eC.Id).Heure, "10:00", "heure prévue enregistrée");
+    rg.AfficherElement(eC, 0); rg.Bouger(1);
+    Egal(rg.Resume(), "Accueil · 1 - Chant de test (2 couplets)", "résumé du culte");
+    Ok(rg.ResumePartage().Contains("• 1 - Chant de test (2 couplets)") && rg.DeroulePartage().Contains("10:00 — 1 - Chant de test"), "résumé et déroulé à partager");
+    var an = rg.NouvelleAnnonce("Bienvenue", "Bienvenue à tous !\n\nRepas après le culte");
+    rg.AfficherAnnonce(an);
+    Ok(rg.Etat.Lignes[0] == "Bienvenue à tous !" && rg.ElementCourant == null, "annonce à l'écran");
+    Egal(rg.Prochaine()?.Texte, "Repas après le culte", "annonce : diapositive suivante");
+    rg.Bouger(1);
+    Egal(rg.Etat.Lignes[0], "Repas après le culte", "annonce : Suivant");
+    var eAn = rg.AjouterAnnonceAgenda(an.Id)!;
+    Ok(eAn.Type == "texte" && rg.Diapos(eAn).Count == 2, "annonce ajoutée au déroulé");
+    rg.ModifierAnnonce(an.Id, "Bienvenue !", "Bonjour");
+    Ok(Donnees.Charger(don.Dossier, res).Annonces.Any(a => a.Titre == "Bienvenue !"), "annonces enregistrées");
+    rg.SupprimerAnnonce(an.Id);
+    Egal(rg.Annonces.Count, 0, "annonce supprimée");
+    rg.Horloge = () => DateTime.Now;
+
     var c1 = rg.Commande("jean 3 16");
     Ok(c1.Count > 0 && c1[0].Type == "BIBLE" && c1[0].Titre == "Jean 3:16", "commande « jean 3 16 »");
     var c2 = rg.Commande("chant 1", "Recueil A");

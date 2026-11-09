@@ -16,7 +16,7 @@ android {
         applicationId = "ca.mepc.verselight.remote"
         minSdk = 26
         targetSdk = 35
-        versionCode = (System.getenv("VERSION_CODE") ?: "510").toInt()
+        versionCode = (System.getenv("VERSION_CODE") ?: "520").toInt()
         versionName = System.getenv("VERSION_NAME") ?: "5.1.0"
     }
 

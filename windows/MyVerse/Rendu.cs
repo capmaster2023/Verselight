@@ -27,6 +27,14 @@ public sealed class Rendu : Grid
     static readonly SolidColorBrush Blanc = Gele(new SolidColorBrush(Color.FromRgb(0xF7, 0xF4, 0xEC)));
     static readonly SolidColorBrush Or2 = Gele(new SolidColorBrush(Color.FromRgb(0xF6, 0xD6, 0x8A)));
     static readonly SolidColorBrush FondBandeau = Gele(new SolidColorBrush(Color.FromArgb(0xE0, 0x0A, 0x10, 0x28)));
+    // fonds clairs « Lin » et « Ciel » : texte foncé, sans ombre
+    static readonly SolidColorBrush FondBandeauClair = Gele(new SolidColorBrush(Color.FromArgb(0xF0, 0xFB, 0xF8, 0xF2)));
+    static readonly SolidColorBrush EncreLin = Gele(new SolidColorBrush(Color.FromRgb(0x1F, 0x1B, 0x16)));
+    static readonly SolidColorBrush EncreCiel = Gele(new SolidColorBrush(Color.FromRgb(0x14, 0x21, 0x3D)));
+    static readonly SolidColorBrush RefLin = Gele(new SolidColorBrush(Color.FromRgb(0x8A, 0x5A, 0x12)));
+    static readonly SolidColorBrush RefCiel = Gele(new SolidColorBrush(Color.FromRgb(0x1E, 0x4F, 0xB0)));
+    static bool Clair(string? t) => t is "lin" or "ciel";
+    readonly DropShadowEffect ombre = new() { Color = Colors.Black, Opacity = 0.55, BlurRadius = 18, ShadowDepth = 3, Direction = 270, RenderingBias = RenderingBias.Performance };
     static T Gele<T>(T f) where T : Freezable { f.Freeze(); return f; }
 
     static FontFamily Police(string cle, string secours)
@@ -61,7 +69,7 @@ public sealed class Rendu : Grid
         refT.FontFamily = Sans;
         refT.FontWeight = FontWeights.Bold;
         refT.Foreground = Or2;
-        pile.Effect = new DropShadowEffect { Color = Colors.Black, Opacity = 0.55, BlurRadius = 18, ShadowDepth = 3, Direction = 270, RenderingBias = RenderingBias.Performance };
+        pile.Effect = ombre;
         scene.Opacity = 0;
         fond.Opacity = 0;
         TextOptions.SetTextFormattingMode(this, TextFormattingMode.Ideal);
@@ -76,6 +84,12 @@ public sealed class Rendu : Grid
             case "noir": return Brushes.Black;
             case "vert": return Gele(new SolidColorBrush(Color.FromRgb(0x00, 0xB1, 0x40)));
             case "transparent": return Brushes.Transparent;
+            case "lin": return Gele(new SolidColorBrush(Color.FromRgb(0xF1, 0xEE, 0xE8)));
+            case "ciel":
+            {
+                var b = new LinearGradientBrush(Color.FromRgb(0xEE, 0xF5, 0xFD), Color.FromRgb(0xDC, 0xE9, 0xF8), 90);
+                return Gele(b);
+            }
             case "aube":
             {
                 var b = new RadialGradientBrush { Center = new Point(0.5, 1.0), GradientOrigin = new Point(0.5, 1.0), RadiusX = 1.1, RadiusY = 0.9 };
@@ -114,7 +128,15 @@ public sealed class Rendu : Grid
     {
         var avantTheme = etat.Theme;
         etat = e;
-        if (avantTheme != e.Theme || fond.Background == null) fond.Background = FondTheme(e.Theme);
+        if (avantTheme != e.Theme || fond.Background == null)
+        {
+            fond.Background = FondTheme(e.Theme);
+            var encre = e.Theme == "ciel" ? EncreCiel : e.Theme == "lin" ? EncreLin : Blanc;
+            texte.Foreground = texte2.Foreground = encre;
+            refT.Foreground = e.Theme == "ciel" ? RefCiel : e.Theme == "lin" ? RefLin : Or2;
+            pile.Effect = Clair(e.Theme) ? null : ombre;
+            Placer();
+        }
         bool vide = e.Vide;
         var deux = e.Mode == "verset" && e.Second != null ? e.Second.Texte : "";
         var nouvelle = string.Join("\u0001", new[] { e.Mode, string.Join("\n", e.Lignes), e.Ref, e.Taille.ToString(), e.Presentation, deux });
@@ -171,7 +193,7 @@ public sealed class Rendu : Grid
             scene.Margin = new Thickness(0.05 * W, 0, 0.05 * W, 0.05 * H);
             scene.VerticalAlignment = VerticalAlignment.Bottom;
             scene.Height = 0.30 * H;
-            scene.Background = FondBandeau;
+            scene.Background = Clair(etat.Theme) ? FondBandeauClair : FondBandeau;
             scene.CornerRadius = new CornerRadius(2 * Rem);
             scene.Padding = new Thickness(0.04 * W, 0.03 * H, 0.04 * W, 0.03 * H);
             refT.Margin = new Thickness(0, 1.4 * Rem, 0, 0);

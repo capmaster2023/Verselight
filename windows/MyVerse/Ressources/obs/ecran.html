@@ -14,6 +14,12 @@
   .theme-aube #fond { background: radial-gradient(110% 90% at 50% 100%, #5A3A12 0%, #2A1A0A 45%, #0A0604 100%); }
   .theme-vert #fond { background: #00B140; }
   .theme-transparent #fond { background: transparent; }
+  .theme-lin #fond { background: #F1EEE8; }
+  .theme-ciel #fond { background: linear-gradient(180deg, #EEF5FD 0%, #DCE9F8 100%); }
+  .theme-lin #texte, .theme-lin #texte2 { color: #1F1B16; text-shadow: none; }
+  .theme-ciel #texte, .theme-ciel #texte2 { color: #14213D; text-shadow: none; }
+  .theme-lin #ref { color: #8A5A12; }
+  .theme-ciel #ref { color: #1E4FB0; }
   /* rien à l'écran (Retirer) : tout devient transparent, comme à opacité 0 → OBS montre la caméra, le projecteur est noir */
   .mode-vide #fond { opacity: 0; }
   html.obs, html.obs body { background: transparent; }
@@ -32,6 +38,7 @@
   /* bandeau : texte en bas de l'écran (pratique avec le fond vert) */
   .pres-bandeau #scene { inset: auto 5vw 5vh 5vw; height: 30vh; justify-content: center; background: rgba(10,16,40,.88); border-radius: 2rem; padding: 3vh 4vw; box-shadow: 0 1rem 4rem rgba(0,0,0,.5); }
   .pres-bandeau #ref { margin-top: 1.4rem; font-size: 2.6rem; }
+  .theme-lin.pres-bandeau #scene, .theme-ciel.pres-bandeau #scene { background: rgba(251,248,242,.94); box-shadow: 0 1rem 4rem rgba(0,0,0,.18); }
   #msg { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); font: 2.4rem var(--sans); color: var(--brume2); opacity: .7; cursor: default; text-align: center; }
   body.vivant #msg { display: none; }
 </style>

@@ -88,6 +88,7 @@ public sealed class Donnees
     public List<Chant> Chants { get; private set; } = new();
     public Dictionary<string, List<string>> Decoupes { get; private set; } = new();
     public List<Agenda> Agendas { get; private set; } = new();
+    public List<Annonce> Annonces { get; private set; } = new();
     /// <summary>Ce qui a été repris de la 3.x au premier démarrage (vide sinon).</summary>
     public string Migration { get; private set; } = "";
 
@@ -95,6 +96,7 @@ public sealed class Donnees
     string FChants => Path.Combine(Dossier, "chants.json");
     string FDecoupes => Path.Combine(Dossier, "decoupes.json");
     string FAgendas => Path.Combine(Dossier, "agendas.json");
+    string FAnnonces => Path.Combine(Dossier, "annonces.json");
     public string DossierBibles => Path.Combine(Dossier, "bibles");
 
     Donnees(string dossier, string ressources) { Dossier = dossier; DossierRessources = ressources; }
@@ -116,6 +118,7 @@ public sealed class Donnees
         d.Decoupes = Lire<Dictionary<string, List<string>>>(d.FDecoupes) ?? new Dictionary<string, List<string>>();
         d.Agendas = Lire<List<Agenda>>(d.FAgendas) ?? new List<Agenda>();
         foreach (var a in d.Agendas) { a.Elements ??= new(); a.Nom ??= ""; }
+        d.Annonces = Lire<List<Annonce>>(d.FAnnonces) ?? new List<Annonce>();
         if (nouveau)
         {
             try { d.Migrer(); }
@@ -145,7 +148,7 @@ public sealed class Donnees
         if (string.IsNullOrEmpty(r.Bibles.Principale)) r.Bibles.Principale = "lsg";
         r.Bibles.Seconde ??= "";
         if (r.Bibles.Seconde == r.Bibles.Principale) r.Bibles.Seconde = "";
-        if (r.Theme is not ("nuit" or "aube" or "noir" or "vert" or "transparent")) r.Theme = "nuit";
+        if (r.Theme is not ("nuit" or "aube" or "lin" or "ciel" or "noir" or "vert" or "transparent")) r.Theme = "nuit";
         if (r.Presentation is not ("plein" or "bandeau")) r.Presentation = "plein";
         if (!(r.Taille >= 0.5 && r.Taille <= 1.6)) r.Taille = 1;
         if (r.Obs.Port <= 0 || r.Obs.Port > 65535) r.Obs.Port = 4455;
@@ -200,6 +203,7 @@ public sealed class Donnees
 
     public void SauverReglages() => Sauver(FReglages, Reglages, "réglages");
     public void SauverAgendas() => Sauver(FAgendas, Agendas, "agendas");
+    public void SauverAnnonces() => Sauver(FAnnonces, Annonces, "annonces");
     public void SauverChants() => Sauver(FChants, Chants, "chants");
     public void SauverDecoupes() => Sauver(FDecoupes, Decoupes, "versets découpés");
 

@@ -12,8 +12,20 @@ public sealed class ElementAgenda
     [JsonPropertyName("chant"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? ChantId { get; set; }
     /// <summary>Livre, chapitre, premier et dernier verset (0, 0 : chapitre entier).</summary>
     [JsonPropertyName("ref"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int[]? Ref { get; set; }
-    /// <summary>Texte libre : une diapositive par paragraphe (ligne vide entre deux).</summary>
+    /// <summary>Texte libre : une diapositive par paragraphe (ligne vide entre deux). Compte à rebours : le message.</summary>
     [JsonPropertyName("texte"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Texte { get; set; }
+    /// <summary>Heure prévue (« 10:12 »), facultative.</summary>
+    [JsonPropertyName("heure"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Heure { get; set; }
+    /// <summary>Compte à rebours : durée en minutes.</summary>
+    [JsonPropertyName("minutes"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? Minutes { get; set; }
+}
+
+/// <summary>Une annonce de la bibliothèque (onglet Annonces) : titre et texte, une diapositive par paragraphe.</summary>
+public sealed class Annonce
+{
+    [JsonPropertyName("id")] public string Id { get; set; } = Chant.NouvelId();
+    [JsonPropertyName("titre")] public string Titre { get; set; } = "";
+    [JsonPropertyName("texte")] public string Texte { get; set; } = "";
 }
 
 /// <summary>Un agenda (comme dans VideoPsalm) : la liste préparée d'un culte.</summary>
@@ -24,8 +36,11 @@ public sealed class Agenda
     [JsonPropertyName("elements")] public List<ElementAgenda> Elements { get; set; } = new();
 }
 
-/// <summary>Une diapositive d'un texte de l'agenda.</summary>
+/// <summary>Une diapositive d'un texte de l'agenda (ou d'une annonce).</summary>
 public sealed record CibleTexte(string Element, int I) : Cible;
+
+/// <summary>Le compte à rebours d'accueil (« Le culte commence dans 05:00 »).</summary>
+public sealed record CibleCompte(string Element) : Cible;
 
 /// <summary>Une diapositive d'un élément de l'agenda.</summary>
 public sealed record DiapoAgenda(string Label, string Texte, Cible Cible);
@@ -181,6 +196,7 @@ public sealed partial class Regie
     {
         "chant" => ("CHANT", Trouver(e.ChantId) is { } c ? (c.Author.Length > 0 ? c.Author : "Sans recueil") + $" · {c.Sections.Count} strophe{(c.Sections.Count > 1 ? "s" : "")}" : "chant supprimé"),
         "bible" => ("BIBLE", BorneRef(e) is { } r ? $"{r.V2 - r.V1 + 1} verset{(r.V2 > r.V1 ? "s" : "")} · {Bibles.Etiquette()}" : "absent de cette Bible"),
+        "compte" => ("ACCUEIL", $"Compte à rebours · {e.Minutes ?? 5} min"),
         _ => ("TEXTE", $"{BlocsTexte(e.Texte).Count} diapo{(BlocsTexte(e.Texte).Count > 1 ? "s" : "")}"),
     };
 
@@ -224,6 +240,9 @@ public sealed partial class Regie
                     }
                 }
                 break;
+            case "compte":
+                l.Add(new DiapoAgenda("Compte à rebours", $"{MessageCompte(e)}\n{e.Minutes ?? 5:00}:00", new CibleCompte(e.Id)));
+                break;
             default:
                 var b = BlocsTexte(e.Texte);
                 for (int i = 0; i < b.Count; i++) l.Add(new DiapoAgenda(b.Count > 1 ? $"{e.Titre} · {i + 1}/{b.Count}" : e.Titre, b[i], new CibleTexte(e.Id, i)));
@@ -245,6 +264,7 @@ public sealed partial class Regie
                 (CibleChant a, CibleChant b) => a.Id == b.Id && a.I == b.I,
                 (CibleVerset a, CibleVerset b) => a.B == b.B && a.C == b.C && a.V1 == b.V1 && b.V1 == b.V2 && a.Part == b.Part,
                 (CibleTexte a, CibleTexte b) => a.Element == b.Element && a.I == b.I,
+                (CibleCompte a, CibleCompte b) => a.Element == b.Element,
                 _ => false,
             };
             if (ok) return i;
@@ -274,6 +294,7 @@ public sealed partial class Regie
                     AfficherVerset(cv.B, cv.C, cv.V1, cv.V1, cv.Part);
                     break;
                 case CibleTexte ct: AfficherTexte(e, ct.I); break;
+                case CibleCompte: AfficherCompte(e); break;
             }
         }
         finally { depuisAgenda = false; }
@@ -292,6 +313,7 @@ public sealed partial class Regie
             Ref = "",
             Second = null,
         };
+        Noter("e:" + e.Id, e.Titre, "t" + i);
         Signaler();
     }
 

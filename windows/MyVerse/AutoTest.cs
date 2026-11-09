@@ -97,7 +97,7 @@ public static class AutoTest
             Ok(Police("Serif").Contains("Literata"), "police Literata incluse");
             Ok(Police("Sans").Contains("Atkinson"), "police Atkinson incluse");
             await Attendre(1500);
-            Capture(w, "00-accueil-agenda.png");
+            Capture(w, "00-accueil-culte.png");
             w.TestOnglet(true);
             await Attendre(400);
             Capture(w, "01-bible.png");
@@ -171,38 +171,77 @@ public static class AutoTest
             Ok(ajC == 1 && ajV == 1 && R.Agenda.Elements.Count == 2, $"boutons + devant les chants et les versets : {ajC} / {ajV}");
             R.SupprimerAgenda(agPlus.Id);
 
-            // 5.0 : agenda (comme VideoPsalm), barre de commande, notes de prédication, écran noir
+            // 5.2 (design « Aube ») : déroulé du culte, recherche Ctrl K, compte à rebours d'accueil, résumé, annonces, écran de scène
             w.TestOngletAgenda();
             var agTest = R.NouvelAgenda("Culte de test");
+            var compte = R.AjouterCompteAgenda(5);
             if (c != null) R.AjouterChantAgenda(c.Id);
-            R.AjouterBibleAgenda(new Ref(42, 3, 16, 17));
+            var lecture = R.AjouterBibleAgenda(new Ref(42, 3, 16, 17));
+            R.HeureAgenda(lecture.Id, "10h30");
             R.AjouterTexteAgenda("Annonces", "Bienvenue à tous !\n\nRepas fraternel après le culte");
-            Ok(R.Agenda.Elements.Count == (c != null ? 3 : 2), $"agenda : {R.Agenda.Elements.Count} éléments");
-            R.AfficherElement(R.Agenda.Elements[0], 0);
+            Ok(R.Agenda.Elements.Count == (c != null ? 4 : 3) && R.Agenda.Elements[0].Type == "compte", $"déroulé : {R.Agenda.Elements.Count} éléments, le compte à rebours en premier");
+            Ok(lecture.Heure == "10:30", "heure prévue : " + lecture.Heure);
+            R.OublierResume();
+            R.AfficherElement(compte, 0);
+            await Attendre(1300);
+            var lc = R.Etat.Lignes;
+            Ok(lc.Count == 2 && lc[0].StartsWith("Le culte commence") && (lc[1] == "05:00" || lc[1].StartsWith("04:5")), "compte à rebours : " + string.Join(" / ", lc));
+            await Attendre(1200);
+            Ok(R.Etat.Lignes.Count == 2 && R.Etat.Lignes[1].StartsWith("04:5"), "le compte à rebours descend : " + string.Join(" / ", R.Etat.Lignes));
+            if (w.Ecran != null) Capture(w.Ecran, "19b-ecran-compte.png");
             var cm = w.TestCommande("jean 3 16");
-            Ok(cm.Count > 0 && cm[0].Titre == "Jean 3:16", "barre de commande : " + string.Join(" | ", cm.Select(x => x.Titre)));
-            await Attendre(700);
-            Capture(w, "19-agenda.png");
+            Ok(cm.Count > 0 && cm[0].Titre == "Jean 3:16", "recherche du culte (Ctrl K) : " + string.Join(" | ", cm.Select(x => x.Titre)));
             w.TestCommande("");
             for (int i = 0; i < 15 && R.ElementCourant?.Type != "bible"; i++) R.Bouger(1);
-            Ok(R.ElementCourant?.Type == "bible" && R.Etat.Ref.StartsWith("Jean 3:16"), "agenda : Suivant passe au passage biblique · " + R.Etat.Ref);
+            Ok(R.ElementCourant?.Type == "bible" && R.Etat.Ref.StartsWith("Jean 3:16"), "déroulé : Suivant passe à la lecture · " + R.Etat.Ref);
+            App.Bibles.BasculerSeconde("kjv");
+            await Attendre(900);
+            Capture(w, "19-culte.png");
+            App.Bibles.BasculerSeconde("kjv");
+            Ok(R.EstFait(compte) && w.TestResume.Contains("Accueil") && w.TestResume.Contains("Jean 3"), "résumé du culte : " + w.TestResume);
+            Ok(R.DeroulePartage().Contains("10:30") && R.ResumePartage().Length > 0, "textes à partager sur WhatsApp");
             for (int i = 0; i < 5 && R.ElementCourant?.Type != "texte"; i++) R.Bouger(1);
-            Ok(R.ElementCourant?.Type == "texte" && R.Etat.Lignes.FirstOrDefault() == "Bienvenue à tous !", "agenda : puis les annonces");
+            Ok(R.ElementCourant?.Type == "texte" && R.Etat.Lignes.FirstOrDefault() == "Bienvenue à tous !", "déroulé : puis les annonces");
             await Attendre(500);
-            Capture(w, "20-agenda-annonces.png");
+            Capture(w, "20-culte-annonces.png");
             if (w.Ecran != null) Capture(w.Ecran, "21-ecran-annonces.png");
             w.TestNoir();
-            await Attendre(900);
-            Ok(w.TestEstNoir, "écran noir");
-            Capture(w, "22-ecran-noir.png");
+            await Attendre(600);
+            Ok(w.TestEstNoir, "écran noir (touche B)");
             R.Bouger(1);
             await Attendre(300);
             Ok(!w.TestEstNoir, "la diapositive suivante rallume l'écran");
-            int nr = w.TestNotes("La grâce qui transforme\n1. Sauvés par grâce — Éphésiens 2:8-9\n2. Rm 5.8 et 2 Co 5:17\nAppel : Jean 3:16");
-            Ok(nr == 4, $"notes de prédication : {nr} versets trouvés");
-            await Attendre(500);
-            Capture(w, "23-notes.png");
-            w.TestVueAgenda();
+
+            // fonds clairs Lin et Ciel
+            R.AfficherElement(lecture, 0);
+            R.Theme("lin");
+            await Attendre(1300);
+            if (w.Ecran != null) Capture(w.Ecran, "22-ecran-lin.png");
+            R.Theme("ciel");
+            await Attendre(1300);
+            if (w.Ecran != null) Capture(w.Ecran, "22b-ecran-ciel.png");
+            R.Theme("aube");
+
+            // écran de scène (minuteur de prédication)
+            var scene = w.TestScene();
+            await Attendre(1200);
+            Ok(scene != null, "écran de scène ouvert");
+            Capture(scene, "23-scene.png");
+            try { scene?.Close(); } catch (Exception) { }
+
+            // bibliothèque d'annonces
+            var an = R.NouvelleAnnonce("Repas fraternel", "Repas fraternel après le culte\nTout le monde est invité");
+            w.TestOngletAnnonces();
+            w.TestChoisirAnnonce(an);
+            await Attendre(600);
+            Capture(w, "24-annonces.png");
+            int avantAn = R.Agenda.Elements.Count;
+            var elAn = R.AjouterAnnonceAgenda(an.Id);
+            Ok(elAn != null && R.Agenda.Elements.Count == avantAn + 1 && elAn.Type == "texte", "annonce ajoutée au déroulé");
+            R.AfficherAnnonce(an);
+            await Attendre(300);
+            Ok(R.Etat.Lignes.FirstOrDefault() == "Repas fraternel après le culte", "annonce à l'écran : " + string.Join(" / ", R.Etat.Lignes));
+            R.SupprimerAnnonce(an.Id);
             R.SupprimerAgenda(agTest.Id);
             w.TestOnglet(false);
             R.Effacer();

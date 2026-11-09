@@ -122,6 +122,7 @@ public sealed partial class Regie
             Ref = Livres.Libelle(b, c, v1, v2) + $" ({Bibles.Etiquette()})",
             Second = t2.Length > 0 ? new EtatEcran.TexteSecond(t2) : null,
         };
+        NoterAffichage();
         Signaler();
     }
 
@@ -145,6 +146,7 @@ public sealed partial class Regie
             Ref = "",
             Second = null,
         };
+        NoterAffichage();
         Signaler();
     }
 
@@ -160,7 +162,7 @@ public sealed partial class Regie
 
     public void Bouger(int d)
     {
-        if (BougerAgenda(d)) return;
+        if (BougerAgenda(d) || BougerAnnonce(d)) return;
         if (Cible is CibleChant cc)
         {
             var c = Trouver(cc.Id);
@@ -193,6 +195,7 @@ public sealed partial class Regie
     {
         var (agenda, sa) = ProchaineAgenda();
         if (agenda) return sa;
+        if (Cible is CibleTexte) return ProchaineAnnonce();
         if (Cible is CibleChant cc)
         {
             var c = Trouver(cc.Id);
