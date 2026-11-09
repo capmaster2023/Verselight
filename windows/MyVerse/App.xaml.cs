@@ -16,8 +16,15 @@ public partial class App : Application
     public static Telephone Telephone { get; private set; } = null!;
     /// <summary>Dossier du test automatique (« MyVerse.exe --autotest dossier »), sinon null.</summary>
     public static string? AutoTest { get; private set; }
-    /// <summary>Résultat du contrôle du pare-feu : « ok », « missing », « refused », « error » ou vide (en cours).</summary>
-    public static string Parefeu_ { get; set; } = "";
+    /// <summary>Résultat du contrôle du pare-feu : « ok », « missing », « refused », « error », « demande » ou vide (en cours).</summary>
+    public static string Parefeu_
+    {
+        get => parefeu;
+        set { parefeu = value; ParefeuChange?.Invoke(); }
+    }
+    static string parefeu = "";
+    /// <summary>L'état du pare-feu a changé (fil de l'interface).</summary>
+    public static event Action? ParefeuChange;
 
     static Mutex? instance;
     static EventWaitHandle? signal;

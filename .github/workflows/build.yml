@@ -58,6 +58,18 @@ jobs:
           "code de sortie : $($p.ExitCode)"
           exit $p.ExitCode
 
+      - name: Règles du pare-feu (MyVerse.exe --parefeu)
+        run: |
+          $p = Start-Process -FilePath "out\MyVerse\MyVerse.exe" -ArgumentList "--parefeu" -PassThru
+          $null = $p.Handle
+          if (-not $p.WaitForExit(120000)) { $p.Kill(); "délai dépassé" | Tee-Object -FilePath ci/autotest/autotest.txt -Append; exit 1 }
+          "code de sortie : $($p.ExitCode)" | Tee-Object -FilePath ci/autotest/autotest.txt -Append
+          foreach ($r in @("MyVerse (TCP)", "MyVerse (UDP)", "MyVerse (programme)")) {
+            netsh advfirewall firewall show rule name="$r" | Select-Object -First 12 | Tee-Object -FilePath ci/autotest/autotest.txt -Append
+            if ($LASTEXITCODE -ne 0) { "règle absente : $r" | Tee-Object -FilePath ci/autotest/autotest.txt -Append; exit 1 }
+          }
+          exit $p.ExitCode
+
       - name: Installateur (NSIS) et dossier portable
         if: success()
         run: |
@@ -73,6 +85,36 @@ jobs:
           Move-Item windows/installer/MyVerse-Setup-*.exe .
           Compress-Archive -Path out/MyVerse -DestinationPath "MyVerse-$V-Windows.zip" -CompressionLevel Optimal
           Get-ChildItem MyVerse-*.zip, MyVerse-Setup-*.exe | Format-Table Name, Length
+
+      - name: Test de l'installateur (mise à jour d'une 3.x, puis désinstallation)
+        if: success()
+        run: |
+          $dir = "$env:LOCALAPPDATA\Programs\MyVerse"
+          # une fausse MyVerse 3.x déjà installée (Neutralino + module réseau)
+          New-Item -ItemType Directory -Force "$dir\extensions\bridge" | Out-Null
+          Set-Content "$dir\resources.neu" "ancien"
+          Set-Content "$dir\extensions\bridge\verselight-bridge.exe" "ancien"
+          Set-Content "$dir\neutralinojs.log" "ancien"
+          $setup = (Get-ChildItem MyVerse-Setup-*.exe | Select-Object -First 1).FullName
+          $p = Start-Process $setup -ArgumentList "/S" -PassThru
+          $null = $p.Handle
+          if (-not $p.WaitForExit(240000)) { "installateur bloqué" | Tee-Object -FilePath ci/installateur.txt -Append; exit 1 }
+          "installateur : code $($p.ExitCode)" | Tee-Object -FilePath ci/installateur.txt -Append
+          Start-Sleep 4
+          $ouvert = Get-Process MyVerse -ErrorAction SilentlyContinue
+          "MyVerse rouvert après la mise à jour : $([bool]$ouvert)" | Tee-Object -FilePath ci/installateur.txt -Append
+          $ouvert | Stop-Process -Force -ErrorAction SilentlyContinue
+          $ok = $true
+          foreach ($f in @("MyVerse.exe", "Ressources\lsg.json", "Ressources\obs\ecran.html", "Desinstaller.exe")) { $e = Test-Path "$dir\$f"; "présent $f : $e" | Tee-Object -FilePath ci/installateur.txt -Append; if (-not $e) { $ok = $false } }
+          foreach ($f in @("resources.neu", "extensions", "neutralinojs.log")) { $e = Test-Path "$dir\$f"; "ancien $f retiré : $(-not $e)" | Tee-Object -FilePath ci/installateur.txt -Append; if ($e) { $ok = $false } }
+          "raccourci Bureau : $(Test-Path "$env:USERPROFILE\Desktop\MyVerse.lnk")" | Tee-Object -FilePath ci/installateur.txt -Append
+          "Applications installées : $((Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MyVerse' -ErrorAction SilentlyContinue).DisplayVersion)" | Tee-Object -FilePath ci/installateur.txt -Append
+          $u = Start-Process "$dir\Desinstaller.exe" -ArgumentList @("/S", "_?=$dir") -PassThru
+          $null = $u.Handle
+          $u.WaitForExit(120000) | Out-Null
+          "désinstallé (MyVerse.exe supprimé) : $(-not (Test-Path "$dir\MyVerse.exe"))" | Tee-Object -FilePath ci/installateur.txt -Append
+          if (Test-Path "$dir\MyVerse.exe") { $ok = $false }
+          if (-not $ok) { exit 1 }
 
       - uses: actions/upload-artifact@v4
         if: success()
@@ -195,6 +237,7 @@ jobs:
             (grep -E "error|warning (CS|MC|NU|NETSDK)" /tmp/w/windows-build.log | sort -u | head -300 > windows-erreurs.log) 2>/dev/null || true
             tail -c 40000 /tmp/w/windows-build.log > windows.log 2>/dev/null || true
             cp /tmp/w/windows.status windows.status 2>/dev/null || true
+            cp /tmp/w/installateur.txt installateur.txt 2>/dev/null || true
             if [ -d /tmp/w/autotest ]; then cp -r /tmp/w/autotest autotest; fi
           fi
           git add -A && git commit -qm "CI ${GITHUB_SHA}" && git push -f origin ci-logs

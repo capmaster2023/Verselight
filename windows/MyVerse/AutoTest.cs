@@ -160,6 +160,22 @@ public static class AutoTest
             await Fenetre(w, () => new TelephoneWindow(), "17-telephone.png");
             await Fenetre(w, () => new OutilsWindow(false), "18-outils.png");
 
+            // recueil PDF (lecture du PDF par PdfPig)
+            var pdf = Path.Combine(Environment.CurrentDirectory, "windows", "MyVerse.Tests", "donnees", "recueil-test.pdf");
+            if (File.Exists(pdf))
+            {
+                try
+                {
+                    var lignes = await Task.Run(() => ImportWindow.LignesPdf(pdf, new Progress<string>(_ => { })));
+                    var chants = Recueils.ChantsDepuisLignes(lignes);
+                    Note("PDF : " + string.Join(" | ", chants.Select(x => x.Title + " [" + string.Join(", ", x.Sections.Select(s => s.Label)) + "]")));
+                    Ok(chants.Count == 3 && chants[0].Title == "1. GRACE INFINIE" && chants[0].Sections.Any(s => s.Label == "Refrain") && chants[2].Title == "3. YERA YERA",
+                        "recueil PDF : 3 chants numérotés avec refrain");
+                }
+                catch (Exception x) { Echec("recueil PDF : " + x); }
+            }
+            else Note("PDF de test absent : " + pdf);
+
             // le serveur des téléphones répond
             try
             {

@@ -84,7 +84,7 @@ public partial class ImportWindow : FenetreDialogue
     }
 
     /// <summary>Lignes de texte d'un PDF (mots et leur position) pour y trouver les chants numérotés.</summary>
-    static List<Recueils.LignePdf> LignesPdf(string chemin, IProgress<string> progres)
+    internal static List<Recueils.LignePdf> LignesPdf(string chemin, IProgress<string> progres)
     {
         using var doc = PdfDocument.Open(chemin);
         var pages = new List<IReadOnlyList<Recueils.MorceauPdf>>();

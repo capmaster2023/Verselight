@@ -12,7 +12,7 @@ namespace MyVerse.Ui;
 /// </summary>
 public partial class TelephoneWindow : FenetreDialogue
 {
-    bool demande;
+    bool demande, dejaDemande;
 
     public TelephoneWindow()
     {
@@ -43,15 +43,28 @@ public partial class TelephoneWindow : FenetreDialogue
         Appareils();
         MajParefeu();
         t.Change += Changement;
+        App.ParefeuChange += ParefeuChange;
         Closed += (_, _) =>
         {
             t.Change -= Changement;
+            App.ParefeuChange -= ParefeuChange;
             t.FermerJumelage();
         };
         Fermer.Click += (_, _) => Close();
         ParefeuBtn.Click += (_, _) => DemanderParefeu();
         // comme la 3.x : à l'ouverture, la demande Windows s'affiche si l'autorisation manque
         Loaded += (_, _) => { if (App.Parefeu_ == "missing" && App.AutoTest == null) DemanderParefeu(); };
+    }
+
+    /// <summary>Le contrôle du pare-feu (au démarrage) vient de finir : mise à jour, et la demande Windows si besoin.</summary>
+    void ParefeuChange()
+    {
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (!IsLoaded) return;
+            MajParefeu();
+            if (App.Parefeu_ == "missing" && !dejaDemande && App.AutoTest == null) DemanderParefeu();
+        }));
     }
 
     void Changement() => Dispatcher.BeginInvoke(new Action(Appareils));
@@ -123,6 +136,7 @@ public partial class TelephoneWindow : FenetreDialogue
     {
         if (demande) return;
         demande = true;
+        dejaDemande = true;
         App.Parefeu_ = "demande";
         MajParefeu();
         var r = await Task.Run(MyVerse.Parefeu.Demander);
