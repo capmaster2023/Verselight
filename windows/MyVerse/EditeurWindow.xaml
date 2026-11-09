@@ -1,0 +1,54 @@
+<local:FenetreDialogue x:Class="MyVerse.Ui.EditeurWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:MyVerse.Ui"
+        Title="Chant" Width="1100" Height="760" MinWidth="760" MinHeight="520" ResizeMode="CanResize">
+    <DockPanel Margin="22,18,22,20">
+        <TextBlock DockPanel.Dock="Top" Text="Chant" Style="{StaticResource Titre2}" Margin="0,0,0,12" />
+        <StackPanel DockPanel.Dock="Top">
+            <TextBlock Text="Titre" Style="{StaticResource Etiquette}" />
+            <TextBox x:Name="Titre" Style="{StaticResource Champ}" />
+            <DockPanel Margin="0,12,0,10" LastChildFill="False">
+                <TextBlock DockPanel.Dock="Left" Style="{StaticResource Muet}" VerticalAlignment="Center" MaxWidth="420"
+                           Text="Collez un chant complet, même en désordre : il est rangé tout seul." />
+                <Button x:Name="Brut" DockPanel.Dock="Right" Style="{StaticResource BtnPetit}" Content="Texte d'origine" Margin="8,0,0,0" Visibility="Collapsed"
+                        ToolTip="Revenir au texte collé, tel quel" />
+                <Button x:Name="Ranger" DockPanel.Dock="Right" Style="{StaticResource BtnPetitOr}" Content="Ranger" Margin="8,0,0,0"
+                        ToolTip="Ranger les paroles en diapositives (titre, couplets, refrain)" />
+                <ComboBox x:Name="Lignes" DockPanel.Dock="Right" Width="140" Margin="8,0,0,0" ToolTip="Lignes par diapositive">
+                    <ComboBoxItem Tag="0" Content="Auto (3 à 5)" />
+                    <ComboBoxItem Tag="3" Content="3 lignes" />
+                    <ComboBoxItem Tag="4" Content="4 lignes" />
+                    <ComboBoxItem Tag="5" Content="5 lignes" />
+                </ComboBox>
+                <TextBlock DockPanel.Dock="Right" Text="Lignes par diapositive" FontSize="13" VerticalAlignment="Center" Foreground="{StaticResource Brume}" />
+            </DockPanel>
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button x:Name="Annuler" Style="{StaticResource Btn}" Content="Annuler" IsCancel="True" MinWidth="110" />
+            <Button x:Name="Enregistrer" Style="{StaticResource BtnOr}" Content="Enregistrer" Margin="10,0,0,0" MinWidth="130" />
+        </StackPanel>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.1*" />
+                <ColumnDefinition Width="14" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource Etiquette}">
+                    <Run Text="Paroles" /> <Run Text="Entrée devant une ligne = nouvelle diapositive." FontWeight="Bold" FontSize="12.5" Foreground="{StaticResource Brume}" />
+                    <Run Text="Une ligne vide sépare les diapositives ; [Refrain] ou [Couplet 2] au début pour les nommer." FontWeight="Normal" FontSize="12.5" Foreground="{StaticResource Brume2}" />
+                </TextBlock>
+                <TextBox x:Name="Texte" Style="{StaticResource Zone}" FontSize="14" SpellCheck.IsEnabled="False" />
+            </DockPanel>
+            <DockPanel Grid.Column="2">
+                <TextBlock DockPanel.Dock="Top" FontSize="13" Foreground="{StaticResource Brume2}" Margin="0,0,0,6">
+                    <Run Text="Diapositives" /> <Run x:Name="Compte" FontWeight="Bold" Foreground="{StaticResource Brume}" />
+                </TextBlock>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <WrapPanel x:Name="Apercu" />
+                </ScrollViewer>
+            </DockPanel>
+        </Grid>
+    </DockPanel>
+</local:FenetreDialogue>

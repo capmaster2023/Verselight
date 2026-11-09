@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- MyVerse 4.0 : tout ce qui n'est pas l'interface (Bible, recherche, chants, imports, régie, téléphone, OBS).
+       Sans dépendance externe : compilable et testable partout. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MyVerse</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+</Project>

@@ -12,83 +12,91 @@ permissions:
 
 jobs:
   windows:
-    name: Bridge + VerseLight Windows
-    runs-on: ubuntu-latest
+    name: MyVerse Windows (natif)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      DOTNET_NOLOGO: '1'
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
     steps:
       - uses: actions/checkout@v4
 
       - name: Version
         id: v
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then V="${GITHUB_REF#refs/tags/v}"; else V=$(jq -r .version verselight/neutralino.config.json); fi
-          echo "version=$V" >> "$GITHUB_OUTPUT"
+          $v = (Get-Content VERSION -Raw).Trim()
+          if ($env:GITHUB_REF -like 'refs/tags/v*') { $v = $env:GITHUB_REF.Substring(11) }
+          "version=$v" >> $env:GITHUB_OUTPUT
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-dotnet@v4
         with:
-          go-version: '1.22'
+          dotnet-version: '8.0.x'
 
-      - name: Tests du bridge
-        working-directory: bridge
+      - name: Tests du cœur (Bible, recherche, chants, téléphone)
         run: |
-          go vet ./...
-          go test -count=1 ./... 2>&1 | tee ../ci-bridge.log
+          New-Item -ItemType Directory -Force ci | Out-Null
+          dotnet run --project windows/MyVerse.Tests -c Release -- "$PWD/windows/MyVerse/Ressources" 2>&1 | Tee-Object -FilePath ci/tests.log
+          if ($LASTEXITCODE -ne 0) { exit 1 }
 
-      - name: Compilation de verselight-bridge.exe
-        working-directory: bridge
-        env:
-          GOOS: windows
-          GOARCH: amd64
-          CGO_ENABLED: '0'
+      - name: Compilation de MyVerse.exe
         run: |
-          mkdir -p ../verselight/extensions/bridge
-          go build -trimpath -ldflags "-s -w -X main.version=${{ steps.v.outputs.version }}" -o ../verselight/extensions/bridge/verselight-bridge.exe .
+          dotnet publish windows/MyVerse/MyVerse.csproj -c Release -r win-x64 --self-contained true -p:PublishReadyToRun=true -p:Version=${{ steps.v.outputs.version }} -o out/MyVerse -v:m 2>&1 | Tee-Object -FilePath ci/windows-build.log
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Copy-Item windows/LISEZ-MOI.txt out/MyVerse/
+          Get-ChildItem out/MyVerse | Measure-Object -Property Length -Sum | ForEach-Object { "{0} fichiers, {1:N1} Mo" -f $_.Count, ($_.Sum / 1MB) }
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: neu build (resources.neu)
-        working-directory: verselight
+      - name: Test automatique (fenêtres, projection, captures d'écran)
         run: |
-          npm install -g @neutralinojs/neu@11.8.0
-          neu build 2>&1 | tee ../ci-neu.log
-          test -f dist/MyVerse/resources.neu
+          $env:VERSELIGHT_DATA_DIR = "$env:RUNNER_TEMP\myverse-donnees"
+          New-Item -ItemType Directory -Force ci/autotest | Out-Null
+          $p = Start-Process -FilePath "out\MyVerse\MyVerse.exe" -ArgumentList @("--autotest", "$PWD\ci\autotest") -PassThru
+          $null = $p.Handle
+          if (-not $p.WaitForExit(300000)) { $p.Kill(); "MyVerse ne s'est pas fermé (plus de 5 minutes)" | Tee-Object -FilePath ci/autotest/autotest.txt -Append; exit 1 }
+          Get-Content ci/autotest/autotest.txt -ErrorAction SilentlyContinue
+          "code de sortie : $($p.ExitCode)"
+          exit $p.ExitCode
 
-      - name: Paquet Windows
+      - name: Installateur (NSIS) et dossier portable
+        if: success()
         run: |
-          V=${{ steps.v.outputs.version }}
-          P=out/MyVerse
-          mkdir -p $P/extensions/bridge
-          cp verselight/dist/MyVerse/MyVerse-win_x64.exe $P/MyVerse.exe
-          cp verselight/dist/MyVerse/resources.neu $P/resources.neu
-          cp verselight/extensions/bridge/verselight-bridge.exe $P/extensions/bridge/
-          cp verselight/LISEZ-MOI.txt $P/LISEZ-MOI.txt
-          (cd out && zip -r -9 ../MyVerse-$V-Windows.zip MyVerse)
-          ls -la out/MyVerse MyVerse-$V-Windows.zip
+          $V = "${{ steps.v.outputs.version }}"
+          $nsis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+          if (-not (Test-Path $nsis)) { choco install nsis -y --no-progress | Out-Null; $nsis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe" }
+          Remove-Item -Recurse -Force windows/installer/app -ErrorAction SilentlyContinue
+          Copy-Item -Recurse out/MyVerse windows/installer/app
+          Push-Location windows/installer
+          & $nsis -V2 "-DVERSION=$V" MyVerse.nsi
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Pop-Location
+          Move-Item windows/installer/MyVerse-Setup-*.exe .
+          Compress-Archive -Path out/MyVerse -DestinationPath "MyVerse-$V-Windows.zip" -CompressionLevel Optimal
+          Get-ChildItem MyVerse-*.zip, MyVerse-Setup-*.exe | Format-Table Name, Length
 
       - uses: actions/upload-artifact@v4
-        with:
-          name: MyVerse-${{ steps.v.outputs.version }}-Windows
-          path: out/MyVerse
-
-      - name: Installateur Windows (NSIS)
-        run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq nsis
-          rm -rf verselight/installer/app && cp -r out/MyVerse verselight/installer/app
-          cd verselight/installer && makensis -V2 -DVERSION=${{ steps.v.outputs.version }} MyVerse.nsi
-          mv MyVerse-Setup-*.exe ../../
-
-      - uses: actions/upload-artifact@v4
+        if: success()
         with:
           name: MyVerse-Setup-${{ steps.v.outputs.version }}
           path: MyVerse-Setup-*.exe
 
       - uses: actions/upload-artifact@v4
+        if: success()
         with:
           name: windows-zip
           path: |
             MyVerse-*-Windows.zip
             MyVerse-Setup-*.exe
+          retention-days: 3
+
+      - name: Journal Windows
+        if: always()
+        run: '"${{ job.status }}" | Out-File -Encoding utf8 ci/windows.status'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ci-windows
+          path: ci
           retention-days: 3
 
   android:
@@ -128,7 +136,7 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           VERSION_CODE: ${{ github.run_number }}
         run: |
-          export VERSION_NAME=$(jq -r .version ../verselight/neutralino.config.json)
+          export VERSION_NAME=$(tr -d '[:space:]' < ../VERSION)
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then export VERSION_NAME="${GITHUB_REF#refs/tags/v}"; fi
           chmod +x gradlew
           set -o pipefail
@@ -171,12 +179,25 @@ jobs:
           name: ci-android-log
           path: /tmp/a
         continue-on-error: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: ci-windows
+          path: /tmp/w
+        continue-on-error: true
       - run: |
           { echo "commit ${GITHUB_SHA}"; echo "branche ${GITHUB_REF_NAME}"; echo "windows=${{ needs.windows.result }}"; echo "android=${{ needs.android.result }}"; } > /tmp/status.txt
           tail -c 60000 /tmp/a/ci-android.log > /tmp/android.log 2>/dev/null || echo "-" > /tmp/android.log
           git config user.name "github-actions"; git config user.email "actions@github.com"
-          git checkout --orphan ci-logs && git rm -rqf . && cp /tmp/status.txt status.txt && cp /tmp/android.log android.log
-          git add status.txt android.log && git commit -qm "CI ${GITHUB_SHA}" && git push -f origin ci-logs
+          git checkout --orphan ci-logs && git rm -rqf .
+          cp /tmp/status.txt status.txt && cp /tmp/android.log android.log
+          if [ -d /tmp/w ]; then
+            tail -c 60000 /tmp/w/tests.log > tests.log 2>/dev/null || true
+            (grep -E "error|warning (CS|MC|NU|NETSDK)" /tmp/w/windows-build.log | sort -u | head -300 > windows-erreurs.log) 2>/dev/null || true
+            tail -c 40000 /tmp/w/windows-build.log > windows.log 2>/dev/null || true
+            cp /tmp/w/windows.status windows.status 2>/dev/null || true
+            if [ -d /tmp/w/autotest ]; then cp -r /tmp/w/autotest autotest; fi
+          fi
+          git add -A && git commit -qm "CI ${GITHUB_SHA}" && git push -f origin ci-logs
 
   release:
     name: Publication (GitHub Release)
@@ -193,7 +214,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          V=$(jq -r .version verselight/neutralino.config.json)
+          V=$(tr -d '[:space:]' < VERSION)
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then V="${GITHUB_REF#refs/tags/v}"; fi
           TAG="v$V"
           FILES=(dl/windows-zip/*.zip dl/windows-zip/*.exe dl/MyVerse/MyVerse.apk dl/MyVerse-debug/MyVerse-debug.apk)
@@ -202,5 +223,5 @@ jobs:
             gh release upload "$TAG" "${FILES[@]}" --clobber
           else
             gh release create "$TAG" "${FILES[@]}" --target "$GITHUB_SHA" --title "MyVerse $V" \
-              --notes "MyVerse $V : installateur Windows (MyVerse-Setup), dossier portable et APK Android (MyVerse.apk)."
+              --notes "MyVerse $V : logiciel Windows natif (installateur MyVerse-Setup, dossier portable) et APK Android (MyVerse.apk)."
           fi

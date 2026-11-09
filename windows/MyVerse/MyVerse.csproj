@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- MyVerse 4.0 : logiciel Windows natif (WPF). Le cœur (Bible, chants, téléphone, OBS) est dans MyVerse.Core. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>MyVerse.Ui</RootNamespace>
+    <AssemblyName>MyVerse</AssemblyName>
+    <ApplicationIcon>myverse.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>4.0.0</Version>
+    <FileVersion>4.0.0.0</FileVersion>
+    <Product>MyVerse</Product>
+    <AssemblyTitle>MyVerse</AssemblyTitle>
+    <Company>MEPC Montréal</Company>
+    <Copyright>MEPC Montréal</Copyright>
+    <Description>MyVerse</Description>
+    <NeutralLanguage>fr</NeutralLanguage>
+    <SatelliteResourceLanguages>fr</SatelliteResourceLanguages>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <NoWarn>$(NoWarn);CA1416;NU1701</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MyVerse.Core\MyVerse.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- code QR du jumelage, lecture des recueils en PDF -->
+    <PackageReference Include="QRCoder" Version="1.6.0" />
+    <PackageReference Include="PdfPig" Version="0.1.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Ressources\**\*" />
+    <Content Include="Ressources\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <Resource Include="Polices\*.ttf" />
+    <Resource Include="myverse.ico" />
+  </ItemGroup>
+</Project>

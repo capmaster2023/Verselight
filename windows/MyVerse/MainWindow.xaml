@@ -1,0 +1,327 @@
+<Window x:Class="MyVerse.Ui.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:MyVerse.Ui"
+        Title="MyVerse — Bible et chants" Icon="/myverse.ico"
+        Width="1440" Height="900" MinWidth="1000" MinHeight="640"
+        Background="{StaticResource Encre}" Foreground="{StaticResource Blanc}"
+        FontFamily="{StaticResource Sans}" FontSize="15"
+        UseLayoutRounding="True" TextOptions.TextFormattingMode="Ideal"
+        WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <Style x:Key="LigneVerset" TargetType="Border">
+            <Setter Property="Padding" Value="12,9" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,0,0,2" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource Nuit}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="CarteSection" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Nuit}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Nuit3}" />
+            <Setter Property="BorderThickness" Value="2" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="14,10,14,12" />
+            <Setter Property="Margin" Value="0,0,10,10" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="BorderBrush" Value="{StaticResource Brume2}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <DataTemplate x:Key="ModeleChant">
+            <StackPanel>
+                <TextBlock Text="{Binding Title}" FontSize="15" TextTrimming="CharacterEllipsis" Foreground="{StaticResource Blanc}" />
+                <TextBlock x:Name="Recueil" Text="{Binding Author}" FontSize="12.5" Foreground="{StaticResource Brume2}" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Author}" Value="">
+                    <Setter TargetName="Recueil" Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid>
+        <DockPanel>
+            <!-- ==================== barre du haut ==================== -->
+            <Border DockPanel.Dock="Top" Background="{StaticResource Nuit}" BorderBrush="{StaticResource Nuit3}" BorderThickness="0,0,0,1" Padding="18,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Ellipse Width="22" Height="22" VerticalAlignment="Center">
+                            <Ellipse.Fill>
+                                <RadialGradientBrush>
+                                    <GradientStop Color="#FFF6D8" Offset="0" />
+                                    <GradientStop Color="#FFF6D8" Offset="0.18" />
+                                    <GradientStop Color="#E4AF41" Offset="0.45" />
+                                    <GradientStop Color="#00E4AF41" Offset="1" />
+                                </RadialGradientBrush>
+                            </Ellipse.Fill>
+                            <Ellipse.Effect>
+                                <DropShadowEffect Color="#E4AF41" BlurRadius="18" ShadowDepth="0" Opacity="0.6" />
+                            </Ellipse.Effect>
+                        </Ellipse>
+                        <TextBlock Text="MyVerse" FontFamily="{StaticResource Titre}" FontWeight="Bold" FontSize="20" Margin="10,0,0,0" VerticalAlignment="Center" Foreground="{StaticResource OrDegrade}" />
+                        <TextBlock Text="Bible et chants" Foreground="{StaticResource Brume2}" FontSize="13" Margin="10,2,0,0" VerticalAlignment="Center" />
+                        <Button x:Name="VersionBtn" Style="{StaticResource BtnPlat}" Padding="6,2" Margin="6,2,0,0" FontSize="12" Foreground="{StaticResource Brume2}" ToolTip="Vérifier les mises à jour" Content="v4" />
+                        <Button x:Name="MajBtn" Style="{StaticResource BtnPetitOr}" Margin="4,0,0,0" Visibility="Collapsed" Content="Mettre à jour" />
+                    </StackPanel>
+
+                    <Border Grid.Column="1" Background="{StaticResource Encre}" CornerRadius="12" Padding="4" Margin="18,0,0,0" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="OngletBible" Style="{StaticResource Onglet}" GroupName="Onglets" IsChecked="True" Content="Bible" />
+                            <RadioButton x:Name="OngletChants" Style="{StaticResource Onglet}" GroupName="Onglets" Content="Chants" Margin="4,0,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- grande recherche : Bible ou chants selon l'onglet -->
+                    <Grid Grid.Column="2" Margin="16,0" MaxWidth="780" HorizontalAlignment="Stretch">
+                        <Border x:Name="RechercheBible" Background="{StaticResource Encre}" BorderBrush="{StaticResource Nuit3}" BorderThickness="1" CornerRadius="12" Padding="14,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Path Data="M9,2 A7,7 0 1 1 8.99,2 Z M14,14 L19,19" Stroke="{StaticResource Brume}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" Width="20" Height="20" Stretch="None" />
+                                <TextBlock x:Name="QIndice" Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" FontSize="17" Foreground="{StaticResource Brume2}" IsHitTestVisible="False"
+                                           Text="jn 3 16 · ps 23 · rm 8.28 · ou des mots, même mal écrits" TextTrimming="CharacterEllipsis" />
+                                <TextBox x:Name="Q" Grid.Column="1" Margin="10,0,0,0" FontSize="17" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Blanc}"
+                                         CaretBrush="{StaticResource Or2}" SelectionBrush="{StaticResource Or}" VerticalContentAlignment="Center" Padding="0,10" FocusVisualStyle="{x:Null}" />
+                                <Button x:Name="QEffacer" Grid.Column="2" Style="{StaticResource BtnPlat}" Padding="8,4" Content="✕" Foreground="{StaticResource Brume}" Visibility="Collapsed" ToolTip="Effacer la recherche" />
+                            </Grid>
+                        </Border>
+                        <Border x:Name="RechercheChants" Background="{StaticResource Encre}" BorderBrush="{StaticResource Nuit3}" BorderThickness="1" CornerRadius="12" Padding="14,0" Visibility="Collapsed">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Path Data="M9,2 A7,7 0 1 1 8.99,2 Z M14,14 L19,19" Stroke="{StaticResource Brume}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" Width="20" Height="20" Stretch="None" />
+                                <TextBlock x:Name="QcIndice" Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" FontSize="17" Foreground="{StaticResource Brume2}" IsHitTestVisible="False"
+                                           Text="Chercher un chant : titre, numéro ou paroles" TextTrimming="CharacterEllipsis" />
+                                <TextBox x:Name="Qc" Grid.Column="1" Margin="10,0,0,0" FontSize="17" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Blanc}"
+                                         CaretBrush="{StaticResource Or2}" SelectionBrush="{StaticResource Or}" VerticalContentAlignment="Center" Padding="0,10" FocusVisualStyle="{x:Null}" />
+                                <Button x:Name="QcEffacer" Grid.Column="2" Style="{StaticResource BtnPlat}" Padding="8,4" Content="✕" Foreground="{StaticResource Brume}" Visibility="Collapsed" ToolTip="Effacer la recherche" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="TelBtn" Style="{StaticResource Btn}" ToolTip="Télécommande Android" Margin="0,0,10,0">
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse x:Name="TelPoint" Width="8" Height="8" Fill="{StaticResource Brume2}" VerticalAlignment="Center" Margin="0,1,7,0" />
+                                <TextBlock Text="Téléphone" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="ObsBtn" Style="{StaticResource Btn}" ToolTip="Piloter OBS" Margin="0,0,10,0">
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse x:Name="ObsPoint" Width="8" Height="8" Fill="{StaticResource Brume2}" VerticalAlignment="Center" Margin="0,1,7,0" />
+                                <TextBlock x:Name="ObsTexte" Text="OBS" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="OutilsBtn" Style="{StaticResource Btn}" Content="Outils" ToolTip="Mise à jour, journal d'erreurs" Margin="0,0,10,0" />
+                        <Button x:Name="EcranBtn" Style="{StaticResource BtnOr}" Content="Écran de projection ▾" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ==================== colonne de droite : à l'écran ==================== -->
+            <Border x:Name="Colonne" DockPanel.Dock="Right" Width="400" Background="{StaticResource Nuit}" BorderBrush="{StaticResource Nuit3}" BorderThickness="1,0,0,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="16">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <Ellipse Width="10" Height="10" Fill="#FF5A6A" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBlock Text="À L'ÉCRAN" Style="{StaticResource CarteTitre}" Margin="0" />
+                        </StackPanel>
+                        <Grid>
+                            <Border x:Name="Apercu" BorderBrush="{StaticResource Nuit3}" BorderThickness="2" CornerRadius="12" Background="{StaticResource Damier}"
+                                    ToolTip="Double-clic : couper cette diapositive" Cursor="Hand">
+                                <Viewbox Stretch="Uniform">
+                                    <local:Rendu x:Name="ApercuRendu" Width="1920" Height="1080" Transitions="False" />
+                                </Viewbox>
+                            </Border>
+                            <Border x:Name="Pastille" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8" CornerRadius="6" Padding="8,2" Background="#8C000000">
+                                <TextBlock x:Name="PastilleTexte" Text="Écran fermé" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Brume}" />
+                            </Border>
+                        </Grid>
+
+                        <Border Background="{StaticResource Nuit2}" CornerRadius="12" Padding="10,8" Margin="0,12,0,0">
+                            <StackPanel>
+                                <DockPanel>
+                                    <Button x:Name="Decouper" DockPanel.Dock="Right" Style="{StaticResource BtnPetit}" Content="✂ Découper" IsEnabled="False"
+                                            ToolTip="Couper la diapositive suivante en plusieurs (Entrée devant une ligne)" />
+                                    <TextBlock Text="Suivant" FontSize="12" Foreground="{StaticResource Brume2}" VerticalAlignment="Center" />
+                                    <TextBlock x:Name="SuivantLab" FontSize="12.5" FontWeight="Bold" Foreground="{StaticResource Or}" Margin="8,0,8,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                                <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto" Margin="0,4,0,0">
+                                    <TextBlock x:Name="SuivantTexte" Text="—" FontSize="13" TextWrapping="Wrap" LineHeight="19" />
+                                </ScrollViewer>
+                            </StackPanel>
+                        </Border>
+
+                        <Button x:Name="Afficher" Style="{StaticResource BtnOr}" Content="Afficher" FontSize="20" Padding="16" Margin="0,12,0,0" ToolTip="Entrée" />
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition />
+                                <RowDefinition Height="8" />
+                                <RowDefinition />
+                            </Grid.RowDefinitions>
+                            <Button x:Name="Prec" Style="{StaticResource Btn}" Content="‹ Précédent" Padding="12" ToolTip="Flèche gauche" />
+                            <Button x:Name="Suiv" Grid.Column="2" Style="{StaticResource Btn}" Content="Suivant ›" Padding="12" ToolTip="Flèche droite ou espace" />
+                            <Button x:Name="Effacer" Grid.Row="2" Grid.ColumnSpan="3" Style="{StaticResource BtnRouge}" Content="Retirer" Padding="12" ToolTip="Échap" />
+                        </Grid>
+
+                        <Grid Margin="0,14,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Fond" FontSize="13" Foreground="{StaticResource Brume}" Margin="0,0,0,4" />
+                                <ComboBox x:Name="Theme" ToolTip="Fond de l'écran">
+                                    <ComboBoxItem Tag="nuit" Content="Nuit" />
+                                    <ComboBoxItem Tag="aube" Content="Aube" />
+                                    <ComboBoxItem Tag="noir" Content="Noir" />
+                                    <ComboBoxItem Tag="vert" Content="Vert (incrustation)" />
+                                    <ComboBoxItem Tag="transparent" Content="Transparent (OBS)" />
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Présentation" FontSize="13" Foreground="{StaticResource Brume}" Margin="0,0,0,4" />
+                                <ComboBox x:Name="Presentation" ToolTip="Présentation">
+                                    <ComboBoxItem Tag="plein" Content="Plein écran" />
+                                    <ComboBoxItem Tag="bandeau" Content="En bandeau" />
+                                </ComboBox>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="Taille du texte" FontSize="13" Foreground="{StaticResource Brume}" Margin="0,14,0,2" />
+                        <Slider x:Name="Taille" Minimum="0.6" Maximum="1.2" SmallChange="0.05" LargeChange="0.05" TickFrequency="0.05" IsSnapToTickEnabled="True" Value="1" />
+
+                        <TextBlock Text="Raccourcis" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Brume}" Margin="0,22,0,6" />
+                        <WrapPanel x:Name="Aide" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <!-- ==================== Bible ==================== -->
+            <Grid x:Name="Centre">
+                <Grid x:Name="PanneauBible" Margin="18,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition x:Name="ColonneCote" Width="300" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,2,0">
+                        <StackPanel>
+                            <Border Style="{StaticResource Carte}">
+                                <StackPanel>
+                                    <TextBlock Text="BIBLES" Style="{StaticResource CarteTitre}" />
+                                    <StackPanel x:Name="BiblesChoix" Margin="0,6,0,0" />
+                                    <Grid Margin="0,6,0,0">
+                                        <Rectangle RadiusX="12" RadiusY="12" Stroke="{StaticResource Or}" StrokeDashArray="4 3" StrokeThickness="1" IsHitTestVisible="False" />
+                                        <Button x:Name="BiblesImporter" Style="{StaticResource Btn}" Background="Transparent" BorderBrush="Transparent" Foreground="{StaticResource Or2}" Padding="10" Content="＋ Importer une Bible" />
+                                    </Grid>
+                                    <TextBlock x:Name="BiblesEtat" Style="{StaticResource MuetPetit}" Margin="0,8,0,0">
+                                        <Run Text="Cliquez une Bible pour l'afficher ·" /> <Run Text="2e" FontWeight="Bold" /> <Run Text="= versets bilingues (sous le verset)" />
+                                    </TextBlock>
+                                    <Button x:Name="BiblesGerer" Style="{StaticResource BtnLien}" Content="Gérer les Bibles…" Margin="0,8,0,0" ToolTip="Supprimer une Bible, choisir dans une liste" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Carte}" Margin="0,14,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="ANCIEN TESTAMENT" Style="{StaticResource CarteTitre}" Margin="0,0,0,6" />
+                                    <UniformGrid x:Name="LivresAT" Columns="3" />
+                                    <TextBlock Text="NOUVEAU TESTAMENT" Style="{StaticResource CarteTitre}" Margin="0,12,0,6" />
+                                    <UniformGrid x:Name="LivresNT" Columns="3" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <Border Grid.Column="2" Style="{StaticResource Carte}" Padding="16,14">
+                        <DockPanel>
+                            <DockPanel DockPanel.Dock="Top" MinHeight="38" Margin="0,0,0,10">
+                                <TextBlock x:Name="VersionsLab" DockPanel.Dock="Right" Style="{StaticResource Muet}" VerticalAlignment="Center" Text="Version : LSG" />
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button x:Name="ChapPrec" Style="{StaticResource BtnPetit}" Content="‹" ToolTip="Chapitre précédent" Visibility="Collapsed" />
+                                    <TextBlock x:Name="TitreChap" Style="{StaticResource Titre2}" Margin="10,0" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                    <Button x:Name="ChapSuiv" Style="{StaticResource BtnPetit}" Content="›" ToolTip="Chapitre suivant" Visibility="Collapsed" />
+                                </StackPanel>
+                            </DockPanel>
+                            <ScrollViewer x:Name="DefilVersets" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,0">
+                                <StackPanel x:Name="Versets" MaxWidth="1300" />
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+
+                <!-- ==================== chants ==================== -->
+                <Grid x:Name="PanneauChants" Margin="18,16" Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="300" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <DockPanel>
+                        <ComboBox x:Name="Recueil" DockPanel.Dock="Top" ToolTip="Recueil" MaxDropDownHeight="520" />
+                        <StackPanel DockPanel.Dock="Top" Margin="0,10,0,8">
+                            <Button x:Name="Importer" Style="{StaticResource BtnOr}" Content="＋ Importer chants / recueil"
+                                    ToolTip="Ajouter des chants ou un recueil : VideoPsalm, OpenLyrics, OpenSong, ChordPro, SongSelect, ProPresenter 6, PDF, texte collé, lien d'un site" />
+                            <Button x:Name="Nouveau" Style="{StaticResource Btn}" Content="＋ Nouveau chant" Margin="0,8,0,0"
+                                    ToolTip="Taper ou coller un chant : il est rangé tout seul en diapositives" />
+                        </StackPanel>
+                        <ListBox x:Name="ListeChants" Style="{StaticResource ListeChants}" ItemContainerStyle="{StaticResource ElementChant}" ItemTemplate="{StaticResource ModeleChant}" />
+                    </DockPanel>
+                    <DockPanel Grid.Column="2">
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                            <Button x:Name="Supprimer" DockPanel.Dock="Right" Style="{StaticResource BtnDanger}" Content="Supprimer" IsEnabled="False" Margin="8,0,0,0" />
+                            <Button x:Name="Modifier" DockPanel.Dock="Right" Style="{StaticResource BtnPetit}" Content="Modifier" IsEnabled="False" />
+                            <TextBlock x:Name="ChantTitre" Style="{StaticResource Titre2}" Text="Aucun chant choisi" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
+                        <ScrollViewer x:Name="DefilSections" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <WrapPanel x:Name="Sections" />
+                        </ScrollViewer>
+                    </DockPanel>
+                </Grid>
+            </Grid>
+        </DockPanel>
+
+        <!-- menu « Écran de projection » -->
+        <Popup x:Name="MenuEcrans" PlacementTarget="{Binding ElementName=EcranBtn}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" HorizontalOffset="0" VerticalOffset="6">
+            <Border Background="{StaticResource Nuit2}" BorderBrush="{StaticResource Nuit3}" BorderThickness="1" CornerRadius="12" Padding="6" MinWidth="360">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="30" ShadowDepth="8" Opacity="0.5" Color="Black" />
+                </Border.Effect>
+                <StackPanel x:Name="MenuEcransPile" />
+            </Border>
+        </Popup>
+
+        <!-- message court -->
+        <Border x:Name="ToastBoite" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,20" Background="{StaticResource Nuit2}" BorderBrush="{StaticResource Nuit3}" BorderThickness="1"
+                CornerRadius="12" Padding="18,10" MaxWidth="900" Opacity="0" IsHitTestVisible="False">
+            <TextBlock x:Name="ToastTexte" TextWrapping="Wrap" />
+        </Border>
+    </Grid>
+</Window>

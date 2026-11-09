@@ -1,0 +1,54 @@
+<local:FenetreDialogue x:Class="MyVerse.Ui.ImportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:MyVerse.Ui"
+        Title="Importer des chants" Width="720" SizeToContent="Height" ResizeMode="NoResize">
+    <StackPanel Margin="22,18,22,20">
+        <TextBlock Text="Importer des chants" Style="{StaticResource Titre2}" Margin="0,0,0,14" />
+        <TextBlock Style="{StaticResource Etiquette}">
+            <Run Text="Nom du recueil" /> <Run Text="(facultatif : les chants importés seront rangés sous ce nom)" FontWeight="Normal" FontSize="13" Foreground="{StaticResource Brume2}" />
+        </TextBlock>
+        <Grid>
+            <TextBlock x:Name="RecueilIndice" Text="ex. Cantiques Kirundi, Chorale 2026" Foreground="{StaticResource Brume2}" Margin="12,8,0,0" IsHitTestVisible="False" Panel.ZIndex="1" />
+            <TextBox x:Name="NomRecueil" Style="{StaticResource Champ}" />
+        </Grid>
+
+        <Button x:Name="Coller" Style="{StaticResource Btn}" HorizontalContentAlignment="Left" Padding="16,12" Margin="0,14,0,0">
+            <StackPanel>
+                <TextBlock Text="Coller un chant" FontWeight="Bold" />
+                <TextBlock Text="Copiez les paroles (WhatsApp, site, Word…) : MyVerse les range en diapositives de 3 à 5 lignes" FontWeight="Normal" FontSize="13" Foreground="{StaticResource Brume2}" TextWrapping="Wrap" />
+            </StackPanel>
+        </Button>
+        <Button x:Name="TexteRecueil" Style="{StaticResource Btn}" HorizontalContentAlignment="Left" Padding="16,12" Margin="0,8,0,0">
+            <StackPanel>
+                <TextBlock Text="Recueil en texte (.txt)" FontWeight="Bold" />
+                <TextBlock Text="Plusieurs chants numérotés « 1. Titre » dans un seul fichier texte" FontWeight="Normal" FontSize="13" Foreground="{StaticResource Brume2}" TextWrapping="Wrap" />
+            </StackPanel>
+        </Button>
+        <Button x:Name="Fichiers" Style="{StaticResource Btn}" HorizontalContentAlignment="Left" Padding="16,12" Margin="0,8,0,0">
+            <StackPanel>
+                <TextBlock Text="Fichiers de chants" FontWeight="Bold" />
+                <TextBlock Text="VideoPsalm, OpenLyrics, OpenSong, ChordPro, SongSelect, ProPresenter 6, texte" FontWeight="Normal" FontSize="13" Foreground="{StaticResource Brume2}" TextWrapping="Wrap" />
+            </StackPanel>
+        </Button>
+        <Button x:Name="Pdf" Style="{StaticResource Btn}" HorizontalContentAlignment="Left" Padding="16,12" Margin="0,8,0,0">
+            <StackPanel>
+                <TextBlock Text="Recueil en PDF" FontWeight="Bold" />
+                <TextBlock Text="Un livre de cantiques numérotés (ex. cantiques en kirundi)" FontWeight="Normal" FontSize="13" Foreground="{StaticResource Brume2}" TextWrapping="Wrap" />
+            </StackPanel>
+        </Button>
+        <Border Background="{StaticResource Nuit2}" BorderBrush="{StaticResource Nuit3}" BorderThickness="1" CornerRadius="10" Padding="16,12" Margin="0,8,0,0">
+            <StackPanel>
+                <TextBlock Text="Depuis un site web" FontWeight="Bold" />
+                <TextBlock Text="Collez le lien d'un chant ou d'une page qui liste les chants (ex. indirimbo.com/agakiza)" FontSize="13" Foreground="{StaticResource Brume2}" TextWrapping="Wrap" />
+                <DockPanel Margin="0,8,0,0">
+                    <Button x:Name="Arreter" DockPanel.Dock="Right" Style="{StaticResource Btn}" Content="Arrêter" Margin="8,0,0,0" Visibility="Collapsed" />
+                    <Button x:Name="Web" DockPanel.Dock="Right" Style="{StaticResource BtnOr}" Content="Importer" Margin="8,0,0,0" />
+                    <TextBox x:Name="Url" Style="{StaticResource Champ}" />
+                </DockPanel>
+            </StackPanel>
+        </Border>
+        <TextBlock x:Name="Etat" Style="{StaticResource Muet}" FontSize="14" Margin="0,12,0,0" MinHeight="20" />
+        <Button x:Name="Fermer" Style="{StaticResource Btn}" Content="Fermer" HorizontalAlignment="Right" MinWidth="110" Margin="0,8,0,0" IsCancel="True" />
+    </StackPanel>
+</local:FenetreDialogue>

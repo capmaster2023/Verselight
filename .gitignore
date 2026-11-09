@@ -29,3 +29,12 @@ Thumbs.db
 node_modules/
 verselight/installer/app/
 verselight/installer/*.exe
+
+# MyVerse 4 (.NET)
+windows/**/bin/
+windows/**/obj/
+windows/installer/app/
+windows/installer/*.exe
+
+# données de test (base LevelDB de la 3.x)
+!windows/MyVerse.Tests/donnees/leveldb-3x/*.log
