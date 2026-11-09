@@ -292,7 +292,7 @@ public partial class MainWindow : Window
         ColonneAgenda.Width = new GridLength(Math.Clamp(w * 0.23, 300, 400));
         // petit écran (1024 px) : barre du haut plus courte, la recherche garde sa place
         bool compact = w < 1360;
-        SousTitre.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        SousTitre.Visibility = VersionsLab.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         ObsCompact = compact;
         MajObs();
     }

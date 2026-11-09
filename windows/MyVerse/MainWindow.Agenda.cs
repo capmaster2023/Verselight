@@ -201,12 +201,20 @@ public partial class MainWindow
     {
         Diapos.Children.Clear();
         var e = elementChoisi;
-        ElemAfficher.IsEnabled = e != null;
+        ElemBoutons.Visibility = e != null ? Visibility.Visible : Visibility.Collapsed;
         ElemModifier.Visibility = e != null && e.Type is "texte" or "chant" ? Visibility.Visible : Visibility.Collapsed;
         if (e == null)
         {
             ElemType.Text = "";
             ElemTitre.Text = R.Agenda.Elements.Count > 0 ? "Choisissez un élément de l'agenda" : "Préparez le culte";
+            if (R.Agenda.Elements.Count == 0)
+                Diapos.Children.Add(new TextBlock
+                {
+                    Style = Style_("Muet"), FontSize = 15, LineHeight = 26, Margin = new Thickness(2, 4, 0, 0),
+                    Text = "1. Tapez « chant 12 » ou « jean 3 16 » dans la barre ci-dessus, puis Tab pour l'ajouter à l'agenda.\n" +
+                           "2. Ou « + Agenda » dans Bible et Chants, « + Texte » pour une annonce.\n" +
+                           "3. Pendant le culte : Entrée affiche, → passe à la diapositive suivante, puis à l'élément suivant.",
+                });
             return;
         }
         ElemType.Text = R.Description(e).Type;
@@ -357,7 +365,7 @@ public partial class MainWindow
             var r = cmdRes[i];
             bool choisi = i == cmdIndex;
             var g = new Grid();
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(64) });
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(56) });
             g.ColumnDefinitions.Add(new ColumnDefinition());
             g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             g.Children.Add(new TextBlock { Text = r.Type, FontFamily = (FontFamily)FindResource("Mono"), FontSize = 11, FontWeight = FontWeights.Bold, Foreground = Pinceau(choisi ? "Or" : "Brume"), VerticalAlignment = VerticalAlignment.Center });
@@ -368,7 +376,7 @@ public partial class MainWindow
             g.Children.Add(txt);
             if (choisi)
             {
-                var k = new Border { Style = Style_("Touche"), Margin = new Thickness(10, 0, 0, 0), Background = Pinceau("Encre"), Child = new TextBlock { Text = r.Action != null ? "Entrée" : "Entrée · afficher", FontFamily = (FontFamily)FindResource("Mono"), FontSize = 11, FontWeight = FontWeights.Bold, Foreground = Pinceau("Or") } };
+                var k = new Border { Style = Style_("Touche"), Margin = new Thickness(10, 0, 0, 0), Background = Pinceau("Encre"), Child = new TextBlock { Text = "Entrée", FontFamily = (FontFamily)FindResource("Mono"), FontSize = 11, FontWeight = FontWeights.Bold, Foreground = Pinceau("Or") } };
                 Grid.SetColumn(k, 2);
                 g.Children.Add(k);
             }
@@ -380,7 +388,7 @@ public partial class MainWindow
             rang.Children.Add(ligne);
             if (r.Action == null)
             {
-                var plus = new Button { Style = Style_("BtnPlat"), Content = "＋ Agenda", FontSize = 13, Padding = new Thickness(10, 6, 10, 6), Margin = new Thickness(4, 0, 0, 0), ToolTip = "Ajouter à l'agenda (Tab)", VerticalAlignment = VerticalAlignment.Center };
+                var plus = new Button { Style = Style_("BtnPlat"), Content = "＋", FontSize = 17, Padding = new Thickness(12, 6, 12, 6), Margin = new Thickness(2, 0, 0, 0), ToolTip = "Ajouter à l'agenda (Tab)", VerticalAlignment = VerticalAlignment.Center };
                 plus.Click += (_, _) => ExecuterCommande(r, true);
                 Grid.SetColumn(plus, 1);
                 rang.Children.Add(plus);
