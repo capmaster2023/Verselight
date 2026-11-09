@@ -269,9 +269,10 @@ jobs:
           TAG="v$V"
           FILES=(dl/windows-zip/*.zip dl/windows-zip/*.exe dl/MyVerse/MyVerse.apk dl/MyVerse-debug/MyVerse-debug.apk)
           ls -la "${FILES[@]}"
+          # notes de version : windows/NOTES-<version>.md s'il existe
+          if [ -f "windows/NOTES-$V.md" ]; then NOTES=(--notes-file "windows/NOTES-$V.md"); else NOTES=(--notes "MyVerse $V : logiciel Windows natif (installateur MyVerse-Setup, dossier portable) et APK Android (MyVerse.apk)."); fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "${FILES[@]}" --clobber
           else
-            gh release create "$TAG" "${FILES[@]}" --target "$GITHUB_SHA" --title "MyVerse $V" \
-              --notes "MyVerse $V : logiciel Windows natif (installateur MyVerse-Setup, dossier portable) et APK Android (MyVerse.apk)."
+            gh release create "$TAG" "${FILES[@]}" --target "$GITHUB_SHA" --title "MyVerse $V" "${NOTES[@]}"
           fi
