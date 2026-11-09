@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MyVerse — Bible et chants</title>
+<link rel="icon" href="favicon.ico">
 <link rel="stylesheet" href="css/commun.css">
 <link rel="stylesheet" href="css/regie.css">
 </head>
@@ -31,7 +32,7 @@
   <section id="p-bible" class="panneau">
     <div class="recherche">
       <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="jn 3 16 · ps 23 · rm 8.28 · ou des mots : « bon berger »">
-      <div class="ligne-outils versions"><span id="versions-lab" class="muet">Version : LSG</span><span class="grow"></span><button id="bibles-btn" type="button" class="btn petit" title="Version principale, 2e version (bilingue), importer vos Bibles">Bibles…</button></div>
+      <div class="ligne-outils versions"><span id="versions-lab" class="muet">Version : LSG</span><span class="grow"></span><button id="bibles-btn" type="button" class="btn petit or" title="Ajouter vos Bibles (kirundi, swahili…), choisir la version principale et la 2e version (bilingue)">＋ Ajouter / choisir une Bible</button></div>
       <div id="livres" class="livres"></div>
     </div>
     <div id="titre-chap" class="titre-chap"></div>
@@ -52,8 +53,10 @@
         <div class="ligne-outils">
           <select id="recueil" title="Recueil"><option value="">Tous les recueils</option></select>
           <input id="qc" type="search" placeholder="Chercher un chant" autocomplete="off">
-          <button id="importer" class="btn" title="VideoPsalm, OpenLyrics, OpenSong, ChordPro, SongSelect, ProPresenter 6, texte">Importer</button>
-          <button id="nouveau" class="btn">Nouveau</button>
+        </div>
+        <div class="ligne-outils ajout-chants">
+          <button id="importer" class="btn or" title="Ajouter des chants ou un recueil : VideoPsalm, OpenLyrics, OpenSong, ChordPro, SongSelect, ProPresenter 6, PDF, texte collé, lien d’un site">＋ Importer chants / recueil</button>
+          <button id="nouveau" class="btn" title="Taper ou coller un chant : il est rangé tout seul en diapositives">＋ Nouveau chant</button>
         </div>
         <div id="liste-chants" class="liste"></div>
         <input id="fichiers" type="file" multiple hidden>

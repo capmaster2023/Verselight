@@ -160,3 +160,7 @@ dialog input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--or)
 /* recherche par mots : mots trouvés surlignés, version où le verset a été trouvé */
 .verset mark { background: rgba(228, 175, 65, .28); color: inherit; border-radius: 3px; padding: 0 1px; }
 .verset .ref .ver { margin-left: 6px; padding: 0 5px; border-radius: 4px; background: var(--or); color: #0A1028; font-size: 10px; }
+
+/* ajouter des chants / des Bibles : boutons bien visibles */
+.ajout-chants { margin-top: 6px; }
+.ajout-chants .btn { flex: 1; }

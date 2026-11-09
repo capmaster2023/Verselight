@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/neutralinojs/neutralinojs/main/schemas/neutralino.config.schema.json",
   "applicationId": "ca.mepc.verselight",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "defaultMode": "window",
   "port": 47836,
   "documentRoot": "/resources/",

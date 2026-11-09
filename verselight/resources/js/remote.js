@@ -248,7 +248,17 @@
     try { await Neutralino.clipboard.writeText(texte); } catch (e) { $('#journal-texte').select(); document.execCommand('copy'); }
     toast('Journal copié : collez-le dans votre message.');
   });
-  $('#journal-vider').addEventListener('click', () => { J.vider(); remplirJournal(); });
+  // Vider : le journal de MyVerse ET les fichiers du module réseau et de Neutralino (sinon les anciennes lignes restent)
+  $('#journal-vider').addEventListener('click', async () => {
+    J.vider();
+    let appdata = '';
+    try { appdata = await Neutralino.os.getEnv('APPDATA'); } catch (e) {}
+    const fichiers = [window.NL_PATH + '/neutralinojs.log'];
+    if (appdata) fichiers.push(appdata + '\\VerseLight\\bridge.log', appdata + '\\VerseLight\\journal-myverse.txt');
+    for (const f of fichiers) try { await Neutralino.filesystem.writeFile(f, ''); } catch (e) {}
+    await remplirJournal();
+    toast('Journal vidé.');
+  });
   $('#outils-btn').addEventListener('click', () => ouvrirOutils(true));
   $('#maj-verif').addEventListener('click', () => ouvrirOutils(true));
   function installerMaj() {
