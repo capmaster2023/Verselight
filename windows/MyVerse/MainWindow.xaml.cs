@@ -666,6 +666,11 @@ public partial class MainWindow : Window
                     DockPanel.SetDock(kbd, Dock.Right);
                     tete.Children.Add(kbd);
                 }
+                // petit bouton « Modifier » : ouvre l'éditeur directement sur cette strophe
+                var modif = new Button { Style = Style_("BtnPetit"), Content = "✎ Modifier", FontSize = 11, Padding = new Thickness(7, 1, 7, 1), Margin = new Thickness(6, -2, 0, -2), ToolTip = "Modifier ce chant (curseur sur cette strophe)" };
+                modif.Click += (_, _) => Editer(R.Trouver(chantOuvert), k);
+                DockPanel.SetDock(modif, Dock.Right);
+                tete.Children.Add(modif);
                 tete.Children.Add(new TextBlock { Text = s.Label.Length > 0 ? s.Label : "Strophe", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = Pinceau("Or"), TextTrimming = TextTrimming.CharacterEllipsis });
                 var corps = new StackPanel();
                 corps.Children.Add(tete);
