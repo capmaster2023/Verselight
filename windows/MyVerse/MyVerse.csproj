@@ -8,16 +8,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <RootNamespace>MyVerse.Ui</RootNamespace>
-    <AssemblyName>MyVerse</AssemblyName>
+    <AssemblyName>MyChurch</AssemblyName>
     <ApplicationIcon>myverse.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>5.2.0</Version>
-    <FileVersion>5.2.0.0</FileVersion>
-    <Product>MyVerse</Product>
-    <AssemblyTitle>MyVerse</AssemblyTitle>
+    <Version>6.0.0-beta</Version>
+    <FileVersion>6.0.0.0</FileVersion>
+    <Product>MyChurch</Product>
+    <AssemblyTitle>MyChurch</AssemblyTitle>
     <Company>MEPC Montréal</Company>
     <Copyright>MEPC Montréal</Copyright>
-    <Description>MyVerse</Description>
+    <Description>MyChurch 6.0.0 beta</Description>
     <NeutralLanguage>fr</NeutralLanguage>
     <SatelliteResourceLanguages>fr</SatelliteResourceLanguages>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
@@ -32,6 +32,8 @@
 
   <ItemGroup>
     <!-- code QR du jumelage, lecture des recueils en PDF -->
+    <PackageReference Include="OpenCvSharp4" Version="4.10.0.20241108" />
+    <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.10.0.20241108" />
     <PackageReference Include="QRCoder" Version="1.6.0" />
     <PackageReference Include="PdfPig" Version="0.1.9" />
   </ItemGroup>

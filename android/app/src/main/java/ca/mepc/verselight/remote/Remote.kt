@@ -69,7 +69,7 @@ class Remote(private val context: Context, val store: Store) {
             "?"
         }
         val head = listOf(
-            "MyVerse (Android) $version · Android ${Build.VERSION.RELEASE} · ${Build.MANUFACTURER} ${Build.MODEL}",
+            "MyChurch (Android) $version · Android ${Build.VERSION.RELEASE} · ${Build.MANUFACTURER} ${Build.MODEL}",
             "Téléphone : $ips",
             "PC jumelé : " + (p?.let { "${it.pcName} · IP du code QR : ${it.ips.joinToString(", ")} · port ${it.port} · dernière IP : ${it.lastHost ?: "aucune"}" } ?: "aucun"),
             "État : ${link.value}",
@@ -148,7 +148,7 @@ class Remote(private val context: Context, val store: Store) {
         link.value = Link.NOT_PAIRED
     }
 
-    /** Le téléphone est relié à MyVerse sur le PC. */
+    /** Le téléphone est relié à MyChurch sur le PC. */
     fun pret(): Boolean = socket != null
 
     /** Commande vers la régie du PC. Renvoie false si le PC n'est pas joignable. */
@@ -222,7 +222,7 @@ class Remote(private val context: Context, val store: Store) {
         try {
             val first = next(4000)
             if (first?.optString("t") != "_open") {
-                log("$host:$port : " + (first?.optString("err")?.ifEmpty { null } ?: "pas de réponse en 4 s (pare-feu du PC, mauvais Wi-Fi ou MyVerse fermé)"))
+                log("$host:$port : " + (first?.optString("err")?.ifEmpty { null } ?: "pas de réponse en 4 s (pare-feu du PC, mauvais Wi-Fi ou MyChurch fermé)"))
                 return Result.FAILED
             }
             val cnonce = b64(ByteArray(16).also { random.nextBytes(it) })
@@ -353,8 +353,8 @@ class Remote(private val context: Context, val store: Store) {
                 else -> {
                     if (info.value.isEmpty()) {
                         val ip = sortBySubnet(p.ips).firstOrNull()
-                        info.value = "PC introuvable. Vérifiez que MyVerse est ouvert sur le PC et que le téléphone est sur le même Wi-Fi." +
-                            (if (ip != null) " Test : ouvrez http://$ip:${p.port} dans Chrome sur ce téléphone. Si la page « MyVerse ✓ » ne s'affiche pas, c'est le Wi-Fi ou le pare-feu du PC (MyVerse › Téléphone › Autoriser dans le pare-feu)." else "")
+                        info.value = "PC introuvable. Vérifiez que MyChurch est ouvert sur le PC et que le téléphone est sur le même Wi-Fi." +
+                            (if (ip != null) " Test : ouvrez http://$ip:${p.port} dans Chrome sur ce téléphone. Si la page « MyChurch ✓ » ne s'affiche pas, c'est le Wi-Fi ou le pare-feu du PC (MyChurch › Téléphone › Autoriser dans le pare-feu)." else "")
                     }
                     link.value = Link.NOT_PAIRED
                 }
@@ -433,19 +433,29 @@ class Remote(private val context: Context, val store: Store) {
             try {
                 val current = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0"
                 val req = Request.Builder()
-                    .url("https://api.github.com/repos/capmaster2023/Verselight/releases/latest")
-                    .header("User-Agent", "MyVerse-Android")
+                    .url("https://api.github.com/repos/capmaster2023/Verselight/releases" + if (current.contains("-")) "?per_page=20" else "/latest")
+                    .header("User-Agent", "MyChurch-Android")
                     .header("Accept", "application/vnd.github+json")
                     .build()
                 val http = client.newBuilder().readTimeout(15, TimeUnit.SECONDS).build()
                 http.newCall(req).execute().use { r ->
                     if (!r.isSuccessful) return@launch
-                    val o = JSONObject(r.body?.string() ?: return@launch)
+                    val body = r.body?.string() ?: return@launch
+                    val o = if (current.contains("-")) {
+                        val releases = org.json.JSONArray(body)
+                        (0 until releases.length()).map { releases.getJSONObject(it) }
+                            .filter { !it.optBoolean("draft") }
+                            .maxWithOrNull(Comparator { a, b ->
+                                val av = a.optString("tag_name").removePrefix("v")
+                                val bv = b.optString("tag_name").removePrefix("v")
+                                if (newer(av, bv)) 1 else if (newer(bv, av)) -1 else 0
+                            }) ?: return@launch
+                    } else JSONObject(body)
                     val latest = o.optString("tag_name").removePrefix("v")
                     val assets = o.optJSONArray("assets") ?: return@launch
                     for (i in 0 until assets.length()) {
                         val a = assets.getJSONObject(i)
-                        if (a.optString("name") == "MyVerse.apk" && newer(latest, current)) {
+                        if (a.optString("name") == "MyChurch.apk" && newer(latest, current)) {
                             update.value = latest to a.optString("browser_download_url")
                         }
                     }
@@ -464,7 +474,7 @@ class Remote(private val context: Context, val store: Store) {
         val pa = versionParts(a)
         val pb = versionParts(b)
         for (i in 0 until 3) if (pa[i] != pb[i]) return pa[i] > pb[i]
-        return false
+        return !a.contains("-") && b.contains("-")
     }
 
     // ---------------------------------------------------------------- outils

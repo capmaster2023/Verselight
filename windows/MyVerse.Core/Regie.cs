@@ -13,6 +13,7 @@ public sealed record EtatEcran
     [JsonPropertyName("theme")] public string Theme { get; init; } = "nuit";
     [JsonPropertyName("taille")] public double Taille { get; init; } = 1;
     [JsonPropertyName("presentation")] public string Presentation { get; init; } = "plein";
+    [JsonPropertyName("media"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public SourceDisplay? Media { get; init; }
     [JsonPropertyName("second")] public TexteSecond? Second { get; init; }
 
     public sealed record TexteSecond([property: JsonPropertyName("texte")] string Texte);
@@ -117,7 +118,7 @@ public sealed partial class Regie
         var t2 = parts == null ? Bibles.Texte2(b, c, v1, v2) : "";
         Etat = Etat with
         {
-            Mode = "verset",
+            Mode = "verset", Media = null,
             Lignes = new[] { parts != null ? parts[p] : B.Texte(b, c, v1, v2) },
             Ref = Livres.Libelle(b, c, v1, v2) + $" ({Bibles.Etiquette()})",
             Second = t2.Length > 0 ? new EtatEcran.TexteSecond(t2) : null,
@@ -141,7 +142,7 @@ public sealed partial class Regie
         Oeil?.Invoke(true);
         Etat = Etat with
         {
-            Mode = "chant",
+            Mode = "chant", Media = null,
             Lignes = c.Sections[i].Text.Split('\n').Where(l => l.Trim().Length > 0).ToArray(),
             Ref = "",
             Second = null,
@@ -154,7 +155,7 @@ public sealed partial class Regie
     public void Effacer()
     {
         Oeil?.Invoke(false);
-        Etat = Etat with { Mode = "vide", Lignes = Array.Empty<string>(), Ref = "", Second = null };
+        Etat = Etat with { Mode = "vide", Media = null, Lignes = Array.Empty<string>(), Ref = "", Second = null };
         Cible = null;
         ElementCourant = null;
         Signaler();

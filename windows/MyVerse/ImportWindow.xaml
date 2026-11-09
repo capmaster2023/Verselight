@@ -16,7 +16,7 @@
         <Button x:Name="Coller" Style="{StaticResource Btn}" HorizontalContentAlignment="Left" Padding="16,12" Margin="0,14,0,0">
             <StackPanel>
                 <TextBlock Text="Coller un chant" FontWeight="Bold" />
-                <TextBlock Text="Copiez les paroles (WhatsApp, site, Word…) : MyVerse les range en diapositives de 3 à 5 lignes" FontWeight="Normal" FontSize="13" Foreground="{StaticResource Brume2}" TextWrapping="Wrap" />
+                <TextBlock Text="Copiez les paroles (WhatsApp, site, Word…) : MyChurch les range en diapositives de 3 à 5 lignes" FontWeight="Normal" FontSize="13" Foreground="{StaticResource Brume2}" TextWrapping="Wrap" />
             </StackPanel>
         </Button>
         <Button x:Name="TexteRecueil" Style="{StaticResource Btn}" HorizontalContentAlignment="Left" Padding="16,12" Margin="0,8,0,0">

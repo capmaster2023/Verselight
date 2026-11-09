@@ -1,10 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Éclat doré de VerseLight -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp" android:height="108dp"
-    android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#E4AF41"
-        android:pathData="M54,26 L59,47 L80,54 L59,61 L54,82 L49,61 L28,54 L49,47 Z" />
-    <path android:fillColor="#F6D68A"
-        android:pathData="M54,44 a10,10 0 1,0 0.1,0 Z" />
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+ <path android:fillColor="#00000000" android:strokeColor="#EAB650" android:strokeWidth="4.5" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M25,55 L54,33 L83,55 M31,51 V78 H77 V51 M54,23 V38 M47,29 H61" />
+ <path android:fillColor="#FFF9EB" android:pathData="M46,78 V64 A8,8 0,0 1,62 64 V78 Z M36,59 H41 V67 H36 Z M67,59 H72 V67 H67 Z" />
 </vector>

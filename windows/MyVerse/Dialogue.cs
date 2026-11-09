@@ -5,7 +5,7 @@ using System.Windows.Media;
 
 namespace MyVerse.Ui;
 
-/// <summary>Fenêtre de dialogue de MyVerse : fond clair, Échap pour fermer.</summary>
+/// <summary>Fenêtre de dialogue de MyChurch : fond clair, Échap pour fermer.</summary>
 public class FenetreDialogue : Window
 {
     public FenetreDialogue()
@@ -93,7 +93,7 @@ public static class Dialogue
         return res;
     }
 
-    /// <summary>Titre et texte libre de l'agenda (annonce, prière…). Renvoie null si l'utilisateur annule.</summary>
+    /// <summary>Titre et texte libre de l'agenda (display, prière…). Renvoie null si l'utilisateur annule.</summary>
     public static (string Titre, string Texte)? DemanderTexte(Window? owner, string titreFenetre, string titre, string texte)
     {
         var (w, corps, boutons) = Base(owner, titreFenetre);

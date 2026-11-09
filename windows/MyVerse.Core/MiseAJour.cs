@@ -19,7 +19,7 @@ public static class MiseAJour
     static HttpClient Creer()
     {
         var h = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
-        h.DefaultRequestHeaders.UserAgent.ParseAdd("MyVerse-Updater");
+        h.DefaultRequestHeaders.UserAgent.ParseAdd("MyChurch-Updater");
         return h;
     }
 
@@ -41,7 +41,8 @@ public static class MiseAJour
         var pa = Parties(a);
         var pb = Parties(b);
         for (int i = 0; i < 3; i++) if (pa[i] != pb[i]) return pa[i] > pb[i];
-        return false;
+        // A final release upgrades a beta with the same numeric version.
+        return !a.Contains('-') && b.Contains('-');
     }
 
     public static async Task<Resultat> Verifier(string actuelle, CancellationToken t = default)
@@ -49,7 +50,7 @@ public static class MiseAJour
         HttpResponseMessage r;
         try
         {
-            var req = new HttpRequestMessage(HttpMethod.Get, Api);
+            var req = new HttpRequestMessage(HttpMethod.Get, actuelle.Contains('-') ? Api.Replace("/latest", "?per_page=20") : Api);
             req.Headers.Accept.ParseAdd("application/vnd.github+json");
             using var delai = CancellationTokenSource.CreateLinkedTokenSource(t);
             delai.CancelAfter(15000);
@@ -68,14 +69,27 @@ public static class MiseAJour
             try
             {
                 using var doc = JsonDocument.Parse(await r.Content.ReadAsStringAsync(t));
-                var tag = doc.RootElement.GetProperty("tag_name").GetString() ?? "";
+                var release = doc.RootElement;
+                if (release.ValueKind == JsonValueKind.Array)
+                {
+                    JsonElement? choix = null;
+                    foreach (var candidate in release.EnumerateArray())
+                    {
+                        if (candidate.TryGetProperty("draft", out var draft) && draft.GetBoolean()) continue;
+                        var v = candidate.GetProperty("tag_name").GetString() ?? "";
+                        if (choix == null || PlusRecente(v, choix.Value.GetProperty("tag_name").GetString() ?? "")) choix = candidate;
+                    }
+                    if (choix == null) return new Resultat(false, "", "", null);
+                    release = choix.Value;
+                }
+                var tag = release.GetProperty("tag_name").GetString() ?? "";
                 var url = "";
-                if (doc.RootElement.TryGetProperty("assets", out var assets))
+                if (release.TryGetProperty("assets", out var assets))
                     foreach (var a in assets.EnumerateArray())
                     {
                         var nom = a.GetProperty("name").GetString() ?? "";
                         var u = a.GetProperty("browser_download_url").GetString() ?? "";
-                        if (nom.StartsWith("MyVerse-Setup-") && nom.EndsWith(".exe") && u.StartsWith(Prefixe)) url = u;
+                        if ((nom.StartsWith("MyChurch-Setup-") || nom.StartsWith("MyVerse-Setup-")) && nom.EndsWith(".exe") && u.StartsWith(Prefixe)) url = u;
                     }
                 var derniere = tag.TrimStart('v');
                 return new Resultat(url.Length > 0 && PlusRecente(derniere, actuelle), derniere, url, null);
@@ -93,7 +107,7 @@ public static class MiseAJour
         if (!url.StartsWith(Prefixe) || !url.EndsWith(".exe")) throw new InvalidOperationException("Adresse de mise à jour refusée.");
         using var r = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, t);
         r.EnsureSuccessStatusCode();
-        var chemin = Path.Combine(Path.GetTempPath(), "MyVerse-Setup.exe");
+        var chemin = Path.Combine(Path.GetTempPath(), "MyChurch-Setup.exe");
         long total = r.Content.Headers.ContentLength ?? -1, fait = 0;
         await using (var f = File.Create(chemin))
         await using (var s = await r.Content.ReadAsStreamAsync(t))

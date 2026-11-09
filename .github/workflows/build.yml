@@ -1,4 +1,4 @@
-name: Build MyVerse
+name: Build MyChurch
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   windows:
-    name: MyVerse Windows (natif)
+    name: MyChurch Windows (natif)
     runs-on: windows-latest
     defaults:
       run:
@@ -40,27 +40,59 @@ jobs:
           dotnet run --project windows/MyVerse.Tests -c Release -- "$PWD/windows/MyVerse/Ressources" 2>&1 | Tee-Object -FilePath ci/tests.log
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
-      - name: Compilation de MyVerse.exe
+      - name: DirectShow base classes (Microsoft, MIT, version épinglée)
+        uses: actions/checkout@v4
+        with:
+          repository: microsoft/Windows-classic-samples
+          ref: 434f6002bdf9cf9829406c3ff2b33387982d6168
+          path: out/directshow
+          sparse-checkout: Samples/Win7Samples/multimedia/directshow/baseclasses
+
+      - name: MyVirtualCam (64 et 32 bits) et test réel de réception vidéo
         run: |
-          dotnet publish windows/MyVerse/MyVerse.csproj -c Release -r win-x64 --self-contained true -p:PublishReadyToRun=true -p:Version=${{ steps.v.outputs.version }} -o out/MyVerse -v:m 2>&1 | Tee-Object -FilePath ci/windows-build.log
+          $base = "$PWD/out/directshow/Samples/Win7Samples/multimedia/directshow/baseclasses"
+          foreach ($arch in @("x64", "Win32")) {
+            cmake -S windows/MyVirtualCam -B "out/cam-$arch" -A $arch "-DBASECLASSES=$base"
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            cmake --build "out/cam-$arch" --config Release --parallel 4 2>&1 | Tee-Object -FilePath "ci/virtualcam-$arch.log"
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            $dll = "$PWD/out/cam-$arch/Release/MyVirtualCam.dll"
+            $reg = if ($arch -eq "x64") { "$env:WINDIR/System32/regsvr32.exe" } else { "$env:WINDIR/SysWOW64/regsvr32.exe" }
+            $p = Start-Process $reg -ArgumentList @("/s", "`"$dll`"") -Wait -PassThru
+            if ($p.ExitCode -ne 0) { throw "Enregistrement caméra $arch : $($p.ExitCode)" }
+            & "out/cam-$arch/Release/MyVirtualCamTest.exe"
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            & "out/cam-$arch/Release/MyVirtualCamTest.exe" frame
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            $p = Start-Process $reg -ArgumentList @("/s", "/u", "`"$dll`"") -Wait -PassThru
+            if ($p.ExitCode -ne 0) { throw "Désenregistrement caméra $arch : $($p.ExitCode)" }
+          }
+
+      - name: Compilation de MyChurch.exe
+        run: |
+          dotnet publish windows/MyVerse/MyVerse.csproj -c Release -r win-x64 --self-contained true -p:PublishReadyToRun=true -p:Version=${{ steps.v.outputs.version }} -o out/MyChurch -v:m 2>&1 | Tee-Object -FilePath ci/windows-build.log
           if ($LASTEXITCODE -ne 0) { exit 1 }
-          Copy-Item windows/LISEZ-MOI.txt out/MyVerse/
-          Get-ChildItem out/MyVerse | Measure-Object -Property Length -Sum | ForEach-Object { "{0} fichiers, {1:N1} Mo" -f $_.Count, ($_.Sum / 1MB) }
+          Copy-Item windows/LISEZ-MOI.txt out/MyChurch/
+          Copy-Item out/cam-x64/Release/MyVirtualCam.dll out/MyChurch/MyVirtualCam.dll
+          Copy-Item out/cam-Win32/Release/MyVirtualCam.dll out/MyChurch/MyVirtualCam32.dll
+          Get-ChildItem out/directshow/LICENSE* | Copy-Item -Destination out/MyChurch/
+          Get-ChildItem out/MyChurch | Measure-Object -Property Length -Sum | ForEach-Object { "{0} fichiers, {1:N1} Mo" -f $_.Count, ($_.Sum / 1MB) }
 
       - name: Test automatique (fenêtres, projection, captures d'écran)
         run: |
+          $env:MYCHURCH_TEST_CAM = "1"
           $env:VERSELIGHT_DATA_DIR = "$env:RUNNER_TEMP\myverse-donnees"
           New-Item -ItemType Directory -Force ci/autotest | Out-Null
-          $p = Start-Process -FilePath "out\MyVerse\MyVerse.exe" -ArgumentList @("--autotest", "$PWD\ci\autotest") -PassThru
+          $p = Start-Process -FilePath "out\MyChurch\MyChurch.exe" -ArgumentList @("--autotest", "$PWD\ci\autotest") -PassThru
           $null = $p.Handle
           if (-not $p.WaitForExit(300000)) { $p.Kill(); "MyVerse ne s'est pas fermé (plus de 5 minutes)" | Tee-Object -FilePath ci/autotest/autotest.txt -Append; exit 1 }
           Get-Content ci/autotest/autotest.txt -ErrorAction SilentlyContinue
           "code de sortie : $($p.ExitCode)"
           exit $p.ExitCode
 
-      - name: Règles du pare-feu (MyVerse.exe --parefeu)
+      - name: Règles du pare-feu (MyChurch.exe --parefeu)
         run: |
-          $p = Start-Process -FilePath "out\MyVerse\MyVerse.exe" -ArgumentList "--parefeu" -PassThru
+          $p = Start-Process -FilePath "out\MyChurch\MyChurch.exe" -ArgumentList "--parefeu" -PassThru
           $null = $p.Handle
           if (-not $p.WaitForExit(120000)) { $p.Kill(); "délai dépassé" | Tee-Object -FilePath ci/autotest/autotest.txt -Append; exit 1 }
           "code de sortie : $($p.ExitCode)" | Tee-Object -FilePath ci/autotest/autotest.txt -Append
@@ -71,7 +103,7 @@ jobs:
             if ($code -ne 0) { "règle absente : $r" | Tee-Object -FilePath ci/autotest/autotest.txt -Append; exit 1 }
           }
           if ($p.ExitCode -ne 0) { exit $p.ExitCode }
-          $v = Start-Process -FilePath "out\MyVerse\MyVerse.exe" -ArgumentList "--parefeu-verifier" -PassThru
+          $v = Start-Process -FilePath "out\MyChurch\MyChurch.exe" -ArgumentList "--parefeu-verifier" -PassThru
           $null = $v.Handle
           $v.WaitForExit(120000) | Out-Null
           "vérification du pare-feu par MyVerse : code $($v.ExitCode) (0 = en place)" | Tee-Object -FilePath ci/autotest/autotest.txt -Append
@@ -84,14 +116,14 @@ jobs:
           $nsis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
           if (-not (Test-Path $nsis)) { choco install nsis -y --no-progress | Out-Null; $nsis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe" }
           Remove-Item -Recurse -Force windows/installer/app -ErrorAction SilentlyContinue
-          Copy-Item -Recurse out/MyVerse windows/installer/app
+          Copy-Item -Recurse out/MyChurch windows/installer/app
           Push-Location windows/installer
           & $nsis -V2 "-DVERSION=$V" MyVerse.nsi
           if ($LASTEXITCODE -ne 0) { exit 1 }
           Pop-Location
-          Move-Item windows/installer/MyVerse-Setup-*.exe .
-          Compress-Archive -Path out/MyVerse -DestinationPath "MyVerse-$V-Windows.zip" -CompressionLevel Optimal
-          Get-ChildItem MyVerse-*.zip, MyVerse-Setup-*.exe | Format-Table Name, Length
+          Move-Item windows/installer/MyChurch-Setup-*.exe .
+          Compress-Archive -Path out/MyChurch -DestinationPath "MyChurch-$V-Windows.zip" -CompressionLevel Optimal
+          Get-ChildItem MyChurch-*.zip, MyChurch-Setup-*.exe | Format-Table Name, Length
 
       - name: Test de l'installateur (mise à jour d'une 3.x, puis désinstallation)
         if: success()
@@ -99,43 +131,44 @@ jobs:
           $dir = "$env:LOCALAPPDATA\Programs\MyVerse"
           # une fausse MyVerse 3.x déjà installée (Neutralino + module réseau)
           New-Item -ItemType Directory -Force "$dir\extensions\bridge" | Out-Null
+          New-ItemProperty -Path (New-Item -Path "HKCU:\Software\MyVerse" -Force).PSPath -Name InstallDir -Value $dir -Force | Out-Null
           Set-Content "$dir\resources.neu" "ancien"
           Set-Content "$dir\extensions\bridge\verselight-bridge.exe" "ancien"
           Set-Content "$dir\neutralinojs.log" "ancien"
-          $setup = (Get-ChildItem MyVerse-Setup-*.exe | Select-Object -First 1).FullName
+          $setup = (Get-ChildItem MyChurch-Setup-*.exe | Select-Object -First 1).FullName
           $p = Start-Process $setup -ArgumentList "/S" -PassThru
           $null = $p.Handle
           if (-not $p.WaitForExit(240000)) { "installateur bloqué" | Tee-Object -FilePath ci/installateur.txt -Append; exit 1 }
           "installateur : code $($p.ExitCode)" | Tee-Object -FilePath ci/installateur.txt -Append
           Start-Sleep 4
-          $ouvert = Get-Process MyVerse -ErrorAction SilentlyContinue
+          $ouvert = Get-Process MyChurch -ErrorAction SilentlyContinue
           "MyVerse rouvert après la mise à jour : $([bool]$ouvert)" | Tee-Object -FilePath ci/installateur.txt -Append
           $ouvert | Stop-Process -Force -ErrorAction SilentlyContinue
           $ok = $true
-          foreach ($f in @("MyVerse.exe", "Ressources\lsg.json", "Ressources\obs\ecran.html", "Desinstaller.exe")) { $e = Test-Path "$dir\$f"; "présent $f : $e" | Tee-Object -FilePath ci/installateur.txt -Append; if (-not $e) { $ok = $false } }
+          foreach ($f in @("MyChurch.exe", "Ressources\lsg.json", "Ressources\obs\ecran.html", "Desinstaller.exe")) { $e = Test-Path "$dir\$f"; "présent $f : $e" | Tee-Object -FilePath ci/installateur.txt -Append; if (-not $e) { $ok = $false } }
           foreach ($f in @("resources.neu", "extensions", "neutralinojs.log")) { $e = Test-Path "$dir\$f"; "ancien $f retiré : $(-not $e)" | Tee-Object -FilePath ci/installateur.txt -Append; if ($e) { $ok = $false } }
-          "raccourci Bureau : $(Test-Path "$env:USERPROFILE\Desktop\MyVerse.lnk")" | Tee-Object -FilePath ci/installateur.txt -Append
+          "raccourci Bureau : $(Test-Path "$env:USERPROFILE\Desktop\MyChurch.lnk")" | Tee-Object -FilePath ci/installateur.txt -Append
           "Applications installées : $((Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MyVerse' -ErrorAction SilentlyContinue).DisplayVersion)" | Tee-Object -FilePath ci/installateur.txt -Append
           $u = Start-Process "$dir\Desinstaller.exe" -ArgumentList @("/S", "_?=$dir") -PassThru
           $null = $u.Handle
           $u.WaitForExit(120000) | Out-Null
-          "désinstallé (MyVerse.exe supprimé) : $(-not (Test-Path "$dir\MyVerse.exe"))" | Tee-Object -FilePath ci/installateur.txt -Append
-          if (Test-Path "$dir\MyVerse.exe") { $ok = $false }
+          "désinstallé (MyChurch.exe supprimé) : $(-not (Test-Path "$dir\MyChurch.exe"))" | Tee-Object -FilePath ci/installateur.txt -Append
+          if (Test-Path "$dir\MyChurch.exe") { $ok = $false }
           if (-not $ok) { exit 1 }
 
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: MyVerse-Setup-${{ steps.v.outputs.version }}
-          path: MyVerse-Setup-*.exe
+          name: MyChurch-Setup-${{ steps.v.outputs.version }}
+          path: MyChurch-Setup-*.exe
 
       - uses: actions/upload-artifact@v4
         if: success()
         with:
           name: windows-zip
           path: |
-            MyVerse-*-Windows.zip
-            MyVerse-Setup-*.exe
+            MyChurch-*-Windows.zip
+            MyChurch-Setup-*.exe
           retention-days: 3
 
       - name: Journal Windows
@@ -191,18 +224,18 @@ jobs:
           set -o pipefail
           ./gradlew --no-daemon assembleDebug assembleRelease 2>&1 | tee ../ci-android.log
           mkdir -p ../apk
-          cp app/build/outputs/apk/release/app-release.apk ../apk/MyVerse.apk
-          cp app/build/outputs/apk/debug/app-debug.apk ../apk/MyVerse-debug.apk
+          cp app/build/outputs/apk/release/app-release.apk ../apk/MyChurch.apk
+          cp app/build/outputs/apk/debug/app-debug.apk ../apk/MyChurch-debug.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MyVerse
-          path: apk/MyVerse.apk
+          name: MyChurch
+          path: apk/MyChurch.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MyVerse-debug
-          path: apk/MyVerse-debug.apk
+          name: MyChurch-debug
+          path: apk/MyChurch-debug.apk
 
       - name: Journal Android
         if: always()
@@ -267,12 +300,14 @@ jobs:
           V=$(tr -d '[:space:]' < VERSION)
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then V="${GITHUB_REF#refs/tags/v}"; fi
           TAG="v$V"
-          FILES=(dl/windows-zip/*.zip dl/windows-zip/*.exe dl/MyVerse/MyVerse.apk dl/MyVerse-debug/MyVerse-debug.apk)
+          BETA=()
+          if [[ "$V" == *-* ]]; then BETA=(--prerelease --latest=false); fi
+          FILES=(dl/windows-zip/*.zip dl/windows-zip/*.exe dl/MyChurch/MyChurch.apk dl/MyChurch-debug/MyChurch-debug.apk)
           ls -la "${FILES[@]}"
           # notes de version : windows/NOTES-<version>.md s'il existe
-          if [ -f "windows/NOTES-$V.md" ]; then NOTES=(--notes-file "windows/NOTES-$V.md"); else NOTES=(--notes "MyVerse $V : logiciel Windows natif (installateur MyVerse-Setup, dossier portable) et APK Android (MyVerse.apk)."); fi
+          if [ -f "windows/NOTES-$V.md" ]; then NOTES=(--notes-file "windows/NOTES-$V.md"); else NOTES=(--notes "MyChurch $V : logiciel Windows natif (installateur MyVerse-Setup, dossier portable) et APK Android (MyChurch.apk)."); fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "${FILES[@]}" --clobber
           else
-            gh release create "$TAG" "${FILES[@]}" --target "$GITHUB_SHA" --title "MyVerse $V" "${NOTES[@]}"
+            gh release create "$TAG" "${FILES[@]}" "${BETA[@]}" --target "$GITHUB_SHA" --title "MyChurch $V" "${NOTES[@]}"
           fi

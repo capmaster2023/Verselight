@@ -14,6 +14,7 @@ namespace MyVerse.Ui;
 public sealed class Rendu : Grid
 {
     readonly Border fond = new();
+    readonly Image media = new() { Stretch = Stretch.Uniform, Visibility = Visibility.Collapsed };
     readonly Border scene = new();
     readonly StackPanel pile = new();
     readonly TextBlock texte = new(), texte2 = new(), refT = new();
@@ -51,6 +52,7 @@ public sealed class Rendu : Grid
         SnapsToDevicePixels = true;
         Children.Add(fond);
         Children.Add(scene);
+        Children.Add(media);
         scene.Child = pile;
         pile.VerticalAlignment = VerticalAlignment.Center;
         pile.HorizontalAlignment = HorizontalAlignment.Center;
@@ -75,6 +77,8 @@ public sealed class Rendu : Grid
         TextOptions.SetTextFormattingMode(this, TextFormattingMode.Ideal);
         SizeChanged += (_, _) => { Placer(); Ajuster(); };
     }
+
+    public void ImageDisplay(ImageSource? image) { media.Source = image; }
 
     // ------------------------------------------------------------ fonds des thèmes
     static Brush FondTheme(string theme)
@@ -137,6 +141,15 @@ public sealed class Rendu : Grid
             pile.Effect = Clair(e.Theme) ? null : ombre;
             Placer();
         }
+        media.Visibility = e.Mode == "media" ? Visibility.Visible : Visibility.Collapsed;
+        if (e.Mode == "media")
+        {
+            version++; cle = "media";
+            Animer(scene, 0, 0); Animer(fond, 1, 0); fond.Background = Brushes.Black;
+            return;
+        }
+        // A live source may have temporarily replaced the theme background.
+        fond.Background = FondTheme(e.Theme);
         bool vide = e.Vide;
         var deux = e.Mode == "verset" && e.Second != null ? e.Second.Texte : "";
         var nouvelle = string.Join("\u0001", new[] { e.Mode, string.Join("\n", e.Lignes), e.Ref, e.Taille.ToString(), e.Presentation, deux });

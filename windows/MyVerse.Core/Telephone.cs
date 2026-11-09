@@ -479,7 +479,7 @@ public sealed class Telephone : IDisposable
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#FBF8F2">
-<title>MyVerse · en direct</title>
+<title>MyChurch · en direct</title>
 <style>
 *{box-sizing:border-box}
 html,body{margin:0;background:#FBF8F2;color:#1F1B16;font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
@@ -501,7 +501,7 @@ footer{position:fixed;bottom:0;left:0;right:0;padding:8px 16px;font-size:12px;co
 </head>
 <body>
 <header>
-  <span class="marque">MyVerse</span>
+  <span class="marque">MyChurch</span>
   <span class="direct"><i></i>EN DIRECT</span>
   <div class="outils">
     <span id="langues" hidden>
@@ -573,7 +573,7 @@ boucle();
 
     async Task PageTest(Stream s)
     {
-        var html = $"<!doctype html><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><body style=\"font:20px sans-serif;background:#0A1028;color:#F7F4EC;padding:24px\"><h1 style=\"color:#E4AF41\">MyVerse ✓</h1><p>Le PC <b>{WebUtility.HtmlEncode(NomPc)}</b> est joignable sur le port {Port}.</p><p>Si l'app ne se connecte pas, ouvrez MyVerse sur le PC et scannez de nouveau le code QR (bouton « Téléphone »).</p></body>";
+        var html = $"<!doctype html><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><body style=\"font:20px sans-serif;background:#0A1028;color:#F7F4EC;padding:24px\"><h1 style=\"color:#E4AF41\">MyChurch ✓</h1><p>Le PC <b>{WebUtility.HtmlEncode(NomPc)}</b> est joignable sur le port {Port}.</p><p>Si l'app ne se connecte pas, ouvrez MyChurch sur le PC et scannez de nouveau le code QR (bouton « Téléphone »).</p></body>";
         var corps = Encoding.UTF8.GetBytes(html);
         var tete = Encoding.ASCII.GetBytes($"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {corps.Length}\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n");
         await s.WriteAsync(tete, fin.Token);
@@ -827,6 +827,29 @@ boucle();
                     if (!ok) await Erreur("Chant introuvable.");
                     break;
                 }
+                case "display.list":
+                {
+                    var liste = new JsonArray();
+                    await surUi(() =>
+                    {
+                        foreach (var a in regie.Annonces)
+                            liste.Add(new JsonObject { ["id"] = a.Id, ["titre"] = a.Titre, ["type"] = a.Source?.Type ?? "texte", ["description"] = a.Source?.Type == "camera" ? "Périphérique de capture vidéo" : a.Source?.Type == "fenetre" ? "Capture de fenêtre" : a.Source?.Type == "image" ? "Image" : a.Texte, ["diapos"] = regie.DiaposAnnonce(a) });
+                        return Task.CompletedTask;
+                    });
+                    await Rep(new JsonObject { ["t"] = "displays", ["liste"] = liste });
+                    break;
+                }
+                case "display.show":
+                {
+                    bool ok = false;
+                    await surUi(() =>
+                    {
+                        if (regie.Annonces.FirstOrDefault(a => a.Id == Ch("id")) is { } a) { regie.AfficherAnnonce(a); ok = true; }
+                        return Task.CompletedTask;
+                    });
+                    if (!ok) await Erreur("Source Display introuvable. Actualisez la liste.");
+                    break;
+                }
                 case "next": await surUi(() => { regie.Bouger(1); return Task.CompletedTask; }); break;
                 case "prev": await surUi(() => { regie.Bouger(-1); return Task.CompletedTask; }); break;
                 case "clear": await surUi(() => { regie.Effacer(); return Task.CompletedTask; }); break;
@@ -910,7 +933,10 @@ boucle();
             ["mode"] = e.Mode,
             ["lignes"] = new JsonArray(e.Lignes.Select(l => (JsonNode?)l).ToArray()),
             ["ref"] = e.Ref,
-            ["titre"] = titre,
+            ["titre"] = e.Mode == "media" ? e.Ref : titre,
+            ["displayId"] = c is CibleDisplay cd ? cd.Id : c is CibleTexte ct ? ct.Element : "",
+            ["mediaType"] = e.Media?.Type ?? "",
+            ["version"] = "6.0.0-beta",
             ["suivant"] = n != null ? n.Label + " · " + n.Texte.Split('\n')[0] : "",
             ["suivantLabel"] = n?.Label ?? "",
             ["suivantTexte"] = n?.Texte ?? "",

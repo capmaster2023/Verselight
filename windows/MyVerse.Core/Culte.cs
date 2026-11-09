@@ -4,7 +4,7 @@ namespace MyVerse;
 
 /// <summary>
 /// Le culte (design « Aube ») : compte à rebours d'accueil, heures prévues, éléments faits,
-/// résumé de ce qui a été affiché, bibliothèque d'annonces.
+/// résumé de ce qui a été affiché, bibliothèque d'displays.
 /// </summary>
 public sealed partial class Regie
 {
@@ -47,7 +47,7 @@ public sealed partial class Regie
         }
         Cible = new CibleCompte(e.Id);
         Oeil?.Invoke(true);
-        Etat = Etat with { Mode = "chant", Lignes = new[] { MessageCompte(e), Duree(finCompte!.Value - maintenant) }, Ref = "", Second = null };
+        Etat = Etat with { Mode = "chant", Media = null, Lignes = new[] { MessageCompte(e), Duree(finCompte!.Value - maintenant) }, Ref = "", Second = null };
         Noter("e:" + e.Id, e.Titre, "compte");
         Signaler();
     }
@@ -152,7 +152,7 @@ public sealed partial class Regie
 
     public void OublierResume() => vus.Clear();
 
-    // ------------------------------------------------------------ bibliothèque d'annonces
+    // ------------------------------------------------------------ bibliothèque d'displays
     public IReadOnlyList<Annonce> Annonces => donnees.Annonces;
     public event Action? AnnoncesChange;
 
@@ -184,26 +184,48 @@ public sealed partial class Regie
         if (donnees.Annonces.RemoveAll(x => x.Id == id) > 0) AnnoncesModifiees();
     }
 
-    /// <summary>L'annonce entre dans le déroulé (une copie : on peut la retoucher pour ce culte).</summary>
+    /// <summary>L'display entre dans le déroulé (une copie : on peut la retoucher pour ce culte).</summary>
     public ElementAgenda? AjouterAnnonceAgenda(string id, int position = -1) =>
-        donnees.Annonces.FirstOrDefault(x => x.Id == id) is { } a ? AjouterTexteAgenda(a.Titre, a.Texte, position) : null;
+        donnees.Annonces.FirstOrDefault(x => x.Id == id) is { } a
+            ? a.Source != null ? Ajouter(new ElementAgenda { Type = "display", Titre = a.Titre, Source = a.Source }, position)
+              : AjouterTexteAgenda(a.Titre, a.Texte, position) : null;
 
-    public int DiaposAnnonce(Annonce a) => BlocsTexte(a.Texte).Count;
+    public Annonce NouveauDisplay(string titre, SourceDisplay source)
+    {
+        if (source.Type is not ("image" or "camera" or "fenetre")) throw new ArgumentException("Source inconnue.");
+        var a = new Annonce { Titre = titre.Trim(), Source = source };
+        donnees.Annonces.Add(a);
+        AnnoncesModifiees();
+        return a;
+    }
+
+    void AfficherSource(string id, string titre, SourceDisplay? source)
+    {
+        if (source == null) { Dire("Cette source Display est absente."); return; }
+        Cible = new CibleDisplay(id);
+        Oeil?.Invoke(true);
+        Etat = Etat with { Mode = "media", Media = source, Lignes = Array.Empty<string>(), Ref = titre, Second = null };
+        Noter("d:" + id, titre, source.Type);
+        Signaler();
+    }
+
+    public int DiaposAnnonce(Annonce a) => a.Source != null ? 1 : BlocsTexte(a.Texte).Count;
 
     public void AfficherAnnonce(Annonce a, int i = 0)
     {
+        if (a.Source != null) { ElementCourant = null; AfficherSource(a.Id, a.Titre, a.Source); return; }
         var b = BlocsTexte(a.Texte);
         if (b.Count == 0) { Dire($"« {a.Titre} » est vide."); return; }
         i = Math.Clamp(i, 0, b.Count - 1);
         ElementCourant = null;
         Cible = new CibleTexte(a.Id, i);
         Oeil?.Invoke(true);
-        Etat = Etat with { Mode = "chant", Lignes = b[i].Split('\n').Where(l => l.Trim().Length > 0).ToArray(), Ref = "", Second = null };
+        Etat = Etat with { Mode = "chant", Media = null, Lignes = b[i].Split('\n').Where(l => l.Trim().Length > 0).ToArray(), Ref = "", Second = null };
         Noter("a:" + a.Id, a.Titre, "t" + i);
         Signaler();
     }
 
-    /// <summary>Suivant / précédent dans une annonce affichée hors du déroulé.</summary>
+    /// <summary>Suivant / précédent dans un display affichée hors du déroulé.</summary>
     bool BougerAnnonce(int d)
     {
         if (ElementCourant != null || Cible is not CibleTexte ct || donnees.Annonces.FirstOrDefault(a => a.Id == ct.Element) is not { } an) return false;

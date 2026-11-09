@@ -6,15 +6,17 @@ namespace MyVerse.Ui;
 /// <summary>MyVerse 4.0 : démarrage, une seule copie à la fois, services (Bibles, régie, téléphone, OBS).</summary>
 public partial class App : Application
 {
-    public static string Version { get; } = typeof(App).Assembly.GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "4.0.0";
+    public static string Version { get; } = "6.0.0-beta";
     public static string Ressources => Path.Combine(AppContext.BaseDirectory, "Ressources");
     public static Donnees Donnees { get; private set; } = null!;
     public static Bibles Bibles { get; private set; } = null!;
     public static Regie Regie { get; private set; } = null!;
     public static SortieObs SortieObs { get; private set; } = null!;
+    public static SourcesDisplay Sources { get; private set; } = null!;
+    public static MyVirtualCam? CameraVirtuelle { get; private set; }
     public static Obs Obs { get; private set; } = null!;
     public static Telephone Telephone { get; private set; } = null!;
-    /// <summary>Dossier du test automatique (« MyVerse.exe --autotest dossier »), sinon null.</summary>
+    /// <summary>Dossier du test automatique (« MyChurch.exe --autotest dossier »), sinon null.</summary>
     public static string? AutoTest { get; private set; }
     /// <summary>Résultat du contrôle du pare-feu : « ok », « missing », « refused », « error », « demande » ou vide (en cours).</summary>
     public static string Parefeu_
@@ -33,6 +35,11 @@ public partial class App : Application
     {
         base.OnStartup(e);
         var args = e.Args;
+        if (args.Contains("--virtualcam-install") || args.Contains("--virtualcam-uninstall"))
+        {
+            Shutdown(MyVirtualCam.Enregistrer(args.Contains("--virtualcam-install")));
+            return;
+        }
         // lancé en administrateur par l'installateur ou par « Autoriser dans le pare-feu »
         if (args.Contains("--parefeu"))
         {
@@ -60,7 +67,7 @@ public partial class App : Application
         var dossier = Donnees.DossierParDefaut();
         try { Directory.CreateDirectory(dossier); } catch (Exception) { }
         Journal.Ouvrir(dossier);
-        Journal.Info($"— démarrage de MyVerse {Version} (Windows) —");
+        Journal.Info($"— démarrage de MyChurch {Version} (Windows) —");
         DispatcherUnhandledException += (_, ev) =>
         {
             Journal.Erreur("erreur", ev.Exception);
@@ -89,7 +96,7 @@ public partial class App : Application
         {
             Journal.Erreur("démarrage", x);
             Journal.Sauver();
-            MessageBox.Show("MyVerse n'a pas pu démarrer : " + x.Message + "\n\nJournal : " + Path.Combine(dossier, "journal-myverse.txt"), "MyVerse", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show("MyChurch n'a pas pu démarrer : " + x.Message + "\n\nJournal : " + Path.Combine(dossier, "journal-myverse.txt"), "MyVerse", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
             return;
         }
@@ -105,14 +112,17 @@ public partial class App : Application
             if (SortieObs.Preparer()) SortieObs.Ecrire(Regie.Etat);
         });
 
+        Sources = new SourcesDisplay();
+        if (AutoTest == null || Environment.GetEnvironmentVariable("MYCHURCH_TEST_CAM") == "1")
+            try { CameraVirtuelle = new MyVirtualCam(); } catch (Exception ex) { Journal.Erreur("MyVirtualCam démarrage", ex); }
         var w = new MainWindow();
         MainWindow = w;
         w.Show();
-        if (Donnees.Migration.Length > 0) w.Toast("Données de MyVerse 3 reprises : " + Donnees.Migration + ".");
+        if (Donnees.Migration.Length > 0) w.Toast("Données de MyChurch 3 reprises : " + Donnees.Migration + ".");
         if (AutoTest != null) Ui.AutoTest.Lancer(w, AutoTest);
     }
 
-    /// <summary>Une seule copie de MyVerse : un 2e lancement ramène la fenêtre déjà ouverte.</summary>
+    /// <summary>Une seule copie de MyChurch : un 2e lancement ramène la fenêtre déjà ouverte.</summary>
     static bool UneSeuleCopie()
     {
         instance = new Mutex(true, @"Local\MyVerse4", out bool premier);
@@ -137,6 +147,8 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         Journal.Info("fermeture de MyVerse");
+        Sources?.Dispose();
+        CameraVirtuelle?.Dispose();
         try { Telephone?.Dispose(); } catch (Exception) { }
         try { Obs?.Dispose(); } catch (Exception) { }
         Journal.Sauver();

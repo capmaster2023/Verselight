@@ -1,3 +1,15 @@
+MyChurch 6.0.0 bêta
+
+Display : ajouter un texte, des images, un périphérique de capture vidéo (webcam ou carte HDMI/USB) ou une capture de fenêtre. Double-clic sur le titre : envoyer en direct.
+
+MyVirtualCam est installée avec le programme (autorisation Windows). En version portable : Display > MyVirtualCam. Elle reçoit automatiquement la sortie tant que MyChurch est ouvert et fournit du noir quand il est fermé. Choisissez MyVirtualCam comme caméra dans OBS ou une application DirectShow compatible. Pas de son virtuel.
+
+La capture de fenêtre nécessite une fenêtre ouverte et non réduite; certains contenus GPU ou protégés ne sont pas capturables. Les périphériques physiques doivent être autorisés dans les réglages caméra Windows.
+
+APK : MyChurch.apk, onglet Display pour commander les sources du PC.
+
+Données et jumelage existants conservés.
+
 MYVERSE 4 — Bible et chants pour la projection (logiciel Windows natif)
 =========================================================================
 

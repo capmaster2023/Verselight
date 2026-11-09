@@ -3,9 +3,10 @@ using System.Text.RegularExpressions;
 
 namespace MyVerse;
 
-/// <summary>Un élément de l'agenda : un chant, un passage de la Bible ou un texte (annonce, prière…).</summary>
+/// <summary>Un élément de l'agenda : un chant, un passage de la Bible ou un texte (display, prière…).</summary>
 public sealed class ElementAgenda
 {
+    [JsonPropertyName("source"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public SourceDisplay? Source { get; set; }
     [JsonPropertyName("id")] public string Id { get; set; } = Chant.NouvelId();
     [JsonPropertyName("type")] public string Type { get; set; } = "texte"; // chant, bible, texte
     [JsonPropertyName("titre")] public string Titre { get; set; } = "";
@@ -20,12 +21,25 @@ public sealed class ElementAgenda
     [JsonPropertyName("minutes"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? Minutes { get; set; }
 }
 
-/// <summary>Une annonce de la bibliothèque (onglet Annonces) : titre et texte, une diapositive par paragraphe.</summary>
+/// <summary>Une display de la bibliothèque (onglet Display) : titre et texte, une diapositive par paragraphe.</summary>
+public sealed record SourceDisplay
+{
+    [JsonPropertyName("type")] public string Type { get; init; } = "image";
+    [JsonPropertyName("chemin")] public string Chemin { get; init; } = "";
+    [JsonPropertyName("peripherique")] public string Peripherique { get; init; } = "";
+    [JsonPropertyName("fenetre")] public long Fenetre { get; init; }
+    [JsonPropertyName("processus")] public int Processus { get; init; }
+}
+
+public sealed record CibleDisplay(string Id) : Cible;
+
 public sealed class Annonce
 {
     [JsonPropertyName("id")] public string Id { get; set; } = Chant.NouvelId();
     [JsonPropertyName("titre")] public string Titre { get; set; } = "";
     [JsonPropertyName("texte")] public string Texte { get; set; } = "";
+    [JsonPropertyName("source"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public SourceDisplay? Source { get; set; }
+    [JsonIgnore] public string Description => Source?.Type switch { "camera" => "Périphérique de capture vidéo · " + Source.Peripherique, "fenetre" => "Capture de fenêtre · " + Titre, "image" => "Image · " + Path.GetFileName(Source.Chemin), _ => Texte };
 }
 
 /// <summary>Un agenda (comme dans VideoPsalm) : la liste préparée d'un culte.</summary>
@@ -36,7 +50,7 @@ public sealed class Agenda
     [JsonPropertyName("elements")] public List<ElementAgenda> Elements { get; set; } = new();
 }
 
-/// <summary>Une diapositive d'un texte de l'agenda (ou d'une annonce).</summary>
+/// <summary>Une diapositive d'un texte de l'agenda (ou d'un display).</summary>
 public sealed record CibleTexte(string Element, int I) : Cible;
 
 /// <summary>Le compte à rebours d'accueil (« Le culte commence dans 05:00 »).</summary>
@@ -194,6 +208,7 @@ public sealed partial class Regie
     /// <summary>« CHANT », « BIBLE », « TEXTE » et de quoi il s'agit (recueil, versets…).</summary>
     public (string Type, string Sous) Description(ElementAgenda e) => e.Type switch
     {
+        "display" => ("DISPLAY", e.Source?.Type == "camera" ? "Périphérique vidéo" : e.Source?.Type == "fenetre" ? "Capture de fenêtre" : "Image"),
         "chant" => ("CHANT", Trouver(e.ChantId) is { } c ? (c.Author.Length > 0 ? c.Author : "Sans recueil") + $" · {c.Sections.Count} strophe{(c.Sections.Count > 1 ? "s" : "")}" : "chant supprimé"),
         "bible" => ("BIBLE", BorneRef(e) is { } r ? $"{r.V2 - r.V1 + 1} verset{(r.V2 > r.V1 ? "s" : "")} · {Bibles.Etiquette()}" : "absent de cette Bible"),
         "compte" => ("ACCUEIL", $"Compte à rebours · {e.Minutes ?? 5} min"),
@@ -221,6 +236,9 @@ public sealed partial class Regie
         var l = new List<DiapoAgenda>();
         switch (e.Type)
         {
+            case "display":
+                l.Add(new DiapoAgenda(e.Titre, e.Titre, new CibleDisplay(e.Id)));
+                break;
             case "chant":
                 if (Trouver(e.ChantId) is { } c)
                     for (int i = 0; i < c.Sections.Count; i++)
@@ -265,6 +283,7 @@ public sealed partial class Regie
                 (CibleVerset a, CibleVerset b) => a.B == b.B && a.C == b.C && a.V1 == b.V1 && b.V1 == b.V2 && a.Part == b.Part,
                 (CibleTexte a, CibleTexte b) => a.Element == b.Element && a.I == b.I,
                 (CibleCompte a, CibleCompte b) => a.Element == b.Element,
+                (CibleDisplay a, CibleDisplay b) => a.Id == b.Id,
                 _ => false,
             };
             if (ok) return i;
@@ -295,6 +314,7 @@ public sealed partial class Regie
                     break;
                 case CibleTexte ct: AfficherTexte(e, ct.I); break;
                 case CibleCompte: AfficherCompte(e); break;
+                case CibleDisplay: AfficherSource(e.Id, e.Titre, e.Source); break;
             }
         }
         finally { depuisAgenda = false; }
@@ -308,7 +328,7 @@ public sealed partial class Regie
         Oeil?.Invoke(true);
         Etat = Etat with
         {
-            Mode = "chant",
+            Mode = "chant", Media = null,
             Lignes = b[i].Split('\n').Where(l => l.Trim().Length > 0).ToArray(),
             Ref = "",
             Second = null,

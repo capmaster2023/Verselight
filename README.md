@@ -1,3 +1,22 @@
+# MyChurch 6.0.0 bêta — projection et régie pour l'église
+
+La nouvelle version Windows et Android s'appelle **MyChurch**. [Notes de la 6.0.0 bêta](windows/NOTES-6.0.0-beta.md).
+
+- **Display** : textes, images, périphériques de capture vidéo (webcam / carte USB-HDMI) et fenêtres.
+- **Double-clic sur un titre** : envoi immédiat en direct.
+- **MyVirtualCam** : sortie vidéo automatique 720p30, disponible comme caméra DirectShow après installation, sans OBS.
+- **APK MyChurch** : Bible, chants et contrôle des sources Display ajoutées sur le PC.
+- Données, Bibles, chants et jumelage de MyVerse conservés. Les chemins internes du dépôt gardent leur nom historique.
+
+Téléchargements : [Release 6.0.0 bêta](https://github.com/capmaster2023/Verselight/releases/tag/v6.0.0-beta), installateur Windows `MyChurch-Setup-6.0.0-beta.exe`, dossier portable `MyChurch-6.0.0-beta-Windows.zip`, APK `MyChurch.apk`.
+
+MyVirtualCam requiert une autorisation Windows à l'installation. MyChurch ouvert : la sortie part automatiquement vers la caméra. MyChurch fermé : le périphérique reste sélectionnable et fournit une image noire. Compatibilité visée : applications DirectShow; pas d'audio virtuel. Voir les notes de version pour les limites de capture et les vérifications.
+
+Tests : `dotnet run --project windows/MyVerse.Tests -- windows/MyVerse/Ressources`.
+Compilation : GitHub Actions **Build MyChurch**, avec tests Windows natifs et construction Android. Les versions avec suffixe `-beta` sont publiées comme préversions.
+
+---
+
 # MyVerse 5 — projection Bible et chants (logiciel Windows natif) + télécommande Android
 
 ## Nouveautés 5.0 / 5.1 : design « Aube » (ivoire et or) et agenda

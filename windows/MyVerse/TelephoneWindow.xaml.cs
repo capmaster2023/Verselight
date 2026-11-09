@@ -20,7 +20,7 @@ public partial class TelephoneWindow : FenetreDialogue
         var t = App.Telephone;
         if (t.Port == 0)
         {
-            QrAttente.Text = "Le module téléphone n'a pas pu démarrer (ports 47900 à 47909 occupés ?). Fermez les autres copies de MyVerse puis rouvrez MyVerse.";
+            QrAttente.Text = "Le module téléphone n'a pas pu démarrer (ports 47900 à 47909 occupés ?). Fermez les autres copies de MyChurch puis rouvrez MyChurch.";
         }
         else
         {
@@ -37,7 +37,7 @@ public partial class TelephoneWindow : FenetreDialogue
             }
             var ip = Telephone.AdressesLocales().FirstOrDefault();
             Info.Text = ip != null
-                ? $"{t.NomPc} · test depuis le téléphone : ouvrez http://{ip}:{t.Port} dans Chrome (la page « MyVerse ✓ » doit s'afficher)"
+                ? $"{t.NomPc} · test depuis le téléphone : ouvrez http://{ip}:{t.Port} dans Chrome (la page « MyChurch ✓ » doit s'afficher)"
                 : $"{t.NomPc} · aucune adresse réseau : branchez le PC au Wi-Fi ou au réseau";
         }
         Appareils();

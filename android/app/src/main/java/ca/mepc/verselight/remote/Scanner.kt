@@ -65,7 +65,7 @@ fun QrScanner(onCode: (String) -> Unit, onCancel: () -> Unit) {
             view
         })
         Text(
-            "Visez le code QR affiché dans MyVerse › Téléphone",
+            "Visez le code QR affiché dans MyChurch › Téléphone",
             modifier = Modifier.align(Alignment.TopCenter).padding(24.dp),
         )
         Button(onClick = onCancel, modifier = Modifier.align(Alignment.BottomCenter).padding(32.dp)) {

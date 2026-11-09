@@ -1,0 +1,236 @@
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
+using System.Text;
+using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using OpenCvSharp;
+
+namespace MyVerse.Ui;
+
+/// <summary>Only the explicitly selected device/window is captured. No audio is recorded.</summary>
+public sealed class SourcesDisplay : IDisposable
+{
+    public sealed record Peripherique(int Index, string Nom, string Id);
+    public sealed record Fenetre(long Handle, int Processus, string Titre);
+    public BitmapSource? Image { get; private set; }
+    public string Statut { get; private set; } = "";
+    public event Action? Change;
+    CancellationTokenSource? fin;
+    Task travail = Task.CompletedTask;
+    SourceDisplay? source;
+    int generation;
+    long dernierExport;
+
+    public void Choisir(EtatEcran etat)
+    {
+        var nouvelle = etat.Mode == "media" ? etat.Media : null;
+        if (nouvelle == source) return;
+        source = nouvelle;
+        try { fin?.Cancel(); } catch (ObjectDisposedException) { }
+        var avant = travail;
+        var token = new CancellationTokenSource();
+        fin = token;
+        int g = ++generation;
+        Image = null;
+        ViderExport();
+        Statut = nouvelle == null ? "" : "Connexion à la source…";
+        Change?.Invoke();
+        travail = Task.Run(async () =>
+        {
+            try
+            {
+                await avant.ConfigureAwait(false);
+                token.Token.ThrowIfCancellationRequested();
+                if (nouvelle == null) return;
+                if (nouvelle.Type == "image")
+                {
+                    var image = new BitmapImage();
+                    image.BeginInit(); image.CacheOption = BitmapCacheOption.OnLoad;
+                    image.DecodePixelWidth = 1920;
+                    image.UriSource = new Uri(nouvelle.Chemin, UriKind.Absolute);
+                    image.EndInit(); image.Freeze();
+                    await Publier(image, g, token.Token);
+                }
+                else if (nouvelle.Type == "camera")
+                {
+                    var device = Peripheriques().FirstOrDefault(d => d.Id == nouvelle.Peripherique)
+                        ?? throw new IOException("Périphérique débranché. Ajoutez à nouveau la source après l'avoir branché.");
+                    using var camera = new VideoCapture(device.Index, VideoCaptureAPIs.DSHOW);
+                    if (!camera.IsOpened()) throw new IOException("Périphérique indisponible. Vérifiez les permissions caméra Windows et les autres logiciels qui l'utilisent.");
+                    camera.Set(VideoCaptureProperties.FrameWidth, 1280);
+                    camera.Set(VideoCaptureProperties.FrameHeight, 720);
+                    camera.Set(VideoCaptureProperties.Fps, 30);
+                    using var frame = new Mat();
+                    using var bgra = new Mat();
+                    while (!token.IsCancellationRequested)
+                    {
+                        if (!camera.Read(frame) || frame.Empty()) throw new IOException("Le périphérique ne fournit plus de vidéo.");
+                        Cv2.CvtColor(frame, bgra, ColorConversionCodes.BGR2BGRA);
+                        var b = BitmapSource.Create(bgra.Width, bgra.Height, 96, 96, PixelFormats.Bgra32, null, bgra.Data, (int)(bgra.Step() * bgra.Height), (int)bgra.Step());
+                        b.Freeze();
+                        await Publier(b, g, token.Token);
+                        await Task.Delay(15, token.Token);
+                    }
+                }
+                else if (nouvelle.Type == "fenetre")
+                {
+                    while (!token.IsCancellationRequested)
+                    {
+                        var h = new IntPtr(nouvelle.Fenetre);
+                        GetWindowThreadProcessId(h, out uint pid);
+                        if (!IsWindow(h) || pid != nouvelle.Processus) throw new IOException("La fenêtre a été fermée. Choisissez à nouveau la fenêtre à capturer.");
+                        if (IsIconic(h)) throw new IOException("Restaurez la fenêtre à capturer, puis réaffichez cette source.");
+                        await Publier(Capturer(h), g, token.Token);
+                        await Task.Delay(66, token.Token);
+                    }
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                Journal.Erreur("Display", ex);
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    if (g != generation) return;
+                    Image = null; ViderExport(); Statut = ex.Message; Change?.Invoke();
+                    if (Application.Current.MainWindow is MainWindow w) w.Toast(ex.Message);
+                });
+            }
+            finally { token.Dispose(); }
+        });
+    }
+
+    async Task Publier(BitmapSource b, int g, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        await Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            if (g != generation) return;
+            Image = b; Statut = "En direct"; Change?.Invoke();
+        });
+        if (g != generation || !App.SortieObs.Prete || Environment.TickCount64 - dernierExport < 100) return;
+        dernierExport = Environment.TickCount64;
+        try
+        {
+            BitmapSource sortie = b.PixelWidth > 1280 ? new TransformedBitmap(b, new ScaleTransform(1280.0 / b.PixelWidth, 1280.0 / b.PixelWidth)) : b;
+            var encoder = new JpegBitmapEncoder { QualityLevel = 85 };
+            encoder.Frames.Add(BitmapFrame.Create(sortie));
+            var path = Path.Combine(App.SortieObs.Dossier, "display.jpg");
+            using (var file = File.Create(path + ".tmp")) encoder.Save(file);
+            if (g == generation) File.Move(path + ".tmp", path, true);
+        }
+        catch (IOException) { }
+    }
+
+    static void ViderExport()
+    {
+        if (!App.SortieObs.Prete) return;
+        try
+        {
+            var encoder = new JpegBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(BitmapSource.Create(1, 1, 96, 96, PixelFormats.Bgr24, null, new byte[3], 3)));
+            var path = Path.Combine(App.SortieObs.Dossier, "display.jpg");
+            // Distinct temp path: an in-flight old source may still finish encoding its last frame.
+            using (var f = File.Create(path + ".blank")) encoder.Save(f);
+            File.Move(path + ".blank", path, true);
+        }
+        catch (IOException) { }
+    }
+
+    public void Reconnecter(EtatEcran e) { source = null; Choisir(e); }
+    public void Dispose() { ++generation; try { fin?.Cancel(); } catch (ObjectDisposedException) { } }
+
+    public static List<Peripherique> Peripheriques()
+    {
+        var liste = new List<Peripherique>();
+        object? obj = null;
+        IEnumMoniker? enumeration = null;
+        try
+        {
+            obj = Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("62BE5D10-60EB-11d0-BD3B-00A0C911CE86"))!);
+            var categorie = new Guid("860BB310-5D01-11d0-BD3B-00A0C911CE86");
+            if (((ICreateDevEnum)obj!).CreateClassEnumerator(ref categorie, out enumeration, 0) != 0 || enumeration == null) return liste;
+            var monikers = new IMoniker[1];
+            int index = 0;
+            while (enumeration.Next(1, monikers, IntPtr.Zero) == 0)
+            {
+                var m = monikers[0]; object? sac = null;
+                try
+                {
+                    var iid = new Guid("55272A00-42CB-11CE-8135-00AA004BB851");
+                    m.BindToStorage(null!, null!, ref iid, out sac);
+                    ((IPropertyBag)sac).Read("FriendlyName", out var nom, IntPtr.Zero);
+                    m.GetDisplayName(null!, null!, out var id);
+                    if (!string.Equals(nom?.ToString(), "MyVirtualCam", StringComparison.OrdinalIgnoreCase))
+                        liste.Add(new Peripherique(index, nom?.ToString() ?? $"Caméra {index + 1}", id));
+                }
+                finally { if (sac != null) Marshal.ReleaseComObject(sac); Marshal.ReleaseComObject(m); index++; }
+            }
+        }
+        finally { if (enumeration != null) Marshal.ReleaseComObject(enumeration); if (obj != null) Marshal.ReleaseComObject(obj); }
+        return liste;
+    }
+
+    public static List<Fenetre> Fenetres()
+    {
+        var list = new List<Fenetre>();
+        EnumWindows((h, _) =>
+        {
+            if (!IsWindowVisible(h) || IsIconic(h)) return true;
+            GetWindowThreadProcessId(h, out uint pid);
+            if (pid == Environment.ProcessId) return true;
+            var titre = new StringBuilder(512); GetWindowText(h, titre, titre.Capacity);
+            if (titre.Length > 0) list.Add(new Fenetre(h.ToInt64(), (int)pid, titre.ToString()));
+            return true;
+        }, IntPtr.Zero);
+        return list.OrderBy(f => f.Titre).ToList();
+    }
+
+    static BitmapSource Capturer(IntPtr h)
+    {
+        if (!GetWindowRect(h, out var r)) throw new IOException("Fenêtre inaccessible.");
+        int w = r.Right - r.Left, height = r.Bottom - r.Top;
+        if (w <= 0 || height <= 0 || w > 7680 || height > 4320) throw new IOException("Dimensions de fenêtre non prises en charge.");
+        var dc = GetDC(IntPtr.Zero); var mem = CreateCompatibleDC(dc); IntPtr bmp = IntPtr.Zero, old = IntPtr.Zero;
+        try
+        {
+            var info = new BitmapInfo { Size = 40, Width = w, Height = -height, Planes = 1, Bits = 32 };
+            bmp = CreateDIBSection(dc, ref info, 0, out var bits, IntPtr.Zero, 0);
+            if (bmp == IntPtr.Zero) throw new IOException("Capture impossible (mémoire graphique).");
+            old = SelectObject(mem, bmp);
+            if (!PrintWindow(h, mem, 2)) throw new IOException("Cette fenêtre refuse la capture. Essayez une fenêtre classique, non protégée.");
+            var b = BitmapSource.Create(w, height, 96, 96, PixelFormats.Bgr32, null, bits, w * height * 4, w * 4);
+            b.Freeze(); return b;
+        }
+        finally { if (old != IntPtr.Zero) SelectObject(mem, old); if (bmp != IntPtr.Zero) DeleteObject(bmp); DeleteDC(mem); ReleaseDC(IntPtr.Zero, dc); }
+    }
+
+    [ComImport, Guid("29840822-5B84-11D0-BD3B-00A0C911CE86"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface ICreateDevEnum { [PreserveSig] int CreateClassEnumerator(ref Guid type, out IEnumMoniker result, int flags); }
+    [ComImport, Guid("55272A00-42CB-11CE-8135-00AA004BB851"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IPropertyBag
+    {
+        [PreserveSig] int Read([MarshalAs(UnmanagedType.LPWStr)] string name, [MarshalAs(UnmanagedType.Struct)] out object value, IntPtr log);
+        [PreserveSig] int Write([MarshalAs(UnmanagedType.LPWStr)] string name, [In, MarshalAs(UnmanagedType.Struct)] ref object value);
+    }
+    delegate bool EnumWindowsProc(IntPtr h, IntPtr p);
+    [StructLayout(LayoutKind.Sequential)] struct Rectangle { public int Left, Top, Right, Bottom; }
+    [StructLayout(LayoutKind.Sequential)] struct BitmapInfo { public uint Size; public int Width, Height; public ushort Planes, Bits; public uint Compression, ImageSize; public int X, Y; public uint Used, Important; }
+    [DllImport("user32.dll")] static extern bool EnumWindows(EnumWindowsProc callback, IntPtr p);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+    [DllImport("user32.dll")] static extern bool IsWindow(IntPtr h);
+    [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder text, int max);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+    [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out Rectangle r);
+    [DllImport("user32.dll")] static extern IntPtr GetDC(IntPtr h);
+    [DllImport("user32.dll")] static extern int ReleaseDC(IntPtr h, IntPtr dc);
+    [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr h, IntPtr dc, uint flags);
+    [DllImport("gdi32.dll")] static extern IntPtr CreateCompatibleDC(IntPtr dc);
+    [DllImport("gdi32.dll")] static extern bool DeleteDC(IntPtr dc);
+    [DllImport("gdi32.dll")] static extern IntPtr CreateDIBSection(IntPtr dc, ref BitmapInfo info, uint usage, out IntPtr bits, IntPtr section, uint offset);
+    [DllImport("gdi32.dll")] static extern IntPtr SelectObject(IntPtr dc, IntPtr obj);
+    [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr obj);
+}

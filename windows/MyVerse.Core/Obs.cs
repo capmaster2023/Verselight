@@ -93,7 +93,7 @@ public sealed class SortieObs
 /// </summary>
 public sealed class Obs : IDisposable
 {
-    public const string AUTO = "MyVerse (temporaire)";
+    public const string AUTO = "MyChurch (temporaire)";
 
     readonly Func<ReglagesObs> cfg;
     readonly SortieObs sortie;

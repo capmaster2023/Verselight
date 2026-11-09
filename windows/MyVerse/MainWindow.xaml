@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:MyVerse.Ui"
-        Title="MyVerse — Bible et chants" Icon="/myverse.ico"
+        Title="MyChurch — Bible et chants" Icon="/myverse.ico"
         Width="1440" Height="900" MinWidth="1000" MinHeight="640"
         Background="{StaticResource Page}" Foreground="{StaticResource Blanc}"
         FontFamily="{StaticResource Ui}" FontSize="15"
@@ -95,7 +95,7 @@
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
-        <!-- une annonce de la bibliothèque -->
+        <!-- une display de la bibliothèque -->
         <DataTemplate x:Key="ModeleAnnonce">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -105,7 +105,7 @@
                 <Button Style="{StaticResource BtnAjout}" Click="AjouterAnnonceListe_Click" Margin="0,0,10,0" VerticalAlignment="Center" ToolTip="Ajouter au déroulé du culte" />
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="{Binding Titre}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Foreground="{StaticResource Blanc}" />
-                    <TextBlock Text="{Binding Texte}" FontSize="12.5" MaxHeight="18" Foreground="{StaticResource Brume}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Description}" FontSize="12.5" MaxHeight="18" Foreground="{StaticResource Brume}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Grid>
         </DataTemplate>
@@ -124,12 +124,12 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Border Width="38" Height="38" CornerRadius="11" Background="{StaticResource OrVif}" VerticalAlignment="Center">
-                            <Path Data="M11,7.5 A3.5,3.5 0 1 1 10.99,7.5 Z M11,1.5 V3.5 M11,18.5 V20.5 M4.3,4.3 L5.7,5.7 M16.3,16.3 L17.7,17.7 M1.5,11 H3.5 M18.5,11 H20.5 M4.3,17.7 L5.7,16.3 M16.3,5.7 L17.7,4.3"
+                            <Path Data="M2,11 L11,5 L20,11 M4,10 V20 H18 V10 M11,1 V6 M8,3 H14 M8,20 V15 A3,3 0 0 1 14,15 V20"
                                   Stroke="{StaticResource SurOr}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="22" Height="22" Stretch="None" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
-                        <TextBlock Text="MyVerse" FontFamily="{StaticResource UiTitre}" FontWeight="Bold" FontSize="23" VerticalAlignment="Center" Foreground="{StaticResource Blanc}" Margin="10,0,0,2" />
+                        <TextBlock Text="MyChurch" FontFamily="{StaticResource UiTitre}" FontWeight="Bold" FontSize="23" VerticalAlignment="Center" Foreground="{StaticResource Blanc}" Margin="10,0,0,2" />
                         <Border x:Name="VersionPastille" BorderBrush="{StaticResource Trait2}" BorderThickness="1" CornerRadius="10" Padding="8,1" Margin="10,2,0,0" VerticalAlignment="Center">
-                            <TextBlock x:Name="SousTitre" Text="5.2" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Brume}" />
+                            <TextBlock x:Name="SousTitre" Text="6.0.0 β" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Brume}" />
                         </Border>
                         <Button x:Name="VersionBtn" Style="{StaticResource BtnPlat}" Padding="6,2" Margin="4,2,0,0" FontSize="12" Foreground="{StaticResource Brume}" ToolTip="Vérifier les mises à jour" Content="v5" Visibility="Collapsed" />
                         <Button x:Name="MajBtn" Style="{StaticResource BtnPetitOr}" Margin="8,0,0,0" Visibility="Collapsed" Content="Mettre à jour" />
@@ -140,7 +140,7 @@
                             <RadioButton x:Name="OngletAgenda" Style="{StaticResource Onglet}" GroupName="Onglets" Content="Culte" ToolTip="Le déroulé du culte (Ctrl K pour chercher)" />
                             <RadioButton x:Name="OngletBible" Style="{StaticResource Onglet}" GroupName="Onglets" IsChecked="True" Content="Bible" Margin="2,0,0,0" />
                             <RadioButton x:Name="OngletChants" Style="{StaticResource Onglet}" GroupName="Onglets" Content="Chants" Margin="2,0,0,0" />
-                            <RadioButton x:Name="OngletAnnonces" Style="{StaticResource Onglet}" GroupName="Onglets" Content="Annonces" Margin="2,0,0,0" />
+                            <RadioButton x:Name="OngletAnnonces" Style="{StaticResource Onglet}" GroupName="Onglets" Content="Display" Margin="2,0,0,0" />
                         </StackPanel>
                     </Border>
 
@@ -374,7 +374,7 @@
                                 </Grid.ColumnDefinitions>
                                 <Grid>
                                     <Rectangle RadiusX="12" RadiusY="12" Stroke="#D9CBB1" StrokeDashArray="4 3" StrokeThickness="1" Fill="#FFFDF9" IsHitTestVisible="False" />
-                                    <Button x:Name="AgendaAjouter" Style="{StaticResource Btn}" Background="Transparent" BorderBrush="Transparent" Content="+ Ajouter" Height="44" Padding="0" ToolTip="Ajouter un chant, un passage, une annonce, un compte à rebours" />
+                                    <Button x:Name="AgendaAjouter" Style="{StaticResource Btn}" Background="Transparent" BorderBrush="Transparent" Content="+ Ajouter" Height="44" Padding="0" ToolTip="Ajouter un chant, un passage, une display, un compte à rebours" />
                                 </Grid>
                                 <Button x:Name="AgendaPartager" Grid.Column="2" Style="{StaticResource Btn}" Height="44" Padding="0" ToolTip="Envoyer le déroulé sur WhatsApp">
                                     <StackPanel Orientation="Horizontal">
@@ -386,7 +386,7 @@
                             <Grid>
                                 <ListBox x:Name="ListeAgenda" Style="{StaticResource ListeChants}" ItemContainerStyle="{StaticResource ElementChant}" ItemTemplate="{StaticResource ModeleAgenda}" />
                                 <TextBlock x:Name="AgendaVide" Margin="6,8,6,0" VerticalAlignment="Top" TextWrapping="Wrap" FontSize="14" Foreground="{StaticResource Brume}" IsHitTestVisible="False" LineHeight="22"
-                                           Text="Le déroulé est vide. « + Ajouter » ou cherchez en haut (Ctrl K) : « chant 12 », « jean 3 16 »… puis Tab. Les boutons + de Bible, Chants et Annonces ajoutent aussi ici." />
+                                           Text="Le déroulé est vide. « + Ajouter » ou cherchez en haut (Ctrl K) : « chant 12 », « jean 3 16 »… puis Tab. Les boutons + de Bible, Chants et Display ajoutent aussi ici." />
                             </Grid>
                         </DockPanel>
                     </Border>
@@ -421,7 +421,7 @@
                     </DockPanel>
                 </Grid>
 
-                <!-- ==================== annonces : la bibliothèque ==================== -->
+                <!-- ==================== displays : la bibliothèque ==================== -->
                 <Grid x:Name="PanneauAnnonces" Margin="22,18,18,18" Visibility="Collapsed">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition x:Name="ColonneAnnonces" Width="360" />
@@ -431,14 +431,19 @@
                     <Border Style="{StaticResource Carte}" Padding="18">
                         <DockPanel>
                             <StackPanel DockPanel.Dock="Top">
-                                <TextBlock Text="ANNONCES" Style="{StaticResource CarteTitre}" />
+                                <TextBlock Text="DISPLAY" Style="{StaticResource CarteTitre}" />
                                 <TextBlock Text="Bibliothèque" FontFamily="{StaticResource UiTitre}" FontSize="21" FontWeight="SemiBold" Margin="0,2,0,12" />
-                                <Button x:Name="AnnonceNouvelle" Style="{StaticResource BtnOr}" Content="+ Nouvelle annonce" Height="44" Padding="0" />
+                                <Button x:Name="AnnonceNouvelle" Style="{StaticResource BtnOr}" Content="+ Nouveau texte" Height="40" Padding="0" />
+                                <Button x:Name="DisplayImage" Style="{StaticResource Btn}" Content="+ Images" Margin="0,6,0,0" />
+                                <Button x:Name="DisplayCamera" Style="{StaticResource Btn}" Content="+ Périphérique de capture vidéo" Margin="0,6,0,0" />
+                                <Button x:Name="DisplayFenetre" Style="{StaticResource Btn}" Content="+ Capture de fenêtre" Margin="0,6,0,0" />
+                                <Button x:Name="VirtualCamBtn" Style="{StaticResource Btn}" Content="MyVirtualCam" Margin="0,12,0,0" />
+                                <TextBlock Text="Double-cliquez un titre pour l'envoyer en direct." TextWrapping="Wrap" Foreground="{StaticResource Brume}" FontSize="12" Margin="0,10,0,0" />
                             </StackPanel>
                             <Grid Margin="0,12,0,0">
                                 <ListBox x:Name="ListeAnnonces" Style="{StaticResource ListeChants}" ItemContainerStyle="{StaticResource ElementChant}" ItemTemplate="{StaticResource ModeleAnnonce}" />
                                 <TextBlock x:Name="AnnoncesVide" Margin="6,8,6,0" VerticalAlignment="Top" TextWrapping="Wrap" FontSize="14" Foreground="{StaticResource Brume}" IsHitTestVisible="False" LineHeight="22"
-                                           Text="Aucune annonce. « + Nouvelle annonce » : bienvenue, activités de la semaine, offrande… Le + à gauche d'une annonce l'ajoute au déroulé du culte." />
+                                           Text="Ajoutez un texte, une image, un périphérique vidéo ou une capture de fenêtre." />
                             </Grid>
                         </DockPanel>
                     </Border>
@@ -447,9 +452,10 @@
                             <StackPanel DockPanel.Dock="Top">
                                 <TextBlock Text="TITRE" Style="{StaticResource CarteTitre}" />
                                 <TextBox x:Name="AnnonceTitre" Style="{StaticResource Champ}" Margin="0,6,0,14" FontSize="17" />
-                                <TextBlock Text="TEXTE · une ligne vide entre deux diapositives" Style="{StaticResource CarteTitre}" />
+                                <TextBlock x:Name="DisplaySourceInfo" Text="Texte : une ligne vide entre deux diapositives" Style="{StaticResource CarteTitre}" />
                             </StackPanel>
                             <WrapPanel DockPanel.Dock="Bottom" Margin="0,14,0,0">
+                                <Button x:Name="DisplayReconnecter" Visibility="Collapsed" Style="{StaticResource Btn}" Content="Reconnecter la source en direct" Padding="18,10" Margin="0,0,8,6" />
                                 <Button x:Name="AnnonceEnregistrer" Style="{StaticResource BtnOr}" Content="Enregistrer" Padding="18,10" Margin="0,0,8,6" />
                                 <Button x:Name="AnnonceAfficher" Style="{StaticResource Btn}" Content="Afficher" Padding="18,10" Margin="0,0,8,6" />
                                 <Button x:Name="AnnonceAjouter" Style="{StaticResource Btn}" Content="+ Déroulé du culte" Padding="18,10" Margin="0,0,8,6" />

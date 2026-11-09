@@ -409,7 +409,7 @@ if (Actif())
     var msg = rg.Decouper(rg.Cible!, tx[..k] + "\n" + tx[k..]);
     Ok(msg.Contains("2 diapositives"), "découpe : " + msg);
     Ok(rg.Etat.Lignes[0].StartsWith("Car Dieu") && !rg.Etat.Lignes[0].Contains("afin que"), "morceau 1 de Jean 3:16 à l'écran");
-    Ok(rg.Prochaine()?.Label.Contains("morceau 2/2") == true, "Suivant annonce le morceau 2/2");
+    Ok(rg.Prochaine()?.Label.Contains("morceau 2/2") == true, "Suivant display le morceau 2/2");
     rg.Bouger(1);
     Ok(rg.Etat.Lignes[0].StartsWith("afin que"), "Suivant → morceau 2");
     rg.Bouger(1);
@@ -574,6 +574,15 @@ if (Actif())
         else Ok(false, "Bible KJV envoyée");
         await Env(ws1, new { t = "inconnue", rid = 9 });
         Egal((string?)(await Rec(ws1, "error"))?["message"], "Commande inconnue : inconnue", "commande inconnue");
+        var display = rg.NouveauDisplay("Caméra USB", new SourceDisplay { Type = "camera", Peripherique = "device-test" });
+        await Env(ws1, new { t = "display.list", rid = 10 });
+        var ds = await Rec(ws1, "displays");
+        Ok(ds?["liste"]?.AsArray().Any(x => (string?)x?["id"] == display.Id && (string?)x?["type"] == "camera") == true, "APK : liste des sources Display");
+        await Env(ws1, new { t = "display.show", id = display.Id });
+        st = await Rec(ws1, "state");
+        Ok((string?)st?["mode"] == "media" && (string?)st?["displayId"] == display.Id && (string?)st?["titre"] == "Caméra USB", "APK : périphérique Display en direct");
+        await Env(ws1, new { t = "display.show", id = "inexistant" });
+        Ok(((string?)(await Rec(ws1, "error"))?["message"] ?? "").Contains("introuvable"), "APK : source Display inconnue refusée");
         await ws1.CloseAsync(System.Net.WebSockets.WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
     }
     await Task.Delay(200);
@@ -602,7 +611,7 @@ if (Actif())
     tel.Revoquer("tel-1");
     Ok(!tel.Store.Liste().Any(a => a.DeviceId == "tel-1"), "téléphone révoqué");
     using (var http = new HttpClient())
-        Ok((await http.GetStringAsync($"http://127.0.0.1:{tel.Port}/")).Contains("MyVerse ✓"), "page de test http://IP:port");
+        Ok((await http.GetStringAsync($"http://127.0.0.1:{tel.Port}/")).Contains("MyChurch ✓"), "page de test http://IP:port");
     using (var u = new System.Net.Sockets.UdpClient())
     {
         var b = System.Text.Encoding.UTF8.GetBytes("VERSELIGHT_DISCOVER " + tel.PcId);
@@ -623,7 +632,7 @@ if (Actif())
     using (var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) })
     {
         var page = await http.GetStringAsync($"http://127.0.0.1:{tel.Port}/suivre");
-        Ok(page.Contains("MyVerse") && page.Contains("/suivre/etat"), "page « suivre »");
+        Ok(page.Contains("MyChurch") && page.Contains("/suivre/etat"), "page « suivre »");
         var e0 = System.Text.Json.Nodes.JsonNode.Parse(await http.GetStringAsync($"http://127.0.0.1:{tel.Port}/suivre/etat?v=-1&id=test1"))!;
         int v0 = (int)e0["v"]!;
         var attente = http.GetStringAsync($"http://127.0.0.1:{tel.Port}/suivre/etat?v={v0}&id=test1");
@@ -684,7 +693,7 @@ if (Actif())
     var notes = "La grâce qui transforme\n1. Sauvés par grâce — Éphésiens 2:8-9\n2. Rm 5.8 et 2 Co 5:17\nAppel : Jean 3:16, puis Psaume 23. Une 2 fois, Rom 8, le 3:16, culte à 10:30";
     Egal(string.Join(" | ", rg.RefsDansNotes(notes).Select(x => x.Libelle)), "Éphésiens 2:8-9 | Romains 5:8 | 2 Corinthiens 5:17 | Jean 3:16 | Psaumes 23", "versets trouvés dans les notes");
 
-    // 5.2 (design Aube) : compte à rebours, heures, éléments faits, résumé, annonces
+    // 5.2 (design Aube) : compte à rebours, heures, éléments faits, résumé, displays
     var t0 = new DateTime(2026, 11, 15, 9, 55, 0);
     rg.Horloge = () => t0;
     rg.OublierResume();
@@ -707,16 +716,16 @@ if (Actif())
     Ok(rg.ResumePartage().Contains("• 1 - Chant de test (2 couplets)") && rg.DeroulePartage().Contains("10:00 — 1 - Chant de test"), "résumé et déroulé à partager");
     var an = rg.NouvelleAnnonce("Bienvenue", "Bienvenue à tous !\n\nRepas après le culte");
     rg.AfficherAnnonce(an);
-    Ok(rg.Etat.Lignes[0] == "Bienvenue à tous !" && rg.ElementCourant == null, "annonce à l'écran");
-    Egal(rg.Prochaine()?.Texte, "Repas après le culte", "annonce : diapositive suivante");
+    Ok(rg.Etat.Lignes[0] == "Bienvenue à tous !" && rg.ElementCourant == null, "display à l'écran");
+    Egal(rg.Prochaine()?.Texte, "Repas après le culte", "display : diapositive suivante");
     rg.Bouger(1);
-    Egal(rg.Etat.Lignes[0], "Repas après le culte", "annonce : Suivant");
+    Egal(rg.Etat.Lignes[0], "Repas après le culte", "display : Suivant");
     var eAn = rg.AjouterAnnonceAgenda(an.Id)!;
-    Ok(eAn.Type == "texte" && rg.Diapos(eAn).Count == 2, "annonce ajoutée au déroulé");
+    Ok(eAn.Type == "texte" && rg.Diapos(eAn).Count == 2, "display ajoutée au déroulé");
     rg.ModifierAnnonce(an.Id, "Bienvenue !", "Bonjour");
-    Ok(Donnees.Charger(don.Dossier, res).Annonces.Any(a => a.Titre == "Bienvenue !"), "annonces enregistrées");
+    Ok(Donnees.Charger(don.Dossier, res).Annonces.Any(a => a.Titre == "Bienvenue !"), "displays enregistrées");
     rg.SupprimerAnnonce(an.Id);
-    Egal(rg.Annonces.Count, 0, "annonce supprimée");
+    Egal(rg.Annonces.Count, 0, "display supprimée");
     rg.Horloge = () => DateTime.Now;
 
     var c1 = rg.Commande("jean 3 16");
@@ -727,6 +736,38 @@ if (Actif())
     Ok(c3.Count == 1 && c3[0].Action == "minuteur" && c3[0].Minutes == 35, "commande « minuteur 35 »");
     Ok(rg.Commande("Chant de test").Any(x => x.ChantId == idChant), "commande : titre d'un chant");
     Ok(rg.Commande("romains").Any(x => x.Type == "BIBLE" && x.Titre == "Romains 1"), "commande : nom d'un livre");
+}
+
+Groupe("Display 6.0");
+if (Actif())
+{
+    var don = Donnees.Charger(Temp(), res);
+    var rg = new Regie(don, new Bibles(don));
+    var texte = rg.NouvelleAnnonce("Ancien texte", "Ancienne diapositive");
+    var image = rg.NouveauDisplay("Image", new SourceDisplay { Type = "image", Chemin = "/test/image.png" });
+    var camera = rg.NouveauDisplay("Carte HDMI", new SourceDisplay { Type = "camera", Peripherique = "@device:pnp:test" });
+    var fenetre = rg.NouveauDisplay("Fenêtre", new SourceDisplay { Type = "fenetre", Fenetre = 1234, Processus = 42 });
+    var relu = Donnees.Charger(don.Dossier, res);
+    Ok(relu.Annonces.Count == 4 && relu.Annonces.First().Source == null, "compatibilité des anciens textes après réouverture");
+    Ok(relu.Annonces.Last().Source == fenetre.Source, "identité de fenêtre et processus conservée");
+    Ok(relu.Annonces.First(a => a.Id == camera.Id).Source == camera.Source, "identité stable du périphérique vidéo conservée");
+    rg.AfficherAnnonce(camera);
+    Ok(rg.Etat.Mode == "media" && rg.Etat.Media == camera.Source && rg.Etat.Lignes.Count == 0, "caméra en direct sans texte résiduel");
+    rg.AfficherAnnonce(texte);
+    Ok(rg.Etat.Mode == "chant" && rg.Etat.Media == null, "retour caméra vers texte : capture arrêtée");
+    rg.AfficherAnnonce(image); rg.Effacer();
+    Ok(rg.Etat.Vide && rg.Etat.Media == null, "retirer une source coupe la capture");
+    var el = rg.AjouterAnnonceAgenda(camera.Id)!;
+    var suivant = rg.AjouterTexteAgenda("Après caméra", "Bonjour");
+    rg.AfficherElement(el);
+    Ok(rg.ElementCourant == el && rg.PositionAgenda(el) == 0 && rg.Diapos(el).Count == 1, "source dans le déroulé du culte");
+    rg.Bouger(1);
+    Ok(rg.ElementCourant == suivant && rg.Etat.Media == null && rg.Etat.Lignes[0] == "Bonjour", "Suivant quitte la caméra pour la diapositive suivante");
+    rg.Bouger(-1);
+    Ok(rg.ElementCourant == el && rg.Etat.Media == camera.Source, "Précédent revient à la caméra");
+    rg.AfficherVerset(42, 3, 16, 16);
+    Ok(rg.Etat.Media == null, "afficher un verset coupe la capture");
+    Ok(MiseAJour.PlusRecente("6.0.0", "6.0.0-beta") && !MiseAJour.PlusRecente("6.0.0-beta", "6.0.0"), "passage bêta vers version finale");
 }
 
 Console.WriteLine($"\n{total - echecs}/{total} vérifications réussies" + (echecs > 0 ? $" — {echecs} ÉCHEC(S)" : " — tout est bon"));

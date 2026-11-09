@@ -52,13 +52,13 @@ public partial class OutilsWindow : FenetreDialogue
         var m = Application.Current.MainWindow as MainWindow;
         var lignes = new List<string>
         {
-            $"MyVerse {App.Version} (Windows) · {DateTime.Now:yyyy-MM-dd HH:mm:ss} · programme : {AppContext.BaseDirectory}",
+            $"MyChurch {App.Version} (Windows) · {DateTime.Now:yyyy-MM-dd HH:mm:ss} · programme : {AppContext.BaseDirectory}",
             $"Données : {App.Donnees.Dossier} · {App.Donnees.Chants.Count} chants · Bible : {App.Bibles.Etiquette()}",
             $"Téléphones : port {(t.Port > 0 ? t.Port.ToString() : "AUCUN")} · pare-feu : {(App.Parefeu_.Length > 0 ? App.Parefeu_ : "inconnu")} · connectés : {t.Connectes().Count} / jumelés : {t.Store.Liste().Count}",
             $"OBS : {(o.Actif ? (o.Connecte ? "connecté" : "NON CONNECTÉ") : "désactivé")} · écran de projection : {(m?.Ecran != null ? "ouvert" : App.Donnees.Reglages.Ecran?.Mode == "obs" ? "OBS (fichier local)" : "fermé")}",
             $"Windows : {Environment.OSVersion.VersionString} · .NET {Environment.Version}",
             "",
-            "===== MyVerse =====",
+            "===== MyChurch =====",
         };
         var j = Journal.Lignes();
         lignes.AddRange(j.Count > 0 ? j : new List<string> { "(vide)" });
@@ -83,7 +83,7 @@ public partial class OutilsWindow : FenetreDialogue
             else
             {
                 Installer.Visibility = Visibility.Collapsed;
-                MajEtat.Text = r.Erreur ?? $"MyVerse est à jour (version {App.Version}).";
+                MajEtat.Text = r.Erreur ?? $"MyChurch est à jour (version {App.Version}).";
             }
         }
         finally { Verifier.IsEnabled = true; }
@@ -94,12 +94,12 @@ public partial class OutilsWindow : FenetreDialogue
         if (maj == null) return;
         Installer.IsEnabled = false;
         Verifier.IsEnabled = false;
-        MajEtat.Text = $"Téléchargement de MyVerse {maj.Version}…";
+        MajEtat.Text = $"Téléchargement de MyChurch {maj.Version}…";
         try
         {
             var p = new Progress<int>(pct => MajEtat.Text = $"Téléchargement… {pct} %");
             await MiseAJour.Installer(maj.Url, p);
-            MajEtat.Text = "Installation… MyVerse va se fermer puis se rouvrir.";
+            MajEtat.Text = "Installation… MyChurch va se fermer puis se rouvrir.";
             Journal.Info($"mise à jour vers {maj.Version} : installation");
             await Task.Delay(800);
             Application.Current.Shutdown();
@@ -133,7 +133,7 @@ public partial class OutilsWindow : FenetreDialogue
         if ((!chants || nbChants == 0) && (!bibles || nbBibles == 0))
         {
             Dialogue.Informer(this, bibles && !chants
-                ? "Aucune Bible importée à exporter : LSG et KJV sont déjà dans chaque MyVerse."
+                ? "Aucune Bible importée à exporter : LSG et KJV sont déjà dans chaque MyChurch."
                 : "Aucun chant à exporter.");
             return;
         }
@@ -143,14 +143,14 @@ public partial class OutilsWindow : FenetreDialogue
             Title = "Exporter vers un autre ordinateur",
             FileName = $"MyVerse-{quoi}-{DateTime.Now:yyyy-MM-dd}{Transfert.Extension}",
             DefaultExt = Transfert.Extension,
-            Filter = $"Fichier MyVerse (*{Transfert.Extension})|*{Transfert.Extension}",
+            Filter = $"Fichier MyChurch (*{Transfert.Extension})|*{Transfert.Extension}",
             InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
         };
         if (dlg.ShowDialog(this) != true) return;
         try
         {
             var m = Patienter(() => Transfert.Exporter(dlg.FileName, App.Donnees, chants, bibles, App.Version));
-            Dialogue.Informer(this, $"Exporté : {Contenu(m)}.\n\nFichier : {dlg.FileName}\n\nSur l'autre ordinateur : Outils → Importer un fichier MyVerse.");
+            Dialogue.Informer(this, $"Exporté : {Contenu(m)}.\n\nFichier : {dlg.FileName}\n\nSur l'autre ordinateur : Outils → Importer un fichier MyChurch.");
         }
         catch (Exception x)
         {
@@ -164,7 +164,7 @@ public partial class OutilsWindow : FenetreDialogue
         var dlg = new Microsoft.Win32.OpenFileDialog
         {
             Title = "Importer un fichier MyVerse",
-            Filter = $"Fichier MyVerse (*{Transfert.Extension};*.zip)|*{Transfert.Extension};*.zip",
+            Filter = $"Fichier MyChurch (*{Transfert.Extension};*.zip)|*{Transfert.Extension};*.zip",
         };
         if (dlg.ShowDialog(this) != true) return;
         Transfert.Manifeste m;
@@ -172,11 +172,11 @@ public partial class OutilsWindow : FenetreDialogue
         catch (Exception x)
         {
             Journal.Erreur("import MyVerse", x);
-            Dialogue.Informer(this, "Ce fichier n'est pas un export MyVerse. Sur l'autre ordinateur : Outils → Exporter.");
+            Dialogue.Informer(this, "Ce fichier n'est pas un export MyChurch. Sur l'autre ordinateur : Outils → Exporter.");
             return;
         }
         var contenu = Contenu(m);
-        if (contenu.Length == 0) { Dialogue.Informer(this, "Ce fichier MyVerse est vide."); return; }
+        if (contenu.Length == 0) { Dialogue.Informer(this, "Ce fichier MyChurch est vide."); return; }
         if (!Dialogue.Confirmer(this, $"Importer {contenu} ?" +
                 (m.Chants > 0 ? "\n\nUn chant qui existe déjà (même recueil, même titre) est remplacé par celui du fichier ; rien n'est mis en double." : ""),
                 "Importer")) return;

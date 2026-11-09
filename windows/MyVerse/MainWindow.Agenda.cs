@@ -29,7 +29,7 @@ public sealed class LigneAgenda : INotifyPropertyChanged
 }
 
 /// <summary>
-/// Onglets « Culte » et « Annonces » (design « Aube ») : déroulé du culte préparé à l'avance (comme l'agenda de VideoPsalm),
+/// Onglets « Culte » et « Display » (design « Aube ») : déroulé du culte préparé à l'avance (comme l'agenda de VideoPsalm),
 /// élément en cours au centre (lecture en 2 langues), résumé du culte à partager, compte à rebours d'accueil,
 /// habillage de l'écran, minuteur de prédication, écran de scène.
 /// </summary>
@@ -119,25 +119,29 @@ public partial class MainWindow
             scene.Show();
         };
 
-        // ---------- annonces
+        // ---------- displays
         R.AnnoncesChange += AnnoncesMaj;
         ListeAnnonces.SelectionChanged += (_, _) =>
         {
             if (ListeAnnonces.SelectedItem is not Annonce a || a == annonceChoisie) return;
             annonceChoisie = a;
             AnnonceTitre.Text = a.Titre;
-            AnnonceTexte.Text = a.Texte;
+            AnnonceTexte.Text = a.Source != null ? a.Description : a.Texte;
+            AnnonceTexte.IsReadOnly = a.Source != null;
+            DisplayReconnecter.Visibility = a.Source?.Type is "camera" or "fenetre" ? Visibility.Visible : Visibility.Collapsed;
         };
         AnnonceNouvelle.Click += (_, _) =>
         {
-            annonceChoisie = R.NouvelleAnnonce("Nouvelle annonce", "");
+            annonceChoisie = R.NouvelleAnnonce("Nouveau texte", "");
             AnnonceTitre.Text = annonceChoisie.Titre;
             AnnonceTexte.Text = "";
+            AnnonceTexte.IsReadOnly = false;
+            DisplayReconnecter.Visibility = Visibility.Collapsed;
             AnnoncesMaj();
             AnnonceTitre.Focus();
             AnnonceTitre.SelectAll();
         };
-        AnnonceEnregistrer.Click += (_, _) => { if (EnregistrerAnnonce() != null) Toast("Annonce enregistrée."); };
+        AnnonceEnregistrer.Click += (_, _) => { if (EnregistrerAnnonce() != null) Toast("Display enregistré."); };
         AnnonceAfficher.Click += (_, _) => { if (EnregistrerAnnonce() is { } a) R.AfficherAnnonce(a); };
         AnnonceAjouter.Click += (_, _) =>
         {
@@ -145,7 +149,7 @@ public partial class MainWindow
         };
         AnnonceSupprimer.Click += (_, _) =>
         {
-            if (annonceChoisie is not { } a || !Dialogue.Confirmer(this, $"Supprimer l'annonce « {a.Titre} » ?", "Supprimer")) return;
+            if (annonceChoisie is not { } a || !Dialogue.Confirmer(this, $"Supprimer le display « {a.Titre} » ?", "Supprimer")) return;
             R.SupprimerAnnonce(a.Id);
             annonceChoisie = null;
             AnnonceTitre.Text = AnnonceTexte.Text = "";
@@ -197,7 +201,7 @@ public partial class MainWindow
         l.Heure = e.Heure ?? (l.Fait && R.HeureAffiche(e) is DateTime h ? h.ToString("HH:mm") : "");
     }
 
-    static string TypeLib(ElementAgenda e) => e.Type switch { "chant" => "Chant", "bible" => "Lecture", "compte" => "Accueil", _ => "Annonce" };
+    static string TypeLib(ElementAgenda e) => e.Type switch { "chant" => "Chant", "bible" => "Lecture", "compte" => "Accueil", _ => "Display" };
 
     void MajProgres()
     {
@@ -240,8 +244,8 @@ public partial class MainWindow
                 Diapos.Children.Add(new TextBlock
                 {
                     Style = Style_("Muet"), FontSize = 15, LineHeight = 26, Margin = new Thickness(2, 4, 0, 0),
-                    Text = "1. « + Ajouter » sous le déroulé : un chant, un passage, une annonce ou le compte à rebours d'accueil.\n" +
-                           "2. Ou cherchez en haut (Ctrl K) : « chant 12 », « jean 3 16 »… puis Tab. Les boutons + de Bible, Chants et Annonces ajoutent aussi.\n" +
+                    Text = "1. « + Ajouter » sous le déroulé : un chant, un passage, un display ou le compte à rebours d'accueil.\n" +
+                           "2. Ou cherchez en haut (Ctrl K) : « chant 12 », « jean 3 16 »… puis Tab. Les boutons + de Bible, Chants et Display ajoutent aussi.\n" +
                            "3. Pendant le culte : Entrée affiche, → passe à la diapositive suivante, puis à l'élément suivant.",
                 });
             return;
@@ -258,7 +262,7 @@ public partial class MainWindow
         var d = R.Diapos(e);
         for (int i = 0; i < d.Count; i++) Diapos.Children.Add(Carte(e, d[i], i, pos == i));
         if (d.Count == 0)
-            Diapos.Children.Add(new TextBlock { Text = e.Type == "chant" ? "Ce chant n'existe plus dans MyVerse." : "Rien à afficher dans cette Bible.", Style = Style_("Muet"), FontSize = 15, Margin = new Thickness(4) });
+            Diapos.Children.Add(new TextBlock { Text = e.Type == "chant" ? "Ce chant n'existe plus dans MyChurch." : "Rien à afficher dans cette Bible.", Style = Style_("Muet"), FontSize = 15, Margin = new Thickness(4) });
         if (versHaut) DefilDiapos.ScrollToTop();
         LargeurDiapos();
         if (pos is int p && p < Diapos.Children.Count && Diapos.Children[p] is FrameworkElement fe)
@@ -272,7 +276,7 @@ public partial class MainWindow
         Child = new TextBlock { Text = texte, FontSize = 12, FontWeight = FontWeights.Bold, Foreground = pleine ? new SolidColorBrush(Color.FromRgb(0xFF, 0xF6, 0xE6)) : Pinceau("Blanc") },
     };
 
-    /// <summary>Une carte : verset (numéro, texte en Literata, 2e version dessous), strophe, annonce ou compte à rebours.</summary>
+    /// <summary>Une carte : verset (numéro, texte en Literata, 2e version dessous), strophe, display ou compte à rebours.</summary>
     Border Carte(ElementAgenda e, DiapoAgenda d, int i, bool direct)
     {
         var g = new Grid();
@@ -329,7 +333,7 @@ public partial class MainWindow
         return carte;
     }
 
-    /// <summary>Versets : une carte par ligne ; strophes et annonces : autant de colonnes que la largeur le permet.</summary>
+    /// <summary>Versets : une carte par ligne ; strophes et displays : autant de colonnes que la largeur le permet.</summary>
     void LargeurDiapos()
     {
         double w = DefilDiapos.ActualWidth - 8;
@@ -439,7 +443,7 @@ public partial class MainWindow
         }));
         m.Items.Add(Article("Supprimer ce culte", () =>
         {
-            if (!Dialogue.Confirmer(this, $"Supprimer « {actuel.Nom} » ({actuel.Elements.Count} élément(s)) ?\n\nLes chants, les Bibles et les annonces ne sont pas touchés.", "Supprimer")) return;
+            if (!Dialogue.Confirmer(this, $"Supprimer « {actuel.Nom} » ({actuel.Elements.Count} élément(s)) ?\n\nLes chants, les Bibles et les displays ne sont pas touchés.", "Supprimer")) return;
             elementChoisi = null;
             R.SupprimerAgenda(actuel.Id);
         }));
@@ -454,17 +458,17 @@ public partial class MainWindow
             OuvrirCommande();
             Toast("Tapez « chant 12 » ou « jean 3 16 », puis Tab ou + pour l'ajouter au déroulé.");
         }));
-        var annonces = new MenuItem { Header = "Annonce de la bibliothèque" };
-        if (R.Annonces.Count == 0) annonces.Items.Add(new MenuItem { Header = "(aucune : onglet Annonces)", IsEnabled = false });
+        var displays = new MenuItem { Header = "Display de la bibliothèque" };
+        if (R.Annonces.Count == 0) displays.Items.Add(new MenuItem { Header = "(aucune : onglet Display)", IsEnabled = false });
         foreach (var a in R.Annonces)
         {
             var id = a.Id;
-            annonces.Items.Add(Article(a.Titre, () => { if (R.AjouterAnnonceAgenda(id) is { } el) ChoisirElement(el); }));
+            displays.Items.Add(Article(a.Titre, () => { if (R.AjouterAnnonceAgenda(id) is { } el) ChoisirElement(el); }));
         }
-        m.Items.Add(annonces);
+        m.Items.Add(displays);
         m.Items.Add(Article("Texte ou prière…", () =>
         {
-            if (Dialogue.DemanderTexte(this, "Texte, annonce ou prière", "Prière", "Prions ensemble") is { } t) ChoisirElement(R.AjouterTexteAgenda(t.Titre, t.Texte));
+            if (Dialogue.DemanderTexte(this, "Texte, display ou prière", "Prière", "Prions ensemble") is { } t) ChoisirElement(R.AjouterTexteAgenda(t.Titre, t.Texte));
         }));
         m.Items.Add(Article("Compte à rebours d'accueil…", () =>
         {
@@ -768,7 +772,7 @@ public partial class MainWindow
         MinuteurBtn.Content = chronoDepart != null ? "Pause" : t > TimeSpan.Zero ? "Reprendre" : "Démarrer";
     }
 
-    // ------------------------------------------------------------ annonces
+    // ------------------------------------------------------------ displays
     void AnnoncesMaj()
     {
         var l = R.Annonces.ToList();
@@ -778,12 +782,12 @@ public partial class MainWindow
         AnnonceSupprimer.IsEnabled = annonceChoisie != null;
     }
 
-    /// <summary>Enregistre ce qui est tapé (crée l'annonce au besoin). Null si tout est vide.</summary>
+    /// <summary>Enregistre ce qui est tapé (crée le display au besoin). Null si tout est vide.</summary>
     Annonce? EnregistrerAnnonce()
     {
         var titre = AnnonceTitre.Text.Trim();
-        var texte = AnnonceTexte.Text;
-        if (texte.Trim().Length == 0) { Toast("Écrivez d'abord le texte de l'annonce."); AnnonceTexte.Focus(); return null; }
+        var texte = annonceChoisie?.Source != null ? "" : AnnonceTexte.Text;
+        if (annonceChoisie?.Source == null && texte.Trim().Length == 0) { Toast("Écrivez d'abord le texte de le display."); AnnonceTexte.Focus(); return null; }
         if (annonceChoisie == null) annonceChoisie = R.NouvelleAnnonce(titre, texte);
         else R.ModifierAnnonce(annonceChoisie.Id, titre, texte);
         return annonceChoisie;

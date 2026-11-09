@@ -22,7 +22,7 @@
             </StackPanel>
             <StackPanel Grid.Column="2">
                 <TextBlock TextWrapping="Wrap" Margin="0,0,0,10">
-                    <Run Text="Dans l'app" /> <Run Text="MyVerse" FontWeight="Bold" /><Run Text=", touchez" /> <Run Text="Scanner le code QR" FontWeight="Bold" /><Run Text=". Une seule fois : ensuite le téléphone se reconnecte tout seul, même si l'adresse du PC change." />
+                    <Run Text="Dans l'app" /> <Run Text="MyChurch" FontWeight="Bold" /><Run Text=", touchez" /> <Run Text="Scanner le code QR" FontWeight="Bold" /><Run Text=". Une seule fois : ensuite le téléphone se reconnecte tout seul, même si l'adresse du PC change." />
                 </TextBlock>
                 <TextBlock Style="{StaticResource Muet}" FontSize="14" Text="Le code n'est valable que tant que cette fenêtre est ouverte. Le téléphone et le PC doivent être sur le même Wi-Fi." />
                 <TextBlock Text="Téléphones jumelés" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Or}" Margin="0,14,0,6" />

@@ -5,9 +5,9 @@ using System.Windows.Media.Imaging;
 namespace MyVerse.Ui;
 
 /// <summary>
-/// Test automatique (« MyVerse.exe --autotest dossier », lancé par la compilation sur GitHub) :
+/// Test automatique (« MyChurch.exe --autotest dossier », lancé par la compilation sur GitHub) :
 /// ouvre la régie, affiche des versets et des chants, ouvre la projection et chaque fenêtre,
-/// enregistre des captures d'écran et un compte rendu (autotest.txt), puis ferme MyVerse (code 0 = tout va bien).
+/// enregistre des captures d'écran et un compte rendu (autotest.txt), puis ferme MyChurch (code 0 = tout va bien).
 /// </summary>
 public static class AutoTest
 {
@@ -92,7 +92,7 @@ public static class AutoTest
         var R = App.Regie;
         try
         {
-            Note($"MyVerse {App.Version} · données : {App.Donnees.Dossier} · {App.Donnees.Chants.Count} chants");
+            Note($"MyChurch {App.Version} · données : {App.Donnees.Dossier} · {App.Donnees.Chants.Count} chants");
             Note("police Serif : " + Police("Serif") + " · Sans : " + Police("Sans") + " · Titre : " + Police("Titre"));
             Ok(Police("Serif").Contains("Literata"), "police Literata incluse");
             Ok(Police("Sans").Contains("Atkinson"), "police Atkinson incluse");
@@ -171,7 +171,7 @@ public static class AutoTest
             Ok(ajC == 1 && ajV == 1 && R.Agenda.Elements.Count == 2, $"boutons + devant les chants et les versets : {ajC} / {ajV}");
             R.SupprimerAgenda(agPlus.Id);
 
-            // 5.2 (design « Aube ») : déroulé du culte, recherche Ctrl K, compte à rebours d'accueil, résumé, annonces, écran de scène
+            // 5.2 (design « Aube ») : déroulé du culte, recherche Ctrl K, compte à rebours d'accueil, résumé, displays, écran de scène
             w.TestOngletAgenda();
             var agTest = R.NouvelAgenda("Culte de test");
             var compte = R.AjouterCompteAgenda(5);
@@ -201,10 +201,10 @@ public static class AutoTest
             Ok(R.EstFait(compte) && w.TestResume.Contains("Accueil") && w.TestResume.Contains("Jean 3"), "résumé du culte : " + w.TestResume);
             Ok(R.DeroulePartage().Contains("10:30") && R.ResumePartage().Length > 0, "textes à partager sur WhatsApp");
             for (int i = 0; i < 5 && R.ElementCourant?.Type != "texte"; i++) R.Bouger(1);
-            Ok(R.ElementCourant?.Type == "texte" && R.Etat.Lignes.FirstOrDefault() == "Bienvenue à tous !", "déroulé : puis les annonces");
+            Ok(R.ElementCourant?.Type == "texte" && R.Etat.Lignes.FirstOrDefault() == "Bienvenue à tous !", "déroulé : puis les displays");
             await Attendre(500);
-            Capture(w, "20-culte-annonces.png");
-            if (w.Ecran != null) Capture(w.Ecran, "21-ecran-annonces.png");
+            Capture(w, "20-culte-displays.png");
+            if (w.Ecran != null) Capture(w.Ecran, "21-ecran-displays.png");
             w.TestNoir();
             await Attendre(600);
             Ok(w.TestEstNoir, "écran noir (touche B)");
@@ -229,18 +229,50 @@ public static class AutoTest
             Capture(scene, "23-scene.png");
             try { scene?.Close(); } catch (Exception) { }
 
-            // bibliothèque d'annonces
+            // bibliothèque d'displays
             var an = R.NouvelleAnnonce("Repas fraternel", "Repas fraternel après le culte\nTout le monde est invité");
             w.TestOngletAnnonces();
             w.TestChoisirAnnonce(an);
             await Attendre(600);
-            Capture(w, "24-annonces.png");
+            Capture(w, "24-displays.png");
             int avantAn = R.Agenda.Elements.Count;
             var elAn = R.AjouterAnnonceAgenda(an.Id);
-            Ok(elAn != null && R.Agenda.Elements.Count == avantAn + 1 && elAn.Type == "texte", "annonce ajoutée au déroulé");
+            Ok(elAn != null && R.Agenda.Elements.Count == avantAn + 1 && elAn.Type == "texte", "display ajoutée au déroulé");
             R.AfficherAnnonce(an);
             await Attendre(300);
-            Ok(R.Etat.Lignes.FirstOrDefault() == "Repas fraternel après le culte", "annonce à l'écran : " + string.Join(" / ", R.Etat.Lignes));
+            Ok(R.Etat.Lignes.FirstOrDefault() == "Repas fraternel après le culte", "display à l'écran : " + string.Join(" / ", R.Etat.Lignes));
+            // MyChurch 6: the same double-click handler sends the selected title live.
+            R.Effacer();
+            w.TestDisplayDoubleClick(an);
+            await Attendre(300);
+            Ok(R.Etat.Lignes.FirstOrDefault() == "Repas fraternel après le culte", "double-clic titre Display : en direct");
+            var imagePath = Path.Combine(App.Donnees.Dossier, "test-display.png");
+            var drawing = new DrawingVisual();
+            using (var dc = drawing.RenderOpen()) dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(200, 30, 40)), null, new Rect(0, 0, 1280, 720));
+            var bitmap = new RenderTargetBitmap(1280, 720, 96, 96, PixelFormats.Pbgra32); bitmap.Render(drawing);
+            var png = new PngBitmapEncoder(); png.Frames.Add(BitmapFrame.Create(bitmap));
+            using (var f = File.Create(imagePath)) png.Save(f);
+            var img = R.NouveauDisplay("Image de test", new SourceDisplay { Type = "image", Chemin = imagePath });
+            w.TestChoisirAnnonce(img); w.TestDisplayDoubleClick(img);
+            await Attendre(1300);
+            Ok(R.Etat.Mode == "media" && App.Sources.Image != null, "image Display chargée et projetée");
+            Capture(w, "25-display-image.png");
+            if (w.Ecran != null) Capture(w.Ecran, "26-ecran-image.png");
+            Ok(File.Exists(Path.Combine(App.SortieObs.Dossier, "display.jpg")), "image Display publiée pour la source navigateur OBS");
+            if (App.CameraVirtuelle != null)
+            {
+                using var mm = System.IO.MemoryMappedFiles.MemoryMappedFile.OpenExisting(@"Local\MyChurch.MyVirtualCam.frames.v1");
+                using var view = mm.CreateViewAccessor();
+                Ok(view.ReadInt32(0) == 0x4D43414D && view.ReadInt32(16) == 1280 && view.ReadInt64(8) > 0, "MyVirtualCam publie automatiquement en 720p");
+                var pixel = 64 + (360 * 1280 + 640) * 3;
+                Ok(view.ReadByte(pixel) == 40 && view.ReadByte(pixel + 1) == 30 && view.ReadByte(pixel + 2) == 200, "MyVirtualCam reçoit les pixels réels de la projection");
+            }
+            // Closed/unavailable windows report a failure and clear the picture rather than retaining a stale image.
+            var absent = R.NouveauDisplay("Fenêtre fermée", new SourceDisplay { Type = "fenetre", Fenetre = 1, Processus = -1 });
+            R.AfficherAnnonce(absent); await Attendre(500);
+            Ok(App.Sources.Image == null && App.Sources.Statut.Contains("fermée"), "fenêtre fermée : image effacée et message utile");
+            R.Effacer();
+            R.SupprimerAnnonce(img.Id); R.SupprimerAnnonce(absent.Id);
             R.SupprimerAnnonce(an.Id);
             R.SupprimerAgenda(agTest.Id);
             w.TestOnglet(false);
@@ -278,7 +310,7 @@ public static class AutoTest
             {
                 using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
                 var page = await http.GetStringAsync($"http://127.0.0.1:{App.Telephone.Port}/");
-                Ok(page.Contains("MyVerse ✓"), $"serveur des téléphones (port {App.Telephone.Port})");
+                Ok(page.Contains("MyChurch ✓"), $"serveur des téléphones (port {App.Telephone.Port})");
             }
             catch (Exception x) { Echec("serveur des téléphones : " + x.Message); }
             Ok(File.Exists(Path.Combine(App.SortieObs.Dossier, "etat.json")), "sortie OBS (etat.json)");

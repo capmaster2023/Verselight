@@ -207,6 +207,7 @@ public partial class MainWindow : Window
         ListeChantsMaj();
         OuvrirChapitre(42, 3, 16, 16);
         InitAgenda();
+        InitDisplay();
         AgendaAjoutBible.Click += (_, _) =>
         {
             if (sel is Ref s && s.V1 > 0) Toast($"{R.AjouterBibleAgenda(s).Titre} ajouté au déroulé « {R.Agenda.Nom} ».");
@@ -274,7 +275,7 @@ public partial class MainWindow : Window
         ecran?.Close();
     }
 
-    /// <summary>Un 2e lancement de MyVerse ramène cette fenêtre.</summary>
+    /// <summary>Un 2e lancement de MyChurch ramène cette fenêtre.</summary>
     public void Ramener()
     {
         if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
@@ -799,7 +800,7 @@ public partial class MainWindow : Window
         if (onglet == "agenda") { AfficherAgendaCourant(); return; }
         if (onglet == "annonces")
         {
-            if (annonceChoisie == null && AnnonceTexte.Text.Trim().Length == 0) Toast("Choisissez d'abord une annonce.");
+            if (annonceChoisie == null && AnnonceTexte.Text.Trim().Length == 0) Toast("Choisissez d'abord un display.");
             else if (EnregistrerAnnonce() is { } a) R.AfficherAnnonce(a);
             return;
         }
@@ -825,9 +826,13 @@ public partial class MainWindow : Window
     {
         // écran noir : le texte est caché sans être perdu ; une nouvelle diapositive le rallume
         if (noir && !ReferenceEquals(R.Etat, etatNoir)) noir = false;
-        var e = noir ? R.Etat with { Mode = "vide", Lignes = Array.Empty<string>(), Ref = "", Second = null } : R.Etat;
+        var e = noir ? R.Etat with { Mode = "vide", Media = null, Lignes = Array.Empty<string>(), Ref = "", Second = null } : R.Etat;
+        App.Sources.Choisir(e);
         ApercuRendu.Afficher(e);
+        App.CameraVirtuelle?.Afficher(e);
         ecran?.Rendu.Afficher(e);
+        ApercuRendu.ImageDisplay(App.Sources.Image);
+        ecran?.Rendu.ImageDisplay(App.Sources.Image);
         App.SortieObs.Ecrire(e);
         Apercu.BorderBrush = Pinceau(e.Vide ? "Nuit3" : "OrVif");
         Apercu.Background = e.Vide || e.Theme == "transparent" ? Pinceau("Damier") : Brushes.Black;
@@ -883,7 +888,7 @@ public partial class MainWindow : Window
         App.Donnees.Reglages.Ecran = new EcranChoisi { Mode = plein ? "plein" : "fenetre", X = m.X, Y = m.Y, W = m.W, H = m.H, Nom = m.Nom, Principal = m.Principal };
         App.Donnees.SauverReglages();
         w.Show();
-        w.Rendu.Afficher(noir ? R.Etat with { Mode = "vide", Lignes = Array.Empty<string>(), Ref = "", Second = null } : R.Etat);
+        w.Rendu.Afficher(noir ? R.Etat with { Mode = "vide", Media = null, Lignes = Array.Empty<string>(), Ref = "", Second = null } : R.Etat);
         Toast(plein ? $"Projection plein écran sur {m.Nom}." : "Projection en fenêtre.");
         MajEcran();
         App.Telephone.Actualiser();

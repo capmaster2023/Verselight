@@ -25,7 +25,7 @@ public sealed class SceneWindow : Window
     public SceneWindow(Func<(string Texte, bool Depasse)> minuteurTexte)
     {
         lireMinuteur = minuteurTexte;
-        Title = "MyVerse — écran de scène";
+        Title = "MyChurch — écran de scène";
         Width = 1100; Height = 640;
         Background = new SolidColorBrush(Color.FromRgb(0x14, 0x11, 0x0D));
         FontFamily = (FontFamily)Application.Current.FindResource("Ui");

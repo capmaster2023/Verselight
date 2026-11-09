@@ -99,7 +99,7 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
         super.onCreate(savedInstanceState)
-        remote = MyVerse.remote(applicationContext)
+        remote = MyChurch.remote(applicationContext)
         Ecoute.canaux(applicationContext)
         keepOn.value = remote.store.keepScreenOn
         volumeKeys.value = remote.store.volumeKeys
@@ -194,11 +194,11 @@ private fun PairScreen(remote: Remote, busy: Boolean) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("MyVerse", color = Or, fontSize = 34.sp, fontWeight = FontWeight.Bold)
+        Text("MyChurch", color = Or, fontSize = 34.sp, fontWeight = FontWeight.Bold)
         Text("Télécommande", color = Brume, fontSize = 18.sp)
         Spacer(Modifier.height(32.dp))
         Text(
-            "Sur le PC : MyVerse › bouton « Téléphone ». Scannez le code une seule fois ; ensuite l'app se reconnecte toute seule.",
+            "Sur le PC : MyChurch › bouton « Téléphone ». Scannez le code une seule fois ; ensuite l'app se reconnecte toute seule.",
             color = Blanc, fontSize = 17.sp,
         )
         if (info.isNotEmpty()) {
@@ -247,7 +247,7 @@ private fun MainScreen(
     }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("MyVerse", color = Or, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text("MyChurch 6 β", color = Or, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.width(10.dp))
             Text(pc, color = Brume, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             TextButton(onClick = { settings = true }) { Text("Réglages", color = Or2) }
@@ -265,7 +265,7 @@ private fun MainScreen(
             ) { Text("Mise à jour $version disponible : télécharger", fontWeight = FontWeight.Bold) }
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Bible", "Chants").forEachIndexed { i, label ->
+            listOf("Bible", "Chants", "Display").forEachIndexed { i, label ->
                 val on = tab == i
                 Button(
                     onClick = { tab = i },
@@ -275,7 +275,7 @@ private fun MainScreen(
             }
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            if (tab == 0) BibleTab(remote, pret) else SongsTab(remote, pret)
+            when (tab) { 0 -> BibleTab(remote, pret); 1 -> SongsTab(remote, pret); else -> DisplayTab(remote, pret) }
         }
         LiveBar(remote, link)
     }
@@ -316,7 +316,7 @@ private fun LiveBar(remote: Remote, link: Link) {
     val haptic = LocalHapticFeedback.current
     val connected = link == Link.CONNECTED
     val (line, next) = when {
-        !connected -> (if (link == Link.CONNECTING) "Connexion au PC…" else "Hors ligne · recherche du PC… (MyVerse doit être ouvert sur le PC)") to ""
+        !connected -> (if (link == Link.CONNECTING) "Connexion au PC…" else "Hors ligne · recherche du PC… (MyChurch doit être ouvert sur le PC)") to ""
         state == null -> "Connecté" to ""
         else -> {
             val s = state!!
@@ -324,6 +324,7 @@ private fun LiveBar(remote: Remote, link: Link) {
             val lignes = s.optJSONArray("lignes")
             val first = if (lignes != null && lignes.length() > 0) lignes.optString(0).lineSequence().first() else ""
             val now = when (mode) {
+                "media" -> "Display · " + s.optString("titre")
                 "verset" -> s.optString("ref")
                 "chant" -> listOf(s.optString("titre"), first).filter { it.isNotBlank() }.joinToString(" · ")
                 else -> "Écran vide"
@@ -481,6 +482,45 @@ private fun ClearButton(remote: Remote, enabled: Boolean, modifier: Modifier) {
 // -------------------------------------------------------------------- Chants
 
 @Composable
+private fun DisplayTab(remote: Remote, connected: Boolean) {
+    var results by remember { mutableStateOf(listOf<JSONObject>()) }
+    val state by remote.screen.collectAsState()
+    var loaded by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        remote.events.collect { e ->
+            if (e.optString("t") == "displays") {
+                val a = e.optJSONArray("liste")
+                results = if (a == null) emptyList() else (0 until a.length()).map { a.getJSONObject(it) }
+                loaded = true
+            }
+        }
+    }
+    LaunchedEffect(connected) { if (connected) { loaded = false; remote.send("display.list") } }
+    Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Sources du PC", color = Blanc, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            TextButton(enabled = connected, onClick = { remote.send("display.list") }) { Text("Actualiser") }
+        }
+        Text("Textes, images, webcams, cartes de capture et fenêtres ajoutés dans Display sur le PC.", color = Brume, fontSize = 13.sp)
+        LazyColumn(Modifier.weight(1f).padding(top = 8.dp)) {
+            items(results, key = { it.optString("id") }) { item ->
+                val live = state?.optString("displayId") == item.optString("id")
+                Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+                    Text(item.optString("titre"), color = if (live) Or2 else Blanc, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(item.optString("description"), color = Brume, fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    Button(enabled = connected, onClick = { remote.send("display.show", "id" to item.optString("id")) }) {
+                        Text(if (live) "À l'écran · réafficher" else "Afficher en direct")
+                    }
+                }
+            }
+            if (results.isEmpty()) item {
+                Text(if (!connected) "En attente du PC…" else if (!loaded) "Chargement… (PC MyChurch 6 requis)" else "Aucune source. Ajoutez-en dans Display sur le PC.", color = Brume, modifier = Modifier.padding(16.dp))
+            }
+        }
+    }
+}
+
+@Composable
 private fun SongsTab(remote: Remote, connected: Boolean) {
     val focus = LocalFocusManager.current
     val state by remote.screen.collectAsState()
@@ -600,7 +640,7 @@ private fun JournalDialog(remote: Remote, onClose: () -> Unit) {
         confirmButton = {
             TextButton(onClick = {
                 val cm = context.getSystemService(ClipboardManager::class.java)
-                cm?.setPrimaryClip(ClipData.newPlainText("Journal MyVerse", text))
+                cm?.setPrimaryClip(ClipData.newPlainText("Journal MyChurch", text))
                 Toast.makeText(context, "Journal copié : collez-le dans votre message.", Toast.LENGTH_LONG).show()
             }) { Text("Copier") }
         },
@@ -671,7 +711,7 @@ private fun DetecteurBar(remote: Remote, connected: Boolean) {
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         if (remote.send("bible.show", "ref" to s.label)) Detection.retirer(s.id)
-                        else Toast.makeText(context, "MyVerse n'est pas connecté au PC.", Toast.LENGTH_SHORT).show()
+                        else Toast.makeText(context, "MyChurch n'est pas connecté au PC.", Toast.LENGTH_SHORT).show()
                     },
                     enabled = connected,
                     modifier = Modifier.padding(start = 6.dp).height(44.dp),

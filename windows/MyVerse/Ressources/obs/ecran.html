@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>MyVerse — écran</title>
+<title>MyChurch — écran</title>
 <link rel="icon" href="favicon.ico">
 <link rel="stylesheet" href="css/commun.css">
 <style>
@@ -42,11 +42,17 @@
   #msg { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); font: 2.4rem var(--sans); color: var(--brume2); opacity: .7; cursor: default; text-align: center; }
   body.vivant #msg { display: none; }
 </style>
+<style>
+#display-media {position:fixed;inset:0;width:100%;height:100%;object-fit:contain;background:#000;display:none}
+.mode-media #display-media {display:block}
+.mode-media #scene {visibility:hidden}
+</style>
 </head>
 <body class="theme-nuit">
+<img id="display-media" alt="" />
 <div id="fond"></div>
 <div id="scene" class="cache"><div id="texte"></div><div id="texte2"></div><div id="ref"></div></div>
-<div id="msg">Écran MyVerse<br><small>Double-cliquez pour le plein écran (ou F11).<br>Placez cette fenêtre sur le projecteur.</small></div>
+<div id="msg">Écran MyChurch<br><small>Double-cliquez pour le plein écran (ou F11).<br>Placez cette fenêtre sur le projecteur.</small></div>
 <script>
 const scene = document.getElementById('scene'), texte = document.getElementById('texte'), texte2 = document.getElementById('texte2'), refEl = document.getElementById('ref');
 let courant = null;
@@ -64,7 +70,22 @@ function ajuster() {
   }
   taille(best);
 }
+let displayActif = false;
+const displayImage = document.getElementById('display-media');
+let displayCharge = false;
+setInterval(() => {
+  if (!displayActif || displayCharge) return;
+  displayCharge = true;
+  const next = new Image();
+  next.onload = () => { if (displayActif) displayImage.src = next.src; displayCharge = false; };
+  next.onerror = () => { displayCharge = false; };
+  next.src = 'display.jpg?' + Date.now();
+}, 100);
 function afficher(e) {
+  const sourceChange = JSON.stringify(e.media || null);
+  if (displayImage.dataset.source !== sourceChange || e.mode !== 'media') displayImage.removeAttribute('src');
+  displayImage.dataset.source = sourceChange;
+  displayActif = e.mode === 'media';
   document.body.className = 'theme-' + (e.theme || 'nuit') + ' vivant mode-' + (e.mode || 'vide') + ' pres-' + (e.presentation || 'plein');
   const vide = !e.mode || e.mode === 'vide';
   const deux = e.mode === 'verset' && e.second && e.second.texte ? e.second.texte : '';
@@ -80,7 +101,7 @@ function afficher(e) {
     refEl.textContent = e.ref || '';
     ajuster();
     if (e.taille) { texte.style.fontSize = (parseFloat(texte.style.fontSize) * e.taille) + 'rem'; if (deux) texte2.style.fontSize = (parseFloat(texte2.style.fontSize) * e.taille) + 'rem'; }
-    if (!vide) scene.classList.remove('cache');
+    if (!vide && !displayActif) scene.classList.remove('cache');
   }, avant && !vide ? 380 : 0);
 }
 window.addEventListener('message', (ev) => { if (ev.data && ev.data.verselight) afficher(ev.data.etat); });
