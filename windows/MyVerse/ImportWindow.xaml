@@ -31,6 +31,12 @@
                 <TextBlock Text="VideoPsalm, OpenLyrics, OpenSong, ChordPro, SongSelect, ProPresenter 6, texte" FontWeight="Normal" FontSize="13" Foreground="{StaticResource Brume2}" TextWrapping="Wrap" />
             </StackPanel>
         </Button>
+        <Button x:Name="Dossier" Style="{StaticResource Btn}" HorizontalContentAlignment="Left" Padding="16,12" Margin="0,8,0,0">
+            <StackPanel>
+                <TextBlock Text="Dossiers de chants (ou .zip)" FontWeight="Bold" />
+                <TextBlock Text="Tous les chants d'un ou plusieurs dossiers d'un coup : le nom du dossier devient le nom du recueil" FontWeight="Normal" FontSize="13" Foreground="{StaticResource Brume2}" TextWrapping="Wrap" />
+            </StackPanel>
+        </Button>
         <Button x:Name="Pdf" Style="{StaticResource Btn}" HorizontalContentAlignment="Left" Padding="16,12" Margin="0,8,0,0">
             <StackPanel>
                 <TextBlock Text="Recueil en PDF" FontWeight="Bold" />

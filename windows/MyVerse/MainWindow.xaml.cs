@@ -103,7 +103,22 @@ public partial class MainWindow : Window
         };
         ListeChants.SelectionChanged += (_, _) => { if (ListeChants.SelectedItem is Chant c && c.Id != chantOuvert) OuvrirChant(c.Id); };
         Importer.Click += (_, _) => new ImportWindow { Owner = this }.ShowDialog();
-        Nouveau.Click += (_, _) => Editer(null);
+        Nouveau.Click += (_, _) =>
+        {
+            var e = new EditeurWindow(null, null, (Recueil.SelectedItem as ComboBoxItem)?.Tag as string) { Owner = this };
+            if (e.ShowDialog() == true && e.IdEnregistre != null) { ListeChantsMaj(); OuvrirChant(e.IdEnregistre); }
+        };
+        SupprimerRecueil.Click += (_, _) =>
+        {
+            if (Recueil.SelectedItem is not ComboBoxItem i) return;
+            var nom = (string)i.Tag;
+            int n = R.Chants.Count(c => (c.Author ?? "") == nom);
+            if (!Dialogue.Confirmer(this, $"Supprimer le recueil « {(nom.Length > 0 ? nom : "Sans recueil")} » et ses {n} chants ?", "Supprimer")) return;
+            R.SupprimerRecueil(nom);
+            App.Donnees.Reglages.Recueil = "";
+            ListeChantsMaj();
+            Toast($"Recueil supprimé ({n} chants).");
+        };
         Modifier.Click += (_, _) => Editer(R.Trouver(chantOuvert));
         Supprimer.Click += (_, _) =>
         {
@@ -616,17 +631,18 @@ public partial class MainWindow : Window
         bool avant = chargement;
         chargement = true;
         Recueil.Items.Clear();
-        Recueil.Items.Add(new ComboBoxItem { Content = "Tous les recueils", Tag = "" });
-        foreach (var (nom, n) in R.Recueils()) Recueil.Items.Add(new ComboBoxItem { Content = $"{nom} ({n})", Tag = nom });
-        Recueil.SelectedItem = Recueil.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == actuel) ?? Recueil.Items[0];
+        foreach (var (nom, n) in R.Recueils()) Recueil.Items.Add(new ComboBoxItem { Content = $"{(nom.Length > 0 ? nom : "Sans recueil")} ({n})", Tag = nom });
+        Recueil.SelectedItem = Recueil.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == actuel) ?? (Recueil.Items.Count > 0 ? Recueil.Items[0] : null);
+        SupprimerRecueil.IsEnabled = Recueil.Items.Count > 0;
         chargement = avant;
     }
 
     void ListeChantsMaj()
     {
         RemplirRecueils();
-        var rec = (Recueil.SelectedItem as ComboBoxItem)?.Tag as string ?? "";
-        var liste = R.Filtrer(Qc.Text, rec);
+        var rec = (Recueil.SelectedItem as ComboBoxItem)?.Tag as string;
+        // une recherche cherche dans tous les recueils
+        var liste = R.Filtrer(Qc.Text, Qc.Text.Trim().Length > 0 ? null : rec ?? "\u0001");
         ListeChants.ItemsSource = liste;
         if (chantOuvert != null) ListeChants.SelectedItem = liste.FirstOrDefault(c => c.Id == chantOuvert);
     }

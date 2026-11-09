@@ -282,7 +282,10 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <DockPanel>
-                        <ComboBox x:Name="Recueil" DockPanel.Dock="Top" ToolTip="Recueil" MaxDropDownHeight="520" />
+                        <DockPanel DockPanel.Dock="Top">
+                            <Button x:Name="SupprimerRecueil" DockPanel.Dock="Right" Style="{StaticResource BtnDanger}" Content="Supprimer" Margin="8,0,0,0" ToolTip="Supprimer ce recueil et ses chants" />
+                            <ComboBox x:Name="Recueil" ToolTip="Recueil" MaxDropDownHeight="520" />
+                        </DockPanel>
                         <StackPanel DockPanel.Dock="Top" Margin="0,10,0,8">
                             <Button x:Name="Importer" Style="{StaticResource BtnOr}" Content="＋ Importer chants / recueil"
                                     ToolTip="Ajouter des chants ou un recueil : VideoPsalm, OpenLyrics, OpenSong, ChordPro, SongSelect, ProPresenter 6, PDF, texte collé, lien d'un site" />

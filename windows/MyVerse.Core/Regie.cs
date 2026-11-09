@@ -310,14 +310,43 @@ public sealed class Regie
 
     /// <summary>Recueils (« author ») et nombre de chants, triés.</summary>
     public List<(string Nom, int N)> Recueils() =>
-        Chants.Where(c => !string.IsNullOrEmpty(c.Author)).GroupBy(c => c.Author)
-            .Select(g => (g.Key, g.Count())).OrderBy(x => x.Key, Comparer<string>.Create(Comparer)).ToList();
+        Chants.GroupBy(c => c.Author ?? "")
+            .Select(g => (g.Key, g.Count())).OrderBy(x => x.Key.Length == 0 ? 1 : 0).ThenBy(x => x.Key, Comparer<string>.Create(Comparer)).ToList();
 
-    /// <summary>Chants du recueil choisi contenant la recherche (titre, recueil ou paroles), triés.</summary>
+    /// <summary>Supprime un recueil et tous ses chants. Renvoie le nombre de chants supprimés.</summary>
+    public int SupprimerRecueil(string nom)
+    {
+        int n = donnees.Chants.RemoveAll(c => (c.Author ?? "") == nom);
+        if (n == 0) return 0;
+        donnees.SauverChants();
+        ChantsChange?.Invoke();
+        if (Cible is CibleChant cc && Trouver(cc.Id) == null) Signaler();
+        Journal.Info($"recueil supprimé : {nom} ({n} chants)");
+        return n;
+    }
+
+    /// <summary>Ajoute des chants lus d'un dossier ou d'une archive, chacun dans son recueil.</summary>
+    public int AjouterChantsRecueils(IEnumerable<ChantsFormats.ChantRecueil> liste, string? forcer = null)
+    {
+        int n = 0;
+        foreach (var x in liste)
+        {
+            var c = x.Chant;
+            c.Id = Chant.NouvelId();
+            c.Author = !string.IsNullOrWhiteSpace(forcer) ? forcer.Trim() : x.Recueil;
+            if (string.IsNullOrWhiteSpace(c.Title)) c.Title = "Sans titre";
+            donnees.Chants.Add(c);
+            n++;
+        }
+        if (n > 0) { donnees.SauverChants(); ChantsChange?.Invoke(); }
+        return n;
+    }
+
+    /// <summary>Chants du recueil choisi (null = tous ; "" = sans recueil) contenant la recherche, triés.</summary>
     public List<Chant> Filtrer(string? q, string? recueil)
     {
         var nq = Texte.Norm((q ?? "").Trim());
-        return Chants.Where(c => (string.IsNullOrEmpty(recueil) || c.Author == recueil) &&
+        return Chants.Where(c => (recueil == null || (c.Author ?? "") == recueil) &&
                                  (nq.Length == 0 || Texte.Norm(c.Title + " " + c.Author + " " + string.Join(" ", c.Sections.Select(s => s.Text))).Contains(nq)))
             .OrderBy(c => c.Author ?? "", Comparer<string>.Create(Comparer)).ThenBy(c => c.Title, Comparer<string>.Create(Comparer)).ToList();
     }

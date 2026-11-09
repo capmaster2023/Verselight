@@ -35,7 +35,7 @@ public sealed class Chant
 /// </summary>
 public static class ChantsFormats
 {
-    public const string Filtre = "Chants|*.json;*.txt;*.xml;*.vpc;*.vpsong;*.cho;*.chordpro;*.chopro;*.crd;*.pro;*.pro6;*.song;*.usr|Tous les fichiers|*.*";
+    public const string Filtre = "Chants|*.json;*.txt;*.xml;*.vpc;*.vpsong;*.cho;*.chordpro;*.chopro;*.crd;*.pro;*.pro6;*.song;*.usr;*.zip|Tous les fichiers|*.*";
 
     // ============================================================ outils texte
     public static string Clean(string? text) =>
@@ -710,6 +710,54 @@ public static class ChantsFormats
     }
 
     public static List<Chant> LireFichier(string chemin) => ParseSongFile(Path.GetFileName(chemin), Texte.Decoder(File.ReadAllBytes(chemin)));
+
+    static readonly HashSet<string> Extensions = new(StringComparer.OrdinalIgnoreCase)
+        { ".json", ".txt", ".xml", ".vpc", ".vpsong", ".cho", ".chordpro", ".chopro", ".crd", ".pro6", ".song", ".usr" };
+
+    /// <summary>Un chant lu avec son recueil (nom du dossier qui le contient).</summary>
+    public sealed record ChantRecueil(string Recueil, Chant Chant);
+
+    /// <summary>
+    /// Tous les chants d'un dossier (et de ses sous-dossiers) : chaque chant est rangé dans le recueil
+    /// qui porte le nom de son dossier. erreurs : fichiers illisibles.
+    /// </summary>
+    public static List<ChantRecueil> LireDossier(string dossier, List<string> erreurs)
+    {
+        var o = new List<ChantRecueil>();
+        foreach (var f in Directory.EnumerateFiles(dossier, "*", SearchOption.AllDirectories).OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
+        {
+            if (!Extensions.Contains(Path.GetExtension(f)) && !f.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) continue;
+            if (f.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) { o.AddRange(LireZip(f, erreurs)); continue; }
+            var rec = new DirectoryInfo(Path.GetDirectoryName(f)!).Name;
+            try { o.AddRange(LireFichier(f).Select(c => new ChantRecueil(rec, c))); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or System.Text.Json.JsonException or FormatException)
+            { erreurs.Add(Path.GetFileName(f) + " : " + e.Message); }
+        }
+        return o;
+    }
+
+    /// <summary>Chants d'une archive .zip : recueil = dossier dans l'archive, sinon nom de l'archive.</summary>
+    public static List<ChantRecueil> LireZip(string zip, List<string> erreurs)
+    {
+        var o = new List<ChantRecueil>();
+        using var z = System.IO.Compression.ZipFile.OpenRead(zip);
+        foreach (var e in z.Entries.OrderBy(x => x.FullName, StringComparer.OrdinalIgnoreCase))
+        {
+            if (e.Name.Length == 0 || !Extensions.Contains(Path.GetExtension(e.Name))) continue;
+            var parts = e.FullName.Replace('\\', '/').Split('/');
+            var rec = parts.Length > 1 ? parts[^2] : Path.GetFileNameWithoutExtension(zip);
+            try
+            {
+                using var s = e.Open();
+                using var ms = new MemoryStream();
+                s.CopyTo(ms);
+                o.AddRange(ParseSongFile(e.Name, Texte.Decoder(ms.ToArray())).Select(c => new ChantRecueil(rec, c)));
+            }
+            catch (Exception x) when (x is IOException or InvalidDataException or System.Text.Json.JsonException or FormatException)
+            { erreurs.Add(e.Name + " : " + x.Message); }
+        }
+        return o;
+    }
 
     /// <summary>Forme texte de l'éditeur : [Nom] + paroles, une ligne vide entre les diapositives.</summary>
     public static string VersTexte(IEnumerable<Section> sections) => string.Join("\n\n", sections.Select(s => $"[{s.Label}]\n{s.Text}"));

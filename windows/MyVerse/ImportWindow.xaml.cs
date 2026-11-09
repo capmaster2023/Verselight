@@ -26,6 +26,7 @@ public partial class ImportWindow : FenetreDialogue
         };
         TexteRecueil.Click += (_, _) => RecueilTexte();
         Fichiers.Click += (_, _) => FichiersChants();
+        Dossier.Click += (_, _) => Dossiers();
         Pdf.Click += async (_, _) => await RecueilPdf();
         Web.Click += async (_, _) => await DepuisWeb();
         Url.KeyDown += async (_, e) => { if (e.Key == System.Windows.Input.Key.Enter) { e.Handled = true; await DepuisWeb(); } };
@@ -62,14 +63,41 @@ public partial class ImportWindow : FenetreDialogue
         }
     }
 
+    void Dossiers()
+    {
+        var d = new Microsoft.Win32.OpenFolderDialog { Title = "Dossiers de chants", Multiselect = true };
+        if (d.ShowDialog(this) != true) return;
+        Importer(d.FolderNames, f => ChantsFormats.LireDossier(f, erreurs));
+    }
+
+    readonly List<string> erreurs = new();
+
+    void Importer(IEnumerable<string> sources, Func<string, List<ChantsFormats.ChantRecueil>> lire)
+    {
+        erreurs.Clear();
+        var tous = new List<ChantsFormats.ChantRecueil>();
+        foreach (var s in sources)
+        {
+            try { tous.AddRange(lire(s)); }
+            catch (Exception x) when (x is IOException or UnauthorizedAccessException or InvalidDataException) { erreurs.Add(Path.GetFileName(s) + " : " + x.Message); }
+        }
+        int n = App.Regie.AjouterChantsRecueils(tous, Recueil);
+        var recs = tous.Select(x => Recueil.Length > 0 ? Recueil : x.Chant.Author).Distinct().ToList();
+        if (recs.Count > 0) { App.Donnees.Reglages.Recueil = recs[0]; App.Donnees.SauverReglages(); (Owner as MainWindow)?.OuvrirChant(null); }
+        Dire($"{Pluriel(n, "chant")} importé{(n > 1 ? "s" : "")} dans {Pluriel(recs.Count, "recueil")} : {string.Join(", ", recs)}." + (erreurs.Count > 0 ? " Erreurs : " + string.Join(" · ", erreurs) : ""));
+    }
+
     void FichiersChants()
     {
         var d = new Microsoft.Win32.OpenFileDialog { Title = "Fichiers de chants", Filter = ChantsFormats.Filtre, Multiselect = true };
         if (d.ShowDialog(this) != true) return;
+        var zips = d.FileNames.Where(f => f.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)).ToList();
+        if (zips.Count > 0) Importer(zips, f => ChantsFormats.LireZip(f, erreurs));
+        if (zips.Count == d.FileNames.Length) return;
         int n = 0;
         var erreurs = new List<string>();
         var tous = new List<Chant>();
-        foreach (var f in d.FileNames)
+        foreach (var f in d.FileNames.Where(f => !f.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)))
         {
             try { tous.AddRange(ChantsFormats.LireFichier(f)); }
             catch (Exception x) when (x is IOException or UnauthorizedAccessException or InvalidDataException or System.Text.Json.JsonException or FormatException)
