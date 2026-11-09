@@ -150,7 +150,7 @@ public partial class OutilsWindow : FenetreDialogue
         try
         {
             var m = Patienter(() => Transfert.Exporter(dlg.FileName, App.Donnees, chants, bibles, App.Version));
-            Dialogue.Informer(this, $"✓ Exporté : {Contenu(m)}.\n\nFichier : {dlg.FileName}\n\nSur l'autre ordinateur : Outils → Importer un fichier MyVerse.");
+            Dialogue.Informer(this, $"Exporté : {Contenu(m)}.\n\nFichier : {dlg.FileName}\n\nSur l'autre ordinateur : Outils → Importer un fichier MyVerse.");
         }
         catch (Exception x)
         {
@@ -190,7 +190,7 @@ public partial class OutilsWindow : FenetreDialogue
             if (m.Bibles.Count > 0)
                 lignes.Add($"{b.BiblesAjoutees} Bible{(b.BiblesAjoutees > 1 ? "s" : "")} ajoutée{(b.BiblesAjoutees > 1 ? "s" : "")}" +
                            (b.BiblesPresentes > 0 ? $", {b.BiblesPresentes} déjà là" : ""));
-            Dialogue.Informer(this, "✓ Import terminé :\n" + string.Join("\n", lignes));
+            Dialogue.Informer(this, "Import terminé :\n" + string.Join("\n", lignes));
         }
         catch (Exception x)
         {

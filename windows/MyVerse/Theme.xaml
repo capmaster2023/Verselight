@@ -3,15 +3,15 @@
     <!-- ===================== couleurs de MyVerse (mêmes que la 3.x) ===================== -->
     <Color x:Key="CEncre">#FFFFFF</Color>
     <Color x:Key="CNuit">#FFFFFF</Color>
-    <Color x:Key="CNuit2">#F7F7F5</Color>
-    <Color x:Key="CNuit3">#E6E6E6</Color>
-    <Color x:Key="CBrume">#5F5F5F</Color>
-    <Color x:Key="CBrume2">#6B6B6B</Color>
-    <Color x:Key="COr">#0B6E4F</Color>
-    <Color x:Key="COr2">#0B6E4F</Color>
+    <Color x:Key="CNuit2">#F8F3EA</Color>
+    <Color x:Key="CNuit3">#EAE3D6</Color>
+    <Color x:Key="CBrume">#6B6257</Color>
+    <Color x:Key="CBrume2">#7A7064</Color>
+    <Color x:Key="COr">#8A5A12</Color>
+    <Color x:Key="COr2">#8A5A12</Color>
     <Color x:Key="CRouge">#D92D20</Color>
-    <Color x:Key="CVert">#12B76A</Color>
-    <Color x:Key="CBlanc">#111111</Color>
+    <Color x:Key="CVert">#2F9E5B</Color>
+    <Color x:Key="CBlanc">#1F1B16</Color>
 
     <SolidColorBrush x:Key="Encre" Color="{StaticResource CEncre}" />
     <SolidColorBrush x:Key="Nuit" Color="{StaticResource CNuit}" />
@@ -24,30 +24,32 @@
     <SolidColorBrush x:Key="Rouge" Color="{StaticResource CRouge}" />
     <SolidColorBrush x:Key="Vert" Color="{StaticResource CVert}" />
     <SolidColorBrush x:Key="Blanc" Color="{StaticResource CBlanc}" />
-    <SolidColorBrush x:Key="OrLeger" Color="#E7F3EE" />
+    <SolidColorBrush x:Key="OrLeger" Color="#FDF3DF" />
+    <SolidColorBrush x:Key="OrVif" Color="#E8B04B" />
+    <SolidColorBrush x:Key="Page" Color="#FBF8F2" />
     <SolidColorBrush x:Key="RougeLeger" Color="#FFF6F5" />
     <SolidColorBrush x:Key="RougeBord" Color="#F1C9C4" />
     <SolidColorBrush x:Key="RougeTexte" Color="#B42318" />
     <SolidColorBrush x:Key="Direct" Color="#B42318" />
-    <SolidColorBrush x:Key="Trait2" Color="#C9C9C9" />
-    <SolidColorBrush x:Key="Encre2" Color="#3E4A44" />
+    <SolidColorBrush x:Key="Trait2" Color="#D9CBB1" />
+    <SolidColorBrush x:Key="Encre2" Color="#4A433B" />
     <SolidColorBrush x:Key="Danger" Color="#B42318" />
-    <SolidColorBrush x:Key="SurOr" Color="#FFFFFF" />
-    <SolidColorBrush x:Key="Marque" Color="#CDE7DC" />
+    <SolidColorBrush x:Key="SurOr" Color="#2A1E05" />
+    <SolidColorBrush x:Key="Marque" Color="#F7E3B5" />
     <LinearGradientBrush x:Key="OrDegrade" StartPoint="0,0" EndPoint="0,1">
-        <GradientStop Color="{StaticResource COr}" Offset="0" />
-        <GradientStop Color="{StaticResource COr}" Offset="1" />
+        <GradientStop Color="#F2C46D" Offset="0" />
+        <GradientStop Color="#E8B04B" Offset="1" />
     </LinearGradientBrush>
     <LinearGradientBrush x:Key="OrDegradeClair" StartPoint="0,0" EndPoint="0,1">
-        <GradientStop Color="#0E8A63" Offset="0" />
-        <GradientStop Color="#0E8A63" Offset="1" />
+        <GradientStop Color="#F6D08A" Offset="0" />
+        <GradientStop Color="#EDBC5E" Offset="1" />
     </LinearGradientBrush>
     <!-- damier : rien à l'écran (transparent), comme la sortie -->
     <DrawingBrush x:Key="Damier" TileMode="Tile" Viewport="0,0,24,24" ViewportUnits="Absolute">
         <DrawingBrush.Drawing>
             <DrawingGroup>
-                <GeometryDrawing Brush="#F4F4F2" Geometry="M0,0 H2 V2 H0 Z" />
-                <GeometryDrawing Brush="#EAEAE7" Geometry="M0,0 H1 V1 H0 Z M1,1 H2 V2 H1 Z" />
+                <GeometryDrawing Brush="#F5EFE4" Geometry="M0,0 H2 V2 H0 Z" />
+                <GeometryDrawing Brush="#EEE4D2" Geometry="M0,0 H1 V1 H0 Z M1,1 H2 V2 H1 Z" />
             </DrawingGroup>
         </DrawingBrush.Drawing>
     </DrawingBrush>
@@ -56,9 +58,9 @@
     <FontFamily x:Key="Serif">./Polices/#Literata, Georgia</FontFamily>
     <FontFamily x:Key="Sans">./Polices/#Atkinson Hyperlegible Next, Segoe UI</FontFamily>
     <FontFamily x:Key="Titre">./Polices/#Unbounded, Segoe UI</FontFamily>
-    <FontFamily x:Key="Ui">Segoe UI Variable Text, Segoe UI</FontFamily>
-    <FontFamily x:Key="UiTitre">Segoe UI Variable Display, Segoe UI</FontFamily>
-    <FontFamily x:Key="Mono">Cascadia Mono, Consolas</FontFamily>
+    <FontFamily x:Key="Ui">./Polices/#Atkinson Hyperlegible Next, Segoe UI</FontFamily>
+    <FontFamily x:Key="UiTitre">./Polices/#Literata, Georgia</FontFamily>
+    <FontFamily x:Key="Mono">./Polices/#Atkinson Hyperlegible Next, Segoe UI</FontFamily>
 
     <!-- ===================== focus clavier : contour or ===================== -->
     <Style x:Key="FocusOr">
@@ -94,8 +96,8 @@
     </Style>
     <Style x:Key="Titre2" TargetType="TextBlock" BasedOn="{StaticResource TexteBase}">
         <Setter Property="FontFamily" Value="{StaticResource UiTitre}" />
-        <Setter Property="FontWeight" Value="Bold" />
-        <Setter Property="FontSize" Value="21" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="22" />
         <Setter Property="Foreground" Value="{StaticResource Blanc}" />
     </Style>
     <Style x:Key="SousTitre" TargetType="TextBlock" BasedOn="{StaticResource TexteBase}">
@@ -256,7 +258,7 @@
     </Style>
     <!-- onglets Bible / Chants -->
     <Style x:Key="Onglet" TargetType="RadioButton">
-        <Setter Property="Foreground" Value="{StaticResource Brume}" />
+        <Setter Property="Foreground" Value="{StaticResource Encre2}" />
         <Setter Property="FontFamily" Value="{StaticResource Ui}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="FontSize" Value="15" />
@@ -265,7 +267,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
-                    <Border x:Name="Fond" Background="Transparent" BorderBrush="Transparent" BorderThickness="0,0,0,2" Padding="12,10,12,8" Margin="0,0,2,0">
+                    <Border x:Name="Fond" Background="Transparent" CornerRadius="10" Padding="16,8">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False" />
                     </Border>
                     <ControlTemplate.Triggers>
@@ -273,7 +275,12 @@
                             <Setter Property="Foreground" Value="{StaticResource Blanc}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Fond" Property="BorderBrush" Value="{StaticResource Blanc}" />
+                            <Setter TargetName="Fond" Property="Background" Value="{StaticResource Encre}" />
+                            <Setter TargetName="Fond" Property="Effect">
+                                <Setter.Value>
+                                    <DropShadowEffect Color="#3C280A" BlurRadius="6" ShadowDepth="1" Direction="270" Opacity="0.14" />
+                                </Setter.Value>
+                            </Setter>
                             <Setter Property="Foreground" Value="{StaticResource Blanc}" />
                             <Setter Property="FontWeight" Value="Bold" />
                         </Trigger>
@@ -412,8 +419,8 @@
                     </StackPanel>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Boite" Property="Background" Value="{StaticResource Or}" />
-                            <Setter TargetName="Boite" Property="BorderBrush" Value="{StaticResource Or}" />
+                            <Setter TargetName="Boite" Property="Background" Value="{StaticResource OrVif}" />
+                            <Setter TargetName="Boite" Property="BorderBrush" Value="{StaticResource OrVif}" />
                             <Setter TargetName="Coche" Property="Visibility" Value="Visible" />
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -508,7 +515,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Thumb">
-                    <Ellipse Width="18" Height="18" Fill="{StaticResource Or2}" Stroke="{StaticResource Or}" StrokeThickness="2" />
+                    <Ellipse Width="18" Height="18" Fill="{StaticResource OrVif}" Stroke="{StaticResource Encre}" StrokeThickness="2" />
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -526,7 +533,7 @@
                                 <RepeatButton Command="Slider.DecreaseLarge" Focusable="False">
                                     <RepeatButton.Template>
                                         <ControlTemplate TargetType="RepeatButton">
-                                            <Border Height="6" CornerRadius="3" Background="{StaticResource Or}" VerticalAlignment="Center" />
+                                            <Border Height="6" CornerRadius="3" Background="{StaticResource OrVif}" VerticalAlignment="Center" />
                                         </ControlTemplate>
                                     </RepeatButton.Template>
                                 </RepeatButton>
@@ -699,7 +706,7 @@
         <Setter Property="Background" Value="{StaticResource Nuit}" />
         <Setter Property="BorderBrush" Value="{StaticResource Nuit3}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="16" />
+        <Setter Property="CornerRadius" Value="20" />
         <Setter Property="Padding" Value="14" />
     </Style>
     <Style x:Key="Touche" TargetType="Border">

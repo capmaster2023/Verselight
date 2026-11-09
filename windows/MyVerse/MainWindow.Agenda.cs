@@ -98,6 +98,7 @@ public partial class MainWindow
         VueAgenda.Checked += (_, _) => { BlocAgenda.Visibility = Visibility.Visible; BlocNotes.Visibility = Visibility.Collapsed; };
         VueNotes.Checked += (_, _) => { BlocAgenda.Visibility = Visibility.Collapsed; BlocNotes.Visibility = Visibility.Visible; };
         DefilDiapos.SizeChanged += (_, _) => LargeurDiapos();
+        AgendaPiste.SizeChanged += (_, _) => MajProgres();
         R.AgendaChange += AgendaMaj;
 
         // ---------- notes de prédication
@@ -162,7 +163,7 @@ public partial class MainWindow
             var (type, sous) = R.Description(e);
             return new LigneAgenda
             {
-                Element = e, Num = (i + 1).ToString("00"), Type = type, Sous = sous, EnCours = R.ElementCourant == e,
+                Element = e, Num = (i + 1).ToString(), Type = type, Sous = sous, EnCours = R.ElementCourant == e,
                 Titre = e.Type == "chant" && R.Trouver(e.ChantId) is { } c ? c.Title : e.Titre,
             };
         }).ToList();
@@ -172,6 +173,16 @@ public partial class MainWindow
         chargementAgenda = false;
         AgendaVide.Visibility = lignes.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         MajBoutonsAgenda();
+        MajProgres();
+    }
+
+    /// <summary>« 2 / 5 » et la barre dorée : où en est le culte.</summary>
+    void MajProgres()
+    {
+        var l = R.Agenda.Elements;
+        int i = R.ElementCourant != null ? l.IndexOf(R.ElementCourant) : -1;
+        AgendaProgres.Text = l.Count == 0 ? "" : i >= 0 ? $"{i + 1} / {l.Count}" : $"{l.Count} élément{(l.Count > 1 ? "s" : "")}";
+        AgendaBarre.Width = l.Count > 0 && i >= 0 ? Math.Max(0, AgendaPiste.ActualWidth * (i + 1) / l.Count) : 0;
     }
 
     void MajBoutonsAgenda()
@@ -259,7 +270,7 @@ public partial class MainWindow
         int? pos = elementChoisi != null && R.ElementCourant == elementChoisi ? R.PositionAgenda(elementChoisi) : null;
         foreach (var b in Diapos.Children.OfType<Border>())
         {
-            if (pos is int p && b.Tag is int i && i == p) { b.Background = Pinceau("OrLeger"); b.BorderBrush = Pinceau("Or"); }
+            if (pos is int p && b.Tag is int i && i == p) { b.Background = Pinceau("OrLeger"); b.BorderBrush = Pinceau("OrVif"); }
             else { b.ClearValue(Border.BackgroundProperty); b.ClearValue(Border.BorderBrushProperty); }
         }
     }
@@ -271,6 +282,7 @@ public partial class MainWindow
         if (ListeAgenda.ItemsSource is List<LigneAgenda> l)
             foreach (var x in l) x.EnCours = x.Element == R.ElementCourant;
         MarquerDiapos();
+        MajProgres();
     }
 
     void AfficherAgendaCourant()
@@ -360,7 +372,7 @@ public partial class MainWindow
             g.Children.Add(txt);
             var ligne = new Button { Style = Style_("BtnPlat"), Content = g, HorizontalContentAlignment = HorizontalAlignment.Stretch, Padding = new Thickness(4, 7, 4, 7), ToolTip = "Afficher" + (i < 9 ? $" (F{i + 1})" : "") };
             ligne.Click += (_, _) => AfficherRefNotes(k);
-            var plus = new Button { Style = Style_("BtnPlat"), Content = "＋", FontSize = 16, Padding = new Thickness(12, 6, 12, 6), ToolTip = "Ajouter à l'agenda", VerticalAlignment = VerticalAlignment.Center };
+            var plus = new Button { Style = Style_("BtnPlat"), Content = "+", FontSize = 16, Padding = new Thickness(12, 6, 12, 6), ToolTip = "Ajouter à l'agenda", VerticalAlignment = VerticalAlignment.Center };
             plus.Click += (_, _) => { R.AjouterBibleAgenda(r.Ref); Toast($"{r.Libelle} ajouté à l'agenda."); };
             var rang = new Grid();
             rang.ColumnDefinitions.Add(new ColumnDefinition());
@@ -433,7 +445,7 @@ public partial class MainWindow
             rang.Children.Add(ligne);
             if (r.Action == null)
             {
-                var plus = new Button { Style = Style_("BtnPlat"), Content = "＋", FontSize = 17, Padding = new Thickness(12, 6, 12, 6), Margin = new Thickness(2, 0, 0, 0), ToolTip = "Ajouter à l'agenda (Tab)", VerticalAlignment = VerticalAlignment.Center };
+                var plus = new Button { Style = Style_("BtnPlat"), Content = "+", FontSize = 17, Padding = new Thickness(12, 6, 12, 6), Margin = new Thickness(2, 0, 0, 0), ToolTip = "Ajouter à l'agenda (Tab)", VerticalAlignment = VerticalAlignment.Center };
                 plus.Click += (_, _) => ExecuterCommande(r, true);
                 Grid.SetColumn(plus, 1);
                 rang.Children.Add(plus);
@@ -548,7 +560,7 @@ public partial class MainWindow
         double f = total > 0 ? Math.Min(1, t.TotalSeconds / total) : 0;
         double w = (MinuteurBarre.Parent as FrameworkElement)?.ActualWidth ?? 0;
         MinuteurBarre.Width = Math.Max(0, w * f);
-        MinuteurBarre.Background = Pinceau(t.TotalSeconds > total ? "Rouge" : "Or");
+        MinuteurBarre.Background = Pinceau(t.TotalSeconds > total ? "Rouge" : "OrVif");
         MinuteurBtn.Content = chronoDepart != null ? "Pause" : t > TimeSpan.Zero ? "Reprendre" : "Démarrer";
     }
 

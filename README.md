@@ -1,6 +1,6 @@
 # MyVerse 5 — projection Bible et chants (logiciel Windows natif) + télécommande Android
 
-## Nouveautés 5.0 : design « Pupitre » (clair) et agenda
+## Nouveautés 5.0 / 5.1 : design « Aube » (ivoire et or) et agenda
 
 - **Agenda** (comme VideoPsalm) : un agenda par culte, préparé à l'avance, avec des chants de tous les recueils, des passages de la Bible et des textes (annonces, prières). « Suivant » passe d'un élément à l'autre.
 - **Barre de commande** (Ctrl K) : « jean 3 16 », « chant 45 », « minuteur 35 »… Entrée affiche, Tab ajoute à l'agenda.

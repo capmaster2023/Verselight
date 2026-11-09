@@ -478,25 +478,25 @@ public sealed class Telephone : IDisposable
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#FFFFFF">
+<meta name="theme-color" content="#FBF8F2">
 <title>MyVerse · en direct</title>
 <style>
 *{box-sizing:border-box}
-html,body{margin:0;background:#FFFFFF;color:#111111;font-family:"Segoe UI",Inter,system-ui,-apple-system,Roboto,sans-serif}
-header{position:sticky;top:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:12px 16px;background:#FFFFFF;border-bottom:1px solid #E6E6E6}
-.marque{font-weight:800;font-size:18px;letter-spacing:-.02em}
-.direct{display:inline-flex;align-items:center;gap:6px;font:700 12px ui-monospace,Consolas,monospace;color:#B42318}
+html,body{margin:0;background:#FBF8F2;color:#1F1B16;font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+header{position:sticky;top:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:12px 16px;background:#FFFFFF;border-bottom:1px solid #EAE3D6}
+.marque{font-weight:700;font-size:20px;font-family:Georgia,"Times New Roman",serif}
+.direct{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#B42318;letter-spacing:.06em}
 .direct i{width:8px;height:8px;border-radius:9px;background:#D92D20;display:inline-block}
 .outils{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
-button{font:inherit;font-size:14px;font-weight:600;min-height:40px;padding:0 12px;border:1px solid #E6E6E6;border-radius:10px;background:#FFFFFF;color:#111111}
-button[aria-pressed="true"]{background:#0B6E4F;border-color:#0B6E4F;color:#FFFFFF}
+button{font:inherit;font-size:14px;font-weight:600;min-height:40px;padding:0 12px;border:1px solid #E3D9C7;border-radius:12px;background:#FFFFFF;color:#1F1B16}
+button[aria-pressed="true"]{background:#E8B04B;border-color:#E8B04B;color:#2A1E05}
 main{max-width:860px;margin:0 auto;padding:28px 20px 60px}
-#titre{margin:0 0 14px;font:700 13px ui-monospace,Consolas,monospace;color:#0B6E4F;text-transform:uppercase;letter-spacing:.04em}
-#texte{margin:0;white-space:pre-line;line-height:1.45;font-weight:600;letter-spacing:-.01em}
-#second{margin:18px 0 0;white-space:pre-line;line-height:1.45;color:#3E4A44;padding-top:16px;border-top:1px solid #E6E6E6}
-#ref{margin:18px 0 0;font:700 14px ui-monospace,Consolas,monospace;color:#0B6E4F}
-#vide{color:#5F5F5F;font-size:18px}
-footer{position:fixed;bottom:0;left:0;right:0;padding:8px 16px;font-size:12px;color:#5F5F5F;background:#FFFFFF;border-top:1px solid #E6E6E6}
+#titre{margin:0 0 14px;font-size:13px;font-weight:800;color:#8A5A12;text-transform:uppercase;letter-spacing:.08em}
+#texte{margin:0;white-space:pre-line;line-height:1.5;font-family:Georgia,"Times New Roman",serif}
+#second{margin:18px 0 0;white-space:pre-line;line-height:1.5;color:#4A433B;padding-top:16px;border-top:1px solid #EAE3D6}
+#ref{margin:18px 0 0;font-size:14px;font-weight:800;color:#8A5A12}
+#vide{color:#6B6257;font-size:18px}
+footer{position:fixed;bottom:0;left:0;right:0;padding:8px 16px;font-size:12px;color:#6B6257;background:#FBF8F2;border-top:1px solid #EAE3D6}
 </style>
 </head>
 <body>

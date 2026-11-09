@@ -57,7 +57,7 @@ public partial class MainWindow : Window
             QEffacer.Visibility = Q.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
             minuterieQ.Stop(); minuterieQ.Start();
         };
-        Q.GotKeyboardFocus += (_, _) => RechercheBible.BorderBrush = Pinceau("Or");
+        Q.GotKeyboardFocus += (_, _) => RechercheBible.BorderBrush = Pinceau("OrVif");
         Q.LostKeyboardFocus += (_, _) => RechercheBible.BorderBrush = Pinceau("Nuit3");
         Q.KeyDown += (_, e) =>
         {
@@ -76,7 +76,7 @@ public partial class MainWindow : Window
             if (Qc.Text.Length > 0 && NumChant.Text.Length > 0) NumChant.Clear();
             minuterieQc.Stop(); minuterieQc.Start();
         };
-        Qc.GotKeyboardFocus += (_, _) => RechercheChants.BorderBrush = Pinceau("Or");
+        Qc.GotKeyboardFocus += (_, _) => RechercheChants.BorderBrush = Pinceau("OrVif");
         Qc.LostKeyboardFocus += (_, _) => RechercheChants.BorderBrush = Pinceau("Nuit3");
         Qc.KeyDown += (_, e) =>
         {
@@ -105,7 +105,7 @@ public partial class MainWindow : Window
             AllerAuNumero(true);
         };
         NumChant.PreviewMouseLeftButtonDown += (_, e) => { if (!NumChant.IsKeyboardFocusWithin) { NumChant.Focus(); e.Handled = true; } };
-        NumChant.GotKeyboardFocus += (_, _) => { NumBoite.BorderBrush = Pinceau("Or"); NumChant.SelectAll(); };
+        NumChant.GotKeyboardFocus += (_, _) => { NumBoite.BorderBrush = Pinceau("OrVif"); NumChant.SelectAll(); };
         NumChant.LostKeyboardFocus += (_, _) => NumBoite.BorderBrush = Pinceau("Nuit3");
         NumEffacer.Click += (_, _) => { NumChant.Clear(); NumChant.Focus(); };
         minuterieNum.Tick += (_, _) => AllerAuNumero(false);
@@ -292,7 +292,7 @@ public partial class MainWindow : Window
         ColonneAgenda.Width = new GridLength(Math.Clamp(w * 0.23, 300, 400));
         // petit écran (1024 px) : barre du haut plus courte, la recherche garde sa place
         bool compact = w < 1360;
-        SousTitre.Visibility = VersionsLab.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        VersionPastille.Visibility = VersionsLab.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         ObsCompact = compact;
         MajObs();
     }
@@ -578,7 +578,7 @@ public partial class MainWindow : Window
             if (!string.IsNullOrEmpty(version))
                 t.Inlines.Add(new InlineUIContainer(new Border
                 {
-                    Background = Pinceau("Or"), CornerRadius = new CornerRadius(4), Padding = new Thickness(5, 0, 5, 0), Margin = new Thickness(6, 0, 0, 0),
+                    Background = Pinceau("OrVif"), CornerRadius = new CornerRadius(4), Padding = new Thickness(5, 0, 5, 0), Margin = new Thickness(6, 0, 0, 0),
                     Child = new TextBlock { Text = version, FontSize = 10, FontWeight = FontWeights.Bold, Foreground = Pinceau("SurOr") },
                 }) { BaselineAlignment = BaselineAlignment.Center });
             t.Inlines.Add(new LineBreak());
@@ -623,14 +623,14 @@ public partial class MainWindow : Window
             var (b, c, v) = tag;
             bool direct = cible != null && cible.B == b && cible.C == c && v >= cible.V1 && v <= cible.V2;
             bool choisi = sel is Ref s && s.B == b && s.C == c && v >= s.V1 && v <= Math.Max(s.V1, s.V2) && vue is { } vv && vv.B == b && vv.C == c;
-            if (direct) { r.Background = Pinceau("OrLeger"); r.BorderBrush = Pinceau("Or"); }
+            if (direct) { r.Background = Pinceau("OrLeger"); r.BorderBrush = Pinceau("OrVif"); }
             else if (choisi) { r.Background = Pinceau("Nuit2"); r.BorderBrush = Pinceau("Trait2"); }
             else { r.ClearValue(Border.BackgroundProperty); r.ClearValue(Border.BorderBrushProperty); }
         }
         foreach (var s in Sections.Children.OfType<Border>())
         {
             bool direct = R.Cible is CibleChant cc && cc.Id == chantOuvert && s.Tag is int i && cc.I == i;
-            if (direct) { s.Background = Pinceau("OrLeger"); s.BorderBrush = Pinceau("Or"); }
+            if (direct) { s.Background = Pinceau("OrLeger"); s.BorderBrush = Pinceau("OrVif"); }
             else { s.ClearValue(Border.BackgroundProperty); s.ClearValue(Border.BorderBrushProperty); }
         }
     }
@@ -751,7 +751,7 @@ public partial class MainWindow : Window
                     tete.Children.Add(kbd);
                 }
                 // petit bouton « Modifier » : ouvre l'éditeur directement sur cette strophe
-                var modif = new Button { Style = Style_("BtnPetit"), Content = "✎ Modifier", FontSize = 11, Padding = new Thickness(7, 1, 7, 1), Margin = new Thickness(6, -2, 0, -2), ToolTip = "Modifier ce chant (curseur sur cette strophe)" };
+                var modif = new Button { Style = Style_("BtnPetit"), Content = "Modifier", FontSize = 11, Padding = new Thickness(7, 1, 7, 1), Margin = new Thickness(6, -2, 0, -2), ToolTip = "Modifier ce chant (curseur sur cette strophe)" };
                 modif.Click += (_, _) => Editer(R.Trouver(chantOuvert), k);
                 DockPanel.SetDock(modif, Dock.Right);
                 tete.Children.Add(modif);
@@ -826,7 +826,7 @@ public partial class MainWindow : Window
         ApercuRendu.Afficher(e);
         ecran?.Rendu.Afficher(e);
         App.SortieObs.Ecrire(e);
-        Apercu.BorderBrush = Pinceau(e.Vide ? "Nuit3" : "Or");
+        Apercu.BorderBrush = Pinceau(e.Vide ? "Nuit3" : "OrVif");
         Apercu.Background = e.Vide || e.Theme == "transparent" ? Pinceau("Damier") : Brushes.Black;
         MajPastille();
         var s = R.Prochaine();
