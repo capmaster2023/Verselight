@@ -98,6 +98,14 @@ public static class AutoTest
             Ok(Police("Sans").Contains("Atkinson"), "police Atkinson incluse");
             await Attendre(1500);
             Capture(w, "00-accueil-culte.png");
+            // Les anciens réglages OBS ne doivent ni simuler un écran ouvert, ni polluer l'aperçu.
+            App.Donnees.Reglages.Obs.Actif = true;
+            App.Donnees.Reglages.Ecran = new EcranChoisi { Mode = "obs" };
+            Ok(!R.EcranOuvert() && !w.TestStatutProjection.Contains("OBS"), "projection indépendante : anciens réglages OBS ignorés");
+            App.Donnees.Reglages.Obs.Actif = false;
+            w.TestOngletAnnonces();
+            Ok(w.TestMenuSources(), "Display : menu déroulant d'ajout et commandes accessibles");
+            Capture(w, "00b-display-menu.png");
             w.TestOnglet(true);
             await Attendre(400);
             Capture(w, "01-bible.png");
@@ -340,7 +348,6 @@ public static class AutoTest
             await Fenetre(w, () => new DecoupeWindow(new CibleVerset(42, 3, 16, 16)), "13-decoupe.png");
             await Fenetre(w, () => new ImportWindow(), "14-import.png");
             await Fenetre(w, () => new BiblesWindow(), "15-bibles.png");
-            await Fenetre(w, () => new ObsWindow(), "16-obs.png");
             await Fenetre(w, () => new TelephoneWindow(), "17-telephone.png");
             await Fenetre(w, () => new OutilsWindow(false), "18-outils.png");
 
@@ -375,10 +382,11 @@ public static class AutoTest
         lock (log)
         {
             log.Add("");
-            log.Add(echecs.Count == 0 ? "TOUT EST BON" : echecs.Count + " ÉCHEC(S)");
             log.Add("");
             log.Add("===== journal =====");
             log.AddRange(Journal.Lignes());
+            log.Add("");
+            log.Add(echecs.Count == 0 ? "TOUT EST BON" : echecs.Count + " ÉCHEC(S)");
             try { File.WriteAllLines(Path.Combine(dossier, "autotest.txt"), log); } catch (Exception) { }
         }
         try { w.Ecran?.Close(); } catch (Exception) { }

@@ -186,10 +186,10 @@ public partial class MainWindow
 
     void MajProjection()
     {
-        if (ObsTexte == null) return;
-        ObsTexte.Text = ObsCompact ? "Projection" : "Projection · " + NomEcran();
-        ObsBtn.ToolTip = "Choisir l'écran de projection · " + NomEcran();
-        ObsPoint.Fill = Pinceau(ecran != null ? "Vert" : "Brume2");
+        if (ProjectionTexte == null) return;
+        ProjectionTexte.Text = ProjectionCompact ? "Projection" : "Projection · " + NomEcran();
+        ProjectionBtn.ToolTip = "Choisir l'écran de projection · " + NomEcran();
+        ProjectionPoint.Fill = Pinceau(ecran != null ? "Vert" : "Brume2");
         if (GrilleInfo != null) GrilleInfo.Text = ecran != null ? "Écran : " + NomEcran() : "Aucun écran choisi (bouton Projection en haut)";
     }
 
@@ -215,6 +215,6 @@ public partial class MainWindow
         var arret = Article("Arrêter la projection", () => { ecran?.Close(); MajProjection(); });
         arret.IsEnabled = ecran != null;
         m.Items.Add(arret);
-        Ouvrir(m, ObsBtn, PlacementMode.Bottom);
+        Ouvrir(m, ProjectionBtn, PlacementMode.Bottom);
     }
 }

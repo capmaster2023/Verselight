@@ -24,7 +24,6 @@ public partial class App : Application
     /// <summary>Capture du contenu épinglé (Duo), en même temps que celle de l'écran principal.</summary>
     public static SourcesDisplay SourcesDuo { get; private set; } = null!;
     public static MyVirtualCam? CameraVirtuelle { get; private set; }
-    public static Obs Obs { get; private set; } = null!;
     public static Telephone Telephone { get; private set; } = null!;
     /// <summary>Dossier du test automatique (« MyChurch.exe --autotest dossier »), sinon null.</summary>
     public static string? AutoTest { get; private set; }
@@ -111,10 +110,7 @@ public partial class App : Application
             return;
         }
         SortieObs = new SortieObs(Path.Combine(Ressources, "obs"), AutoTest != null ? Path.Combine(dossier, "VerseLight-OBS") : null);
-        Obs = new Obs(() => Donnees.Reglages.Obs, SortieObs);
         Telephone = new Telephone(dossier, Regie, f => Dispatcher.InvokeAsync(f).Task.Unwrap());
-        Telephone.EtatObs = () => (Obs.Actif, Obs.Connecte);
-        Regie.Oeil += v => _ = Obs.Oeil(v);
         try { Telephone.Demarrer(); }
         catch (Exception x) { Journal.Erreur("téléphone : démarrage", x); }
         _ = Task.Run(() =>
@@ -162,7 +158,6 @@ public partial class App : Application
         SourcesDuo?.Dispose();
         CameraVirtuelle?.Dispose();
         try { Telephone?.Dispose(); } catch (Exception) { }
-        try { Obs?.Dispose(); } catch (Exception) { }
         Journal.Sauver();
         base.OnExit(e);
     }

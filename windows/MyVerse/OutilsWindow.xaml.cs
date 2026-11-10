@@ -48,14 +48,13 @@ public partial class OutilsWindow : FenetreDialogue
     void RemplirJournal()
     {
         var t = App.Telephone;
-        var o = App.Obs;
         var m = Application.Current.MainWindow as MainWindow;
         var lignes = new List<string>
         {
             $"MyChurch {App.Version} (Windows) · {DateTime.Now:yyyy-MM-dd HH:mm:ss} · programme : {AppContext.BaseDirectory}",
             $"Données : {App.Donnees.Dossier} · {App.Donnees.Chants.Count} chants · Bible : {App.Bibles.Etiquette()}",
             $"Téléphones : port {(t.Port > 0 ? t.Port.ToString() : "AUCUN")} · pare-feu : {(App.Parefeu_.Length > 0 ? App.Parefeu_ : "inconnu")} · connectés : {t.Connectes().Count} / jumelés : {t.Store.Liste().Count}",
-            $"OBS : {(o.Actif ? (o.Connecte ? "connecté" : "NON CONNECTÉ") : "désactivé")} · écran de projection : {(m?.Ecran != null ? "ouvert" : App.Donnees.Reglages.Ecran?.Mode == "obs" ? "OBS (fichier local)" : "fermé")}",
+            $"Écran de projection : {(m?.Ecran != null ? "ouvert" : "fermé")} · MyVirtualCam : {(App.CameraVirtuelle != null ? "active" : "indisponible")}",
             $"Windows : {Environment.OSVersion.VersionString} · .NET {Environment.Version}",
             "",
             "===== MyChurch =====",

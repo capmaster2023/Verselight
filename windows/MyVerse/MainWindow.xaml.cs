@@ -111,7 +111,7 @@ public partial class MainWindow : Window
         NumEffacer.Click += (_, _) => { NumChant.Clear(); NumChant.Focus(); };
         minuterieNum.Tick += (_, _) => AllerAuNumero(false);
         TelBtn.Click += (_, _) => new TelephoneWindow { Owner = this }.ShowDialog();
-        ObsBtn.Click += (_, _) => MenuProjection();
+        ProjectionBtn.Click += (_, _) => MenuProjection();
         OutilsBtn.Click += (_, _) => OuvrirOutils(true);
         VersionBtn.Click += (_, _) => OuvrirOutils(true);
         MajBtn.Click += (_, _) => OuvrirOutils(false);
@@ -181,13 +181,12 @@ public partial class MainWindow : Window
         Presentation.SelectionChanged += (_, _) => { if (!chargement && Presentation.SelectedItem is ComboBoxItem i) R.Presentation((string)i.Tag); };
         Taille.ValueChanged += (_, _) => { if (!chargement) R.Taille(Taille.Value); };
 
-        // ---------- régie, téléphones, OBS
-        R.EcranOuvert = () => ecran != null || App.Donnees.Reglages.Ecran?.Mode == "obs" || (App.Obs.Actif && App.Obs.Connecte);
+        // ---------- régie et téléphones
+        R.EcranOuvert = () => ecran != null;
         R.Change += MajEcran;
         R.ChantsChange += () => { ListeChantsMaj(); if (chantOuvert != null) OuvrirChant(chantOuvert); };
         R.Message += Toast;
         VB.Change += () => { RemplirBibles(); if (vue is { } v) OuvrirChapitre(v.B, v.C, sel?.V1 ?? 0, sel?.V2 ?? 0, false); };
-        App.Obs.Change += () => Dispatcher.BeginInvoke(new Action(MajObs));
         App.Telephone.Change += () => Dispatcher.BeginInvoke(new Action(MajTelephone));
         minuterieToast.Tick += (_, _) => { minuterieToast.Stop(); ToastBoite.BeginAnimation(OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(250))); };
 
@@ -222,7 +221,7 @@ public partial class MainWindow : Window
         };
         MontrerOnglet("agenda");
         MajEcran();
-        MajObs();
+        MajProjection();
         MajTelephone();
         chargement = false;
     }
@@ -295,10 +294,10 @@ public partial class MainWindow : Window
         // petit écran (1024 px) : barre du haut plus courte, la recherche garde sa place
         bool compact = w < 1360;
         VersionPastille.Visibility = VersionsLab.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-        ObsCompact = compact;
-        MajObs();
+        ProjectionCompact = compact;
+        MajProjection();
     }
-    bool ObsCompact;
+    bool ProjectionCompact;
 
     // ------------------------------------------------------------ message court
     public void Toast(string t)
@@ -865,16 +864,16 @@ public partial class MainWindow : Window
         MajFonds();
     }
 
-    /// <summary>Pastille de l'aperçu : la diapositive part-elle quelque part (OBS, fenêtre de projection) ?</summary>
+    /// <summary>Pastille de l'aperçu : la diapositive part-elle vers la fenêtre de projection ?</summary>
     void MajPastille()
     {
         var e = R.Etat;
         bool ouvert = R.EcranOuvert();
-        PastilleTexte.Text = noir ? "Écran noir" : ouvert ? (e.Vide && e.Duo == null ? "Écran ouvert · vide" : "À l'écran") : App.Obs.Actif ? "OBS non connecté" : "Aperçu seulement";
+        PastilleTexte.Text = noir ? "Écran noir" : ouvert ? (e.Vide && e.Duo == null ? "Écran ouvert · vide" : "À l'écran") : "Aperçu seulement";
         Pastille.Background = ouvert && !noir ? Pinceau("Vert") : new SolidColorBrush(Color.FromArgb(0xD9, 0xFF, 0xFF, 0xFF));
         PastilleTexte.Foreground = ouvert && !noir ? new SolidColorBrush(Color.FromRgb(0x03, 0x20, 0x10)) : Pinceau("Brume");
         var m = App.Donnees.Reglages.Ecran;
-        EcranInfo.Text = ecran != null && m != null ? $"{m.Nom} · {m.W} × {m.H}" : ouvert ? "OBS" : "écran fermé";
+        EcranInfo.Text = ecran != null && m != null ? $"{m.Nom} · {m.W} × {m.H}" : "écran fermé";
         MajProjection();
     }
 
@@ -910,15 +909,7 @@ public partial class MainWindow : Window
     /// <summary>Fenêtre de projection ouverte (pour le test automatique).</summary>
     public EcranWindow? Ecran => ecran;
 
-    // ------------------------------------------------------------ OBS, téléphone, mises à jour
-    void MajObs()
-    {
-        var o = App.Obs;
-        MajProjection();
-        MajPastille();
-        App.Telephone.Actualiser();
-    }
-
+    // ------------------------------------------------------------ téléphone et mises à jour
     public void MajTelephone()
     {
         int n = App.Telephone.Connectes().Count;

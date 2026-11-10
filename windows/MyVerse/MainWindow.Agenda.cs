@@ -57,7 +57,7 @@ public partial class MainWindow
     static readonly Geometry IconeCompte = Icone_("M3,12 A9,9 0 1 0 21,12 A9,9 0 1 0 3,12 M12,7 V12 L15,14");
 
     static readonly (string Tag, string Nom)[] FondsListe =
-        { ("aube", "Aube"), ("lin", "Lin"), ("ciel", "Ciel"), ("nuit", "Nuit"), ("noir", "Noir"), ("vert", "Vert"), ("transparent", "OBS") };
+        { ("aube", "Aube"), ("lin", "Lin"), ("ciel", "Ciel"), ("nuit", "Nuit"), ("noir", "Noir"), ("vert", "Vert"), ("transparent", "Transparent") };
 
     void InitAgenda()
     {
@@ -129,13 +129,6 @@ public partial class MainWindow
             AnnonceTexte.Text = a.Source != null ? a.Description : a.Texte;
             AnnonceTexte.IsReadOnly = a.Source != null;
             DisplayReconnecter.Visibility = a.Source?.Type is "camera" or "fenetre" ? Visibility.Visible : Visibility.Collapsed;
-        };
-        AnnonceNouvelle.Click += (_, _) =>
-        {
-            if (Dialogue.DemanderTexte(this, "Nouveau texte", "Nouveau texte", "") is not { } t || t.Texte.Trim().Length == 0) return;
-            var a = R.NouvelleAnnonce(t.Titre, t.Texte);
-            R.GrilleAnnonce(a.Id, true);
-            ChoisirDisplay(a);
         };
         AnnonceEnregistrer.Click += (_, _) => { if (EnregistrerAnnonce() != null) Toast("Display enregistré."); };
         AnnonceAfficher.Click += (_, _) => { if (EnregistrerAnnonce() is { } a) R.AfficherAnnonce(a); };
@@ -712,7 +705,7 @@ public partial class MainWindow
             {
                 Style = Style_("Btn"), Width = 74, Padding = new Thickness(6), Margin = new Thickness(0, 0, 8, 8), Content = pile, Tag = tag,
                 HorizontalContentAlignment = HorizontalAlignment.Stretch, FontWeight = FontWeights.SemiBold,
-                ToolTip = tag switch { "transparent" => "Transparent : pour OBS (la caméra se voit derrière)", "vert" => "Vert : pour l'incrustation", _ => "Fond « " + nom + " »" },
+                ToolTip = tag switch { "transparent" => "Fond transparent", "vert" => "Vert : pour l'incrustation", _ => "Fond « " + nom + " »" },
             };
             b.Click += (_, _) => { R.Theme(tag); MajFonds(); };
             Fonds.Children.Add(b);

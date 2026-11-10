@@ -149,8 +149,6 @@ public sealed class Telephone : IDisposable
     public int Port { get; private set; }
     public string PcId => store.PcId;
     public AppareilsJumeles Store => store;
-    /// <summary>OBS (actif, connecté), pour l'état envoyé aux téléphones.</summary>
-    public Func<(bool Actif, bool Connecte)> EtatObs { get; set; } = () => (false, false);
     /// <summary>Téléphones jumelés ou connectés : la liste a changé (thread quelconque).</summary>
     public event Action? Change;
 
@@ -926,7 +924,6 @@ boucle();
         var c = regie.Cible;
         var titre = c is CibleChant cc && regie.Trouver(cc.Id) is { } s ? s.Title : "";
         var n = regie.Prochaine();
-        var (obsActif, obsConnecte) = EtatObs();
         return new JsonObject
         {
             ["t"] = "state",
@@ -936,14 +933,14 @@ boucle();
             ["titre"] = e.Mode == "media" ? e.Ref : titre,
             ["displayId"] = c is CibleDisplay cd ? cd.Id : c is CibleTexte ct ? ct.Element : "",
             ["mediaType"] = e.Media?.Type ?? "",
-            ["version"] = "6.0.0-beta",
+            ["version"] = "1.0.2-beta",
             ["suivant"] = n != null ? n.Label + " · " + n.Texte.Split('\n')[0] : "",
             ["suivantLabel"] = n?.Label ?? "",
             ["suivantTexte"] = n?.Texte ?? "",
             ["chant"] = c is CibleChant ch ? new JsonObject { ["id"] = ch.Id, ["i"] = ch.I } : null,
             ["ecranOuvert"] = regie.EcranOuvert(),
-            ["obsActif"] = obsActif,
-            ["obsConnecte"] = obsConnecte,
+            ["obsActif"] = false,
+            ["obsConnecte"] = false,
         }.ToJsonString();
     }
 
@@ -960,7 +957,7 @@ boucle();
         minuterieEtat.Change(60, Timeout.Infinite);
     }
 
-    /// <summary>À appeler quand l'écran s'ouvre ou se ferme, ou qu'OBS change (fil de l'interface).</summary>
+    /// <summary>À appeler quand l'écran s'ouvre ou se ferme (fil de l'interface).</summary>
     public void Actualiser() => EtatChange();
 
     void Diffuser()

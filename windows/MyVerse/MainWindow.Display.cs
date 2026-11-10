@@ -11,17 +11,8 @@ public partial class MainWindow
 {
     void InitDisplay()
     {
-        DisplayImage.Click += (_, _) => AjouterImage();
-        DisplayCamera.Click += (_, _) => AjouterCamera();
-        DisplayFenetre.Click += (_, _) => AjouterFenetre();
+        DisplayAjouter.Click += (_, _) => Ouvrir(MenuAjouterSource(), DisplayAjouter, PlacementMode.Bottom);
         DisplayReconnecter.Click += (_, _) => ReconnecterSources();
-        VirtualCamBtn.Click += (_, _) =>
-        {
-            if (MyVirtualCam.Installee) Toast("MyVirtualCam est disponible. Choisissez-la comme caméra dans votre logiciel vidéo.");
-            else MyVirtualCam.Installer(this);
-        };
-        VirtualCamBtn.Content = "MyVirtualCam · automatique";
-        VirtualCamBtn.ToolTip = "Sortie vidéo permanente 1280 × 720 · cliquez pour installer le périphérique si nécessaire";
         ListeAnnonces.MouseDoubleClick += Display_DoubleClick;
         ListeChants.MouseDoubleClick += (_, e) =>
         {
@@ -37,6 +28,30 @@ public partial class MainWindow
             if (duoMemeSource) ImagesDuo();
             DisplaySourceInfo.Text = App.Sources.Statut;
         };
+    }
+
+    ContextMenu MenuAjouterSource()
+    {
+        var menu = new ContextMenu();
+        menu.Items.Add(Article("Nouveau texte", AjouterTexteDisplay));
+        menu.Items.Add(Article("Images", AjouterImage));
+        menu.Items.Add(Article("Périphérique de capture vidéo", AjouterCamera));
+        menu.Items.Add(Article("Capture de fenêtre", AjouterFenetre));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Article("Caméra virtuelle MyVirtualCam", () =>
+        {
+            if (MyVirtualCam.Installee) Toast("MyVirtualCam est disponible automatiquement dans vos logiciels vidéo.");
+            else MyVirtualCam.Installer(this);
+        }));
+        return menu;
+    }
+
+    void AjouterTexteDisplay()
+    {
+        if (Dialogue.DemanderTexte(this, "Nouveau texte", "Nouveau texte", "") is not { } t || t.Texte.Trim().Length == 0) return;
+        var a = R.NouvelleAnnonce(t.Titre, t.Texte);
+        R.GrilleAnnonce(a.Id, true);
+        ChoisirDisplay(a);
     }
 
     void Display_DoubleClick(object sender, MouseButtonEventArgs e)
@@ -108,6 +123,18 @@ public partial class MainWindow
         list.MouseDoubleClick += (_, _) => { if (list.SelectedIndex >= 0) w.DialogResult = true; };
         buttons.Children.Add(cancel); buttons.Children.Add(add); panel.Children.Add(buttons); w.Content = panel;
         return w.ShowDialog() == true && list.SelectedIndex >= 0 ? items[list.SelectedIndex] : null;
+    }
+
+    public string TestStatutProjection => PastilleTexte.Text;
+
+    public bool TestMenuSources()
+    {
+        var menu = MenuAjouterSource();
+        var commandes = menu.Items.OfType<MenuItem>().ToList();
+        Ouvrir(menu, DisplayAjouter, PlacementMode.Bottom);
+        bool ok = menu.IsOpen && commandes.Count == 5 && commandes[0].Header?.ToString() == "Nouveau texte" && commandes[4].Header?.ToString() == "Caméra virtuelle MyVirtualCam";
+        menu.IsOpen = false;
+        return ok;
     }
 
     public void TestDisplayDoubleClick(Annonce a)
