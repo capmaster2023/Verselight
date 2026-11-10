@@ -75,10 +75,76 @@ public sealed class Rendu : Grid
         scene.Opacity = 0;
         fond.Opacity = 0;
         TextOptions.SetTextFormattingMode(this, TextFormattingMode.Ideal);
-        SizeChanged += (_, _) => { Placer(); Ajuster(); };
+        SizeChanged += (_, _) => { Placer(); Ajuster(); PlacerDuo(); };
     }
 
-    public void ImageDisplay(ImageSource? image) { media.Source = image; }
+    public void ImageDisplay(ImageSource? image) { media.Source = image; gauche?.ImageDisplay(image); }
+
+    // ------------------------------------------------------------ Duo : un second contenu dans un coin, ou côte à côte
+    Rendu? gauche, epingle;
+    DuoEcran? duo;
+
+    /// <summary>Image vivante (caméra, fenêtre, image) du contenu épinglé.</summary>
+    public void ImageDuo(ImageSource? image) { if (epingle != null) epingle.media.Source = image; }
+
+    Rendu Enfant(ref Rendu? r)
+    {
+        if (r == null)
+        {
+            r = new Rendu { Transitions = Transitions, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
+            Children.Add(r);
+        }
+        return r;
+    }
+
+    void PlacerDuo()
+    {
+        double W = ActualWidth, H = ActualHeight;
+        if (W <= 0 || H <= 0) return;
+        if (duo == null)
+        {
+            if (gauche != null) gauche.Visibility = Visibility.Collapsed;
+            if (epingle != null) epingle.Visibility = Visibility.Collapsed;
+            return;
+        }
+        var ep = Enfant(ref epingle);
+        ep.Visibility = Visibility.Visible;
+        if (duo.Place == "cote")
+        {
+            var g = Enfant(ref gauche);
+            g.Visibility = Visibility.Visible;
+            double w = W / 2, h = H / 2, y = (H - h) / 2;
+            g.Width = w; g.Height = h; g.Margin = new Thickness(0, y, 0, 0);
+            ep.Width = w; ep.Height = h; ep.Margin = new Thickness(w, y, 0, 0);
+        }
+        else
+        {
+            if (gauche != null) gauche.Visibility = Visibility.Collapsed;
+            double w = W * duo.Part, h = H * duo.Part, m = 0.03 * H;
+            ep.Width = w; ep.Height = h;
+            ep.Margin = new Thickness(duo.Place is "hg" or "bg" ? m : W - w - m, duo.Place is "hd" or "hg" ? m : H - h - m, 0, 0);
+        }
+    }
+
+    /// <summary>Affiche un nouvel état ; avec un Duo, le contenu épinglé en plus.</summary>
+    public void Afficher(EtatEcran e)
+    {
+        duo = e.Duo;
+        var seul = e with { Duo = null };
+        PlacerDuo();
+        if (duo != null)
+        {
+            epingle!.Afficher(duo.Etat with { Theme = e.Theme, Taille = e.Taille, Presentation = "plein" });
+            if (duo.Place == "cote")
+            {
+                gauche!.Afficher(seul with { Presentation = "plein" });
+                AfficherSeul(seul with { Mode = "vide", Media = null, Lignes = Array.Empty<string>(), Ref = "", Second = null });
+                Animer(fond, 1, 0);
+                return;
+            }
+        }
+        AfficherSeul(seul);
+    }
 
     // ------------------------------------------------------------ fonds des thèmes
     static Brush FondTheme(string theme)
@@ -128,7 +194,7 @@ public sealed class Rendu : Grid
     }
 
     /// <summary>Affiche un nouvel état (fondu si le texte change).</summary>
-    public void Afficher(EtatEcran e)
+    void AfficherSeul(EtatEcran e)
     {
         var avantTheme = etat.Theme;
         etat = e;

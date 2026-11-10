@@ -51,6 +51,8 @@ public sealed class PositionFenetre
 
 public sealed class Reglages
 {
+    [JsonPropertyName("duoPlace")] public string DuoPlace { get; set; } = "hd";
+    [JsonPropertyName("duoPart")] public double DuoPart { get; set; } = 0.35;
     [JsonPropertyName("version")] public int Version { get; set; } = 4;
     [JsonPropertyName("theme")] public string Theme { get; set; } = "nuit";
     [JsonPropertyName("taille")] public double Taille { get; set; } = 1;

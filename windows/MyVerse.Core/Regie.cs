@@ -17,8 +17,17 @@ public sealed record EtatEcran
     [JsonPropertyName("second")] public TexteSecond? Second { get; init; }
 
     public sealed record TexteSecond([property: JsonPropertyName("texte")] string Texte);
+    /// <summary>Duo : ce qui est épinglé en même temps (coin ou côte à côte).</summary>
+    [JsonPropertyName("duo"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public DuoEcran? Duo { get; init; }
     [JsonIgnore] public bool Vide => Mode == "vide";
 }
+
+/// <summary>Le second contenu du Duo. Mode : hd, hg, bd, bg (un coin) ou cote (côte à côte). Taille : part de l'écran pour un coin.</summary>
+public sealed record DuoEcran(
+    [property: JsonPropertyName("etat")] EtatEcran Etat,
+    [property: JsonPropertyName("libelle")] string Libelle,
+    [property: JsonPropertyName("place")] string Place,
+    [property: JsonPropertyName("part")] double Part);
 
 /// <summary>Ce qui est à l'écran : des versets (éventuellement un morceau d'un verset découpé) ou une strophe de chant.</summary>
 public abstract record Cible;
@@ -152,6 +161,35 @@ public sealed partial class Regie
     }
 
     // ------------------------------------------------------------ retirer, suivant, précédent
+    // ------------------------------------------------------------ Duo
+    /// <summary>Épingle ce qui est à l'écran (il part dans le coin) ; l'écran principal se libère pour autre chose.</summary>
+    public bool Epingler()
+    {
+        if (Etat.Vide) { Dire("Affichez d'abord ce que vous voulez épingler."); return false; }
+        var e = Etat with { Duo = null, Presentation = "plein" };
+        var libelle = e.Ref.Length > 0 ? e.Ref : e.Lignes.FirstOrDefault(l => l.Trim().Length > 0)?.Trim() ?? "Source";
+        var r = donnees.Reglages;
+        Etat = Etat with { Duo = new DuoEcran(e, libelle, r.DuoPlace, r.DuoPart) };
+        Effacer();
+        return true;
+    }
+
+    public void Desepingler()
+    {
+        if (Etat.Duo == null) return;
+        Etat = Etat with { Duo = null };
+        Signaler();
+    }
+
+    public void PlaceDuo(string place, double part)
+    {
+        var r = donnees.Reglages;
+        r.DuoPlace = place is "hd" or "hg" or "bd" or "bg" or "cote" ? place : "hd";
+        r.DuoPart = Math.Clamp(part, 0.2, 0.5);
+        donnees.SauverReglages();
+        if (Etat.Duo is { } d) { Etat = Etat with { Duo = d with { Place = r.DuoPlace, Part = r.DuoPart } }; Signaler(); }
+    }
+
     public void Effacer()
     {
         Oeil?.Invoke(false);
