@@ -93,6 +93,7 @@ public partial class MainWindow
         DuoEpingler.Content = d == null ? "Épingler le contenu en direct" : "Remplacer le contenu épinglé";
         DuoEpingler.IsEnabled = !R.Etat.Vide;
         DuoRetirer.IsEnabled = d != null;
+        DuoRetirer.Visibility = d != null ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // ------------------------------------------------------------ image vivante du contenu épinglé

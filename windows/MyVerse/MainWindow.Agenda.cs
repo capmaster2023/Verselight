@@ -248,7 +248,7 @@ public partial class MainWindow
     {
         CornerRadius = new CornerRadius(16), Padding = new Thickness(12, 5, 12, 5), Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center,
         Background = pleine ? Pinceau("Blanc") : Pinceau("Encre"), BorderBrush = Pinceau("Trait2"), BorderThickness = new Thickness(pleine ? 0 : 1),
-        Child = new TextBlock { Text = texte, FontSize = 12, FontWeight = FontWeights.Bold, Foreground = pleine ? new SolidColorBrush(Color.FromRgb(0xFF, 0xF6, 0xE6)) : Pinceau("Blanc") },
+        Child = new TextBlock { Text = texte, FontSize = 12, FontWeight = FontWeights.Bold, Foreground = pleine ? Pinceau("Encre") : Pinceau("Blanc") },
     };
 
     /// <summary>Une carte : verset (numéro, texte en Literata, 2e version dessous), strophe, display ou compte à rebours.</summary>
@@ -303,7 +303,7 @@ public partial class MainWindow
             CornerRadius = new CornerRadius(18), Padding = new Thickness(18, 14, 16, 14), Margin = new Thickness(0, 0, 12, 12), Cursor = Cursors.Hand, Child = g, Tag = i,
             ToolTip = "Clic : afficher",
         };
-        if (direct) carte.Effect = new DropShadowEffect { Color = Color.FromRgb(0x8A, 0x5A, 0x12), Opacity = 0.14, BlurRadius = 16, ShadowDepth = 4, Direction = 270 };
+        if (direct) carte.Effect = new DropShadowEffect { Color = Color.FromRgb(0x1F, 0x3F, 0xCB), Opacity = 0.14, BlurRadius = 16, ShadowDepth = 4, Direction = 270 };
         carte.MouseLeftButtonDown += (_, _) => R.AfficherElement(e, i);
         return carte;
     }
@@ -673,15 +673,16 @@ public partial class MainWindow
     void ConstruireFonds()
     {
         Fonds.Children.Clear();
+        // une pastille par fond : un carré de la couleur et son nom ; le fond choisi est cerclé de noir
         foreach (var (tag, nom) in FondsListe)
         {
-            var pile = new StackPanel();
-            pile.Children.Add(new Border { Height = 28, CornerRadius = new CornerRadius(7), Background = FondApercu(tag), BorderBrush = Pinceau("Nuit3"), BorderThickness = new Thickness(1) });
-            pile.Children.Add(new TextBlock { Text = nom, FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 5, 0, 0) });
+            var pile = new StackPanel { Orientation = Orientation.Horizontal };
+            pile.Children.Add(new Border { Width = 20, Height = 20, CornerRadius = new CornerRadius(5), Background = FondApercu(tag), BorderBrush = Pinceau("Nuit3"), BorderThickness = new Thickness(1), VerticalAlignment = VerticalAlignment.Center });
+            pile.Children.Add(new TextBlock { Text = nom, FontSize = 14, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(9, 0, 0, 0) });
             var b = new Button
             {
-                Style = Style_("Btn"), Width = 74, Padding = new Thickness(6), Margin = new Thickness(0, 0, 8, 8), Content = pile, Tag = tag,
-                HorizontalContentAlignment = HorizontalAlignment.Stretch, FontWeight = FontWeights.SemiBold,
+                Style = Style_("Btn"), Height = 42, Padding = new Thickness(12, 0, 14, 0), Margin = new Thickness(0, 0, 8, 8), Content = pile, Tag = tag,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
                 ToolTip = tag switch { "transparent" => "Fond transparent", "vert" => "Vert : pour l'incrustation", _ => "Fond « " + nom + " »" },
             };
             b.Click += (_, _) => { R.Theme(tag); MajFonds(); };

@@ -1,17 +1,18 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <!-- ===================== couleurs de MyVerse (mêmes que la 3.x) ===================== -->
+    <!-- ===================== couleurs de MyChurch 3.0 : fond gris clair, cartes blanches, bleu ===================== -->
+    <!-- Les noms viennent de l'ancien thème sombre : « Blanc » est le texte (presque noir), « Encre » et « Nuit » sont le blanc des cartes, « Or » est l'accent (bleu). -->
     <Color x:Key="CEncre">#FFFFFF</Color>
     <Color x:Key="CNuit">#FFFFFF</Color>
-    <Color x:Key="CNuit2">#F8F3EA</Color>
-    <Color x:Key="CNuit3">#EAE3D6</Color>
-    <Color x:Key="CBrume">#6B6257</Color>
-    <Color x:Key="CBrume2">#7A7064</Color>
-    <Color x:Key="COr">#8A5A12</Color>
-    <Color x:Key="COr2">#8A5A12</Color>
+    <Color x:Key="CNuit2">#F5F6F8</Color>
+    <Color x:Key="CNuit3">#D5D9E0</Color>
+    <Color x:Key="CBrume">#545B66</Color>
+    <Color x:Key="CBrume2">#6B7280</Color>
+    <Color x:Key="COr">#1F3FCB</Color>
+    <Color x:Key="COr2">#1F3FCB</Color>
     <Color x:Key="CRouge">#D92D20</Color>
     <Color x:Key="CVert">#2F9E5B</Color>
-    <Color x:Key="CBlanc">#1F1B16</Color>
+    <Color x:Key="CBlanc">#14171C</Color>
 
     <SolidColorBrush x:Key="Encre" Color="{StaticResource CEncre}" />
     <SolidColorBrush x:Key="Nuit" Color="{StaticResource CNuit}" />
@@ -24,43 +25,46 @@
     <SolidColorBrush x:Key="Rouge" Color="{StaticResource CRouge}" />
     <SolidColorBrush x:Key="Vert" Color="{StaticResource CVert}" />
     <SolidColorBrush x:Key="Blanc" Color="{StaticResource CBlanc}" />
-    <SolidColorBrush x:Key="OrLeger" Color="#FDF3DF" />
-    <SolidColorBrush x:Key="OrVif" Color="#E8B04B" />
-    <SolidColorBrush x:Key="Page" Color="#FBF8F2" />
-    <SolidColorBrush x:Key="RougeLeger" Color="#FFF6F5" />
-    <SolidColorBrush x:Key="RougeBord" Color="#F1C9C4" />
+    <SolidColorBrush x:Key="OrLeger" Color="#EEF2FF" />
+    <SolidColorBrush x:Key="OrVif" Color="#1F3FCB" />
+    <SolidColorBrush x:Key="Page" Color="#EEF0F3" />
+    <SolidColorBrush x:Key="RougeLeger" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="RougeBord" Color="#F0B8B3" />
     <SolidColorBrush x:Key="RougeTexte" Color="#B42318" />
     <SolidColorBrush x:Key="Direct" Color="#B42318" />
-    <SolidColorBrush x:Key="Trait2" Color="#D9CBB1" />
-    <SolidColorBrush x:Key="Encre2" Color="#4A433B" />
+    <SolidColorBrush x:Key="Trait2" Color="#B8BFCA" />
+    <SolidColorBrush x:Key="Encre2" Color="#3A404A" />
     <SolidColorBrush x:Key="Danger" Color="#B42318" />
-    <SolidColorBrush x:Key="SurOr" Color="#2A1E05" />
-    <SolidColorBrush x:Key="Marque" Color="#F7E3B5" />
+    <SolidColorBrush x:Key="SurOr" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Trait" Color="#E3E6EB" />
+    <SolidColorBrush x:Key="BleuFonce" Color="#152C91" />
+    <SolidColorBrush x:Key="Marque" Color="#DCE3FF" />
     <LinearGradientBrush x:Key="OrDegrade" StartPoint="0,0" EndPoint="0,1">
-        <GradientStop Color="#F2C46D" Offset="0" />
-        <GradientStop Color="#E8B04B" Offset="1" />
+        <GradientStop Color="#1F3FCB" Offset="0" />
+        <GradientStop Color="#1F3FCB" Offset="1" />
     </LinearGradientBrush>
     <LinearGradientBrush x:Key="OrDegradeClair" StartPoint="0,0" EndPoint="0,1">
-        <GradientStop Color="#F6D08A" Offset="0" />
-        <GradientStop Color="#EDBC5E" Offset="1" />
+        <GradientStop Color="#152C91" Offset="0" />
+        <GradientStop Color="#152C91" Offset="1" />
     </LinearGradientBrush>
     <!-- damier : rien à l'écran (transparent), comme la sortie -->
     <DrawingBrush x:Key="Damier" TileMode="Tile" Viewport="0,0,24,24" ViewportUnits="Absolute">
         <DrawingBrush.Drawing>
             <DrawingGroup>
-                <GeometryDrawing Brush="#F5EFE4" Geometry="M0,0 H2 V2 H0 Z" />
-                <GeometryDrawing Brush="#EEE4D2" Geometry="M0,0 H1 V1 H0 Z M1,1 H2 V2 H1 Z" />
+                <GeometryDrawing Brush="#F3F4F6" Geometry="M0,0 H2 V2 H0 Z" />
+                <GeometryDrawing Brush="#E5E7EB" Geometry="M0,0 H1 V1 H0 Z M1,1 H2 V2 H1 Z" />
             </DrawingGroup>
         </DrawingBrush.Drawing>
     </DrawingBrush>
 
-    <!-- ===================== polices (incluses dans MyVerse) ===================== -->
+    <!-- ===================== polices (incluses dans MyChurch) : projection (Literata, Atkinson, Unbounded), interface (Inter, Space Grotesk) ===================== -->
     <FontFamily x:Key="Serif">./Polices/#Literata, Georgia</FontFamily>
     <FontFamily x:Key="Sans">./Polices/#Atkinson Hyperlegible Next, Segoe UI</FontFamily>
     <FontFamily x:Key="Titre">./Polices/#Unbounded, Segoe UI</FontFamily>
-    <FontFamily x:Key="Ui">./Polices/#Atkinson Hyperlegible Next, Segoe UI</FontFamily>
-    <FontFamily x:Key="UiTitre">./Polices/#Literata, Georgia</FontFamily>
-    <FontFamily x:Key="Mono">./Polices/#Atkinson Hyperlegible Next, Segoe UI</FontFamily>
+    <FontFamily x:Key="Ui">./Polices/#Inter, Segoe UI</FontFamily>
+    <FontFamily x:Key="UiTitre">./Polices/#Inter, Segoe UI</FontFamily>
+    <FontFamily x:Key="Grotesk">./Polices/#Space Grotesk, Segoe UI</FontFamily>
+    <FontFamily x:Key="Mono">./Polices/#Inter, Segoe UI</FontFamily>
 
     <!-- ===================== focus clavier : contour or ===================== -->
     <Style x:Key="FocusOr">
@@ -87,24 +91,32 @@
     <Style x:Key="MuetPetit" TargetType="TextBlock" BasedOn="{StaticResource Muet}">
         <Setter Property="FontSize" Value="12" />
     </Style>
+    <!-- petite étiquette en capitales grises : DISPLAY, MÉLANGEUR, PISTES… -->
     <Style x:Key="CarteTitre" TargetType="TextBlock" BasedOn="{StaticResource TexteBase}">
         <Setter Property="FontFamily" Value="{StaticResource Mono}" />
-        <Setter Property="FontSize" Value="11.5" />
-        <Setter Property="FontWeight" Value="Bold" />
-        <Setter Property="Foreground" Value="{StaticResource Or}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource Brume}" />
         <Setter Property="Margin" Value="0,0,0,2" />
     </Style>
     <Style x:Key="Titre2" TargetType="TextBlock" BasedOn="{StaticResource TexteBase}">
-        <Setter Property="FontFamily" Value="{StaticResource UiTitre}" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontFamily" Value="{StaticResource Grotesk}" />
+        <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="FontSize" Value="22" />
         <Setter Property="Foreground" Value="{StaticResource Blanc}" />
     </Style>
     <Style x:Key="SousTitre" TargetType="TextBlock" BasedOn="{StaticResource TexteBase}">
-        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontFamily" Value="{StaticResource Grotesk}" />
+        <Setter Property="FontSize" Value="17" />
         <Setter Property="FontWeight" Value="Bold" />
-        <Setter Property="Foreground" Value="{StaticResource Or}" />
+        <Setter Property="Foreground" Value="{StaticResource Blanc}" />
         <Setter Property="Margin" Value="0,10,0,4" />
+    </Style>
+    <!-- titre d'une carte : Grille, Audio, Duo, Habillage de l'écran -->
+    <Style x:Key="TitreCarte" TargetType="TextBlock" BasedOn="{StaticResource TexteBase}">
+        <Setter Property="FontFamily" Value="{StaticResource UiTitre}" />
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="FontWeight" Value="Bold" />
     </Style>
     <Style x:Key="Etiquette" TargetType="TextBlock" BasedOn="{StaticResource TexteBase}">
         <Setter Property="FontWeight" Value="Bold" />
@@ -120,7 +132,7 @@
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="14,8" />
         <Setter Property="FontFamily" Value="{StaticResource Ui}" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="FontSize" Value="15" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -154,7 +166,7 @@
     <Style x:Key="BtnOr" TargetType="Button" BasedOn="{StaticResource Btn}">
         <Setter Property="Background" Value="{StaticResource OrDegrade}" />
         <Setter Property="Foreground" Value="{StaticResource SurOr}" />
-        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
@@ -166,6 +178,12 @@
         <Setter Property="Background" Value="{StaticResource RougeLeger}" />
         <Setter Property="BorderBrush" Value="{StaticResource RougeBord}" />
         <Setter Property="Foreground" Value="{StaticResource RougeTexte}" />
+    </Style>
+    <!-- bouton encadré de noir : Épingler, Lire la licence -->
+    <Style x:Key="BtnContour" TargetType="Button" BasedOn="{StaticResource Btn}">
+        <Setter Property="BorderBrush" Value="{StaticResource Blanc}" />
+        <Setter Property="BorderThickness" Value="1.5" />
+        <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
     <Style x:Key="BtnPetit" TargetType="Button" BasedOn="{StaticResource Btn}">
         <Setter Property="Padding" Value="10,5" />
@@ -260,7 +278,7 @@
     <Style x:Key="Onglet" TargetType="RadioButton">
         <Setter Property="Foreground" Value="{StaticResource Encre2}" />
         <Setter Property="FontFamily" Value="{StaticResource Ui}" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="FontSize" Value="15" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{StaticResource FocusOr}" />
@@ -275,14 +293,9 @@
                             <Setter Property="Foreground" Value="{StaticResource Blanc}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Fond" Property="Background" Value="{StaticResource Encre}" />
-                            <Setter TargetName="Fond" Property="Effect">
-                                <Setter.Value>
-                                    <DropShadowEffect Color="#3C280A" BlurRadius="6" ShadowDepth="1" Direction="270" Opacity="0.14" />
-                                </Setter.Value>
-                            </Setter>
-                            <Setter Property="Foreground" Value="{StaticResource Blanc}" />
-                            <Setter Property="FontWeight" Value="Bold" />
+                            <Setter TargetName="Fond" Property="Background" Value="{StaticResource Blanc}" />
+                            <Setter Property="Foreground" Value="{StaticResource Encre}" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -429,6 +442,31 @@
         </Setter>
     </Style>
 
+    <!-- ===================== interrupteur (filtres activés) ===================== -->
+    <Style x:Key="Interrupteur" TargetType="CheckBox">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusOr}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Border x:Name="Piste" Width="42" Height="24" CornerRadius="12" Background="{StaticResource Nuit3}" SnapsToDevicePixels="True">
+                        <Ellipse x:Name="Bouton" Width="18" Height="18" Fill="White" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="3,0,0,0" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Piste" Property="Background" Value="{StaticResource Or}" />
+                            <Setter TargetName="Bouton" Property="HorizontalAlignment" Value="Right" />
+                            <Setter TargetName="Bouton" Property="Margin" Value="0,0,3,0" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ===================== barres de défilement fines ===================== -->
     <Style x:Key="PouceDefil" TargetType="Thumb">
         <Setter Property="Template">
@@ -515,7 +553,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Thumb">
-                    <Ellipse Width="18" Height="18" Fill="{StaticResource OrVif}" Stroke="{StaticResource Encre}" StrokeThickness="2" />
+                    <Ellipse Width="16" Height="16" Fill="{StaticResource Blanc}" Stroke="{StaticResource Encre}" StrokeThickness="2" />
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -527,13 +565,13 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Slider">
                     <Grid Height="24" Background="Transparent">
-                        <Border Height="6" CornerRadius="3" Background="{StaticResource Nuit3}" VerticalAlignment="Center" />
+                        <Border Height="6" CornerRadius="3" Background="{StaticResource Trait}" VerticalAlignment="Center" />
                         <Track x:Name="PART_Track">
                             <Track.DecreaseRepeatButton>
                                 <RepeatButton Command="Slider.DecreaseLarge" Focusable="False">
                                     <RepeatButton.Template>
                                         <ControlTemplate TargetType="RepeatButton">
-                                            <Border Height="6" CornerRadius="3" Background="{StaticResource OrVif}" VerticalAlignment="Center" />
+                                            <Border Height="6" CornerRadius="3" Background="{StaticResource Blanc}" VerticalAlignment="Center" />
                                         </ControlTemplate>
                                     </RepeatButton.Template>
                                 </RepeatButton>
@@ -677,6 +715,51 @@
         </Setter>
     </Style>
 
+    <!-- élément d'une liste présenté en carte encadrée (bibliothèque Display, dossiers Duo) -->
+    <Style x:Key="ElementCarte" TargetType="ListBoxItem">
+        <Setter Property="Foreground" Value="{StaticResource Blanc}" />
+        <Setter Property="Padding" Value="12,10" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border x:Name="Fond" Background="{StaticResource Encre}" BorderBrush="{StaticResource Nuit3}" BorderThickness="1" CornerRadius="12" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Fond" Property="BorderBrush" Value="{StaticResource Trait2}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Fond" Property="BorderBrush" Value="{StaticResource Or}" />
+                            <Setter TargetName="Fond" Property="Background" Value="{StaticResource Nuit2}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <!-- section d'une fenêtre (Paramètres) : carte blanche aux coins de 12 -->
+    <Style x:Key="Section" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Nuit}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Nuit3}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="20,18" />
+        <Setter Property="Margin" Value="0,0,0,16" />
+    </Style>
+    <!-- pastille encadrée : « Moteur OBS · libobs 33.0.1 » -->
+    <Style x:Key="Puce" TargetType="Border">
+        <Setter Property="BorderBrush" Value="{StaticResource Nuit3}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="10,3" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
     <!-- ===================== info-bulles ===================== -->
     <Style TargetType="ToolTip">
         <Setter Property="Background" Value="{StaticResource Encre}" />
@@ -706,7 +789,7 @@
         <Setter Property="Background" Value="{StaticResource Nuit}" />
         <Setter Property="BorderBrush" Value="{StaticResource Nuit3}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="20" />
+        <Setter Property="CornerRadius" Value="14" />
         <Setter Property="Padding" Value="14" />
     </Style>
     <Style x:Key="Touche" TargetType="Border">

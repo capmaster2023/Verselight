@@ -15,7 +15,10 @@ public partial class MainWindow
 {
     readonly List<(Border Tuile, string Id, int I, Image? Vue, TextBlock Direct)> tuiles = new();
 
-    static readonly Brush FondTuile = new SolidColorBrush(Color.FromRgb(0x1C, 0x17, 0x12));
+    static readonly Brush FondTuile = Fige(new SolidColorBrush(Color.FromRgb(0x17, 0x1A, 0x1F)));
+    static readonly Brush FondTuileSource = Fige(new SolidColorBrush(Color.FromRgb(0x27, 0x2D, 0x36)));
+    static readonly Brush TexteTuile = Fige(new SolidColorBrush(Color.FromRgb(0xC9, 0xCE, 0xD6)));
+    static Brush Fige(Brush b) { b.Freeze(); return b; }
 
     void InitGrille()
     {
@@ -96,9 +99,9 @@ public partial class MainWindow
 
     Border Tuile(Annonce a, int i, string texte, int total, int numero)
     {
-        var vue = new Grid { Background = FondTuile };
-        Image? image = null;
         string type = a.Source?.Type ?? "texte";
+        var vue = new Grid { Background = type == "texte" ? FondTuile : FondTuileSource };
+        Image? image = null;
         if (type == "texte")
             vue.Children.Add(new Viewbox
             {
@@ -109,8 +112,8 @@ public partial class MainWindow
         {
             vue.Children.Add(new TextBlock
             {
-                Text = type == "camera" ? "Caméra" : type == "fenetre" ? "Fenêtre" : type == "duo" ? "Duo · 2 éléments" : "Image", FontSize = 15, FontWeight = FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Color.FromRgb(0xC9, 0xBE, 0xAA)), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+                Text = type == "camera" ? "Caméra" : type == "fenetre" ? "Fenêtre" : type == "duo" ? "Duo · 2 éléments" : type == "video" ? "Vidéo" : "Image", FontSize = 15,
+                Foreground = TexteTuile, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
             });
             image = new Image { Stretch = Stretch.Uniform };
             if (type == "image" && a.Source?.Chemin is { Length: > 0 } chemin)
@@ -128,23 +131,24 @@ public partial class MainWindow
                 catch (Exception) { }
             vue.Children.Add(image);
         }
-        var direct = new TextBlock { Text = "EN DIRECT", FontSize = 10.5, FontWeight = FontWeights.Bold, Foreground = Pinceau("Direct"), VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed };
-        var bas = new DockPanel { Margin = new Thickness(8, 6, 8, 7) };
+        var direct = new TextBlock { Text = "EN DIRECT", FontSize = 10.5, FontWeight = FontWeights.Bold, Foreground = Pinceau("Direct"), VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed, Margin = new Thickness(6, 0, 0, 0) };
+        var bas = new DockPanel { Margin = new Thickness(14, 10, 12, 11) };
         DockPanel.SetDock(direct, Dock.Right);
         bas.Children.Add(direct);
         bas.Children.Add(new TextBlock
         {
-            Text = numero + " · " + a.Titre + (total > 1 ? $" ({i + 1}/{total})" : ""), FontSize = 12.5, FontWeight = FontWeights.SemiBold,
+            Text = numero + " · " + a.Titre + (total > 1 ? $" ({i + 1}/{total})" : ""), FontSize = 14, FontWeight = FontWeights.SemiBold,
             Foreground = Pinceau("Blanc"), TextTrimming = TextTrimming.CharacterEllipsis,
         });
         var pile = new DockPanel();
         DockPanel.SetDock(bas, Dock.Bottom);
         pile.Children.Add(bas);
-        pile.Children.Add(new Border { Height = 118, CornerRadius = new CornerRadius(9), ClipToBounds = true, Child = vue });
+        // la vignette sombre remplit le haut de la tuile (coins arrondis en haut seulement), le nom est dessous sur fond blanc
+        pile.Children.Add(new Border { Height = 124, CornerRadius = new CornerRadius(10, 10, 0, 0), ClipToBounds = true, Child = vue });
         var tuile = new Border
         {
-            Width = 216, Margin = new Thickness(0, 0, 12, 12), Padding = new Thickness(4), CornerRadius = new CornerRadius(13), Cursor = Cursors.Hand,
-            Background = Pinceau("Encre"), BorderBrush = Pinceau("Nuit3"), BorderThickness = new Thickness(2), Child = pile,
+            Width = 236, Margin = new Thickness(0, 0, 14, 14), Padding = new Thickness(0), CornerRadius = new CornerRadius(12), Cursor = Cursors.Hand,
+            Background = Pinceau("Encre"), BorderBrush = Pinceau("Nuit3"), BorderThickness = new Thickness(1.5), Child = pile,
             ToolTip = "Clic : en direct · clic droit : modifier, retirer",
         };
         tuile.MouseLeftButtonUp += (_, _) => R.AfficherAnnonce(a, i);
@@ -164,6 +168,7 @@ public partial class MainWindow
         {
             bool ok = c != null && c.Element == t.Id && c.I == t.I || dossier == null && cible is CibleDisplay cd && cd.Id == t.Id || tuileDuo == t.Id;
             t.Tuile.BorderBrush = Pinceau(ok ? "Direct" : "Nuit3");
+            t.Tuile.BorderThickness = new Thickness(ok ? 2 : 1.5);
             t.Direct.Visibility = ok ? Visibility.Visible : Visibility.Collapsed;
             if (t.Vue != null) t.Vue.Source = ok ? App.Sources.Image : null;
         }
@@ -190,7 +195,7 @@ public partial class MainWindow
     void MajProjection()
     {
         if (ProjectionTexte == null) return;
-        ProjectionTexte.Text = ProjectionCompact ? "Projection" : "Projection · " + NomEcran();
+        ProjectionTexte.Text = ProjectionCompact ? "Projection" : ecran == null ? "Projection arrêtée" : "Projection · " + NomEcran();
         ProjectionBtn.ToolTip = "Choisir l'écran de projection · " + NomEcran();
         ProjectionPoint.Fill = Pinceau(ecran != null ? "Vert" : "Brume2");
         if (GrilleInfo != null) GrilleInfo.Text = ecran != null ? "Écran : " + NomEcran() : "Aucun écran choisi (bouton Projection en haut)";

@@ -113,7 +113,7 @@ public partial class MainWindow
         DuoPile.Children.Add(new Viewbox
         {
             MaxWidth = PlanL, Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 14),
-            Child = new Border { Width = PlanL, Height = PlanH, CornerRadius = new CornerRadius(10), ClipToBounds = true, Background = new SolidColorBrush(Color.FromRgb(0x1C, 0x17, 0x12)), Child = duoPlan },
+            Child = new Border { Width = PlanL, Height = PlanH, CornerRadius = new CornerRadius(10), ClipToBounds = true, Background = new SolidColorBrush(Color.FromRgb(0x17, 0x1A, 0x1F)), Child = duoPlan },
         });
 
         var parts = new WrapPanel();
