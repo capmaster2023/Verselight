@@ -160,39 +160,48 @@ public sealed partial class Regie
         Signaler();
     }
 
-    // ------------------------------------------------------------ retirer, suivant, précédent
     // ------------------------------------------------------------ Duo
     /// <summary>Épingle ce qui est à l'écran (il part dans le coin) ; l'écran principal se libère pour autre chose.</summary>
-    public bool Epingler()
+    public bool Epingler(string? libelle = null)
     {
         if (Etat.Vide) { Dire("Affichez d'abord ce que vous voulez épingler."); return false; }
         var e = Etat with { Duo = null, Presentation = "plein" };
-        var libelle = e.Ref.Length > 0 ? e.Ref : e.Lignes.FirstOrDefault(l => l.Trim().Length > 0)?.Trim() ?? "Source";
+        if (string.IsNullOrWhiteSpace(libelle))
+            libelle = e.Ref.Length > 0 ? e.Ref : e.Lignes.FirstOrDefault(l => l.Trim().Length > 0)?.Trim() ?? "Source";
         var r = donnees.Reglages;
-        Etat = Etat with { Duo = new DuoEcran(e, libelle, r.DuoPlace, r.DuoPart) };
+        Etat = Etat with { Duo = new DuoEcran(e, libelle.Trim(), PlaceValide(r.DuoPlace), PartValide(r.DuoPart)) };
         Effacer();
         return true;
     }
 
+    /// <summary>Retire le contenu épinglé ; l'écran principal ne change pas.</summary>
     public void Desepingler()
     {
         if (Etat.Duo == null) return;
         Etat = Etat with { Duo = null };
+        if (Etat.Vide) Oeil?.Invoke(false);
         Signaler();
     }
 
+    static string PlaceValide(string? place) => place is "hd" or "hg" or "bd" or "bg" or "cote" ? place : "hd";
+    static double PartValide(double part) => double.IsNaN(part) ? 0.35 : Math.Clamp(Math.Round(part, 2), 0.2, 0.5);
+
+    /// <summary>Place du contenu épinglé (hd, hg, bd, bg ou cote) et sa part de l'écran (0,2 à 0,5). Gardé pour la prochaine fois.</summary>
     public void PlaceDuo(string place, double part)
     {
         var r = donnees.Reglages;
-        r.DuoPlace = place is "hd" or "hg" or "bd" or "bg" or "cote" ? place : "hd";
-        r.DuoPart = Math.Clamp(part, 0.2, 0.5);
+        r.DuoPlace = PlaceValide(place);
+        r.DuoPart = PartValide(part);
         donnees.SauverReglages();
         if (Etat.Duo is { } d) { Etat = Etat with { Duo = d with { Place = r.DuoPlace, Part = r.DuoPart } }; Signaler(); }
     }
 
+    // ------------------------------------------------------------ retirer, suivant, précédent
+    /// <summary>Vide l'écran principal. Le contenu épinglé (Duo) reste : « Retirer le duo » l'enlève.</summary>
     public void Effacer()
     {
-        Oeil?.Invoke(false);
+        // avec un Duo, il reste quelque chose à montrer : la source OBS reste visible
+        Oeil?.Invoke(Etat.Duo != null);
         Etat = Etat with { Mode = "vide", Media = null, Lignes = Array.Empty<string>(), Ref = "", Second = null };
         Cible = null;
         ElementCourant = null;

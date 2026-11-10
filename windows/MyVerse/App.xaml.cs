@@ -13,6 +13,8 @@ public partial class App : Application
     public static Regie Regie { get; private set; } = null!;
     public static SortieObs SortieObs { get; private set; } = null!;
     public static SourcesDisplay Sources { get; private set; } = null!;
+    /// <summary>Capture du contenu épinglé (Duo), en même temps que celle de l'écran principal.</summary>
+    public static SourcesDisplay SourcesDuo { get; private set; } = null!;
     public static MyVirtualCam? CameraVirtuelle { get; private set; }
     public static Obs Obs { get; private set; } = null!;
     public static Telephone Telephone { get; private set; } = null!;
@@ -113,6 +115,7 @@ public partial class App : Application
         });
 
         Sources = new SourcesDisplay();
+        SourcesDuo = new SourcesDisplay("display-duo.jpg");
         if (AutoTest == null || Environment.GetEnvironmentVariable("MYCHURCH_TEST_CAM") == "1")
             try { CameraVirtuelle = new MyVirtualCam(); } catch (Exception ex) { Journal.Erreur("MyVirtualCam démarrage", ex); }
         var w = new MainWindow();
@@ -148,6 +151,7 @@ public partial class App : Application
     {
         Journal.Info("fermeture de MyVerse");
         Sources?.Dispose();
+        SourcesDuo?.Dispose();
         CameraVirtuelle?.Dispose();
         try { Telephone?.Dispose(); } catch (Exception) { }
         try { Obs?.Dispose(); } catch (Exception) { }

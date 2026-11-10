@@ -209,6 +209,7 @@ public partial class MainWindow : Window
         InitAgenda();
         InitDisplay();
         InitGrille();
+        InitDuo();
         AgendaAjoutBible.Click += (_, _) =>
         {
             if (sel is Ref s && s.V1 > 0) Toast($"{R.AjouterBibleAgenda(s).Titre} ajouté au déroulé « {R.Agenda.Nom} ».");
@@ -365,6 +366,10 @@ public partial class MainWindow : Window
                 BasculerNoir();
                 e.Handled = true;
                 break;
+            case Key.P:
+                BasculerDuo();
+                e.Handled = true;
+                break;
             case Key.Right or Key.Space or Key.PageDown:
                 R.Bouger(1);
                 e.Handled = true;
@@ -403,6 +408,7 @@ public partial class MainWindow : Window
         Ajout("précédent", "←");
         Ajout("retirer", "Échap");
         Ajout("écran noir", "B");
+        Ajout("épingler (duo)", "P");
         Ajout("diapositive", "1–9");
     }
 
@@ -827,16 +833,20 @@ public partial class MainWindow : Window
     {
         // écran noir : le texte est caché sans être perdu ; une nouvelle diapositive le rallume
         if (noir && !ReferenceEquals(R.Etat, etatNoir)) noir = false;
-        var e = noir ? R.Etat with { Mode = "vide", Media = null, Lignes = Array.Empty<string>(), Ref = "", Second = null } : R.Etat;
+        var e = EtatProjete();
         App.Sources.Choisir(e);
+        ChoisirSourceDuo(e);
         ApercuRendu.Afficher(e);
         App.CameraVirtuelle?.Afficher(e);
         ecran?.Rendu.Afficher(e);
         ApercuRendu.ImageDisplay(App.Sources.Image);
         ecran?.Rendu.ImageDisplay(App.Sources.Image);
+        ImagesDuo();
         App.SortieObs.Ecrire(e);
-        Apercu.BorderBrush = Pinceau(e.Vide ? "Nuit3" : "OrVif");
-        Apercu.Background = e.Vide || e.Theme == "transparent" ? Pinceau("Damier") : Brushes.Black;
+        bool rien = e.Vide && e.Duo == null;
+        Apercu.BorderBrush = Pinceau(rien ? "Nuit3" : "OrVif");
+        Apercu.Background = rien || e.Theme == "transparent" ? Pinceau("Damier") : Brushes.Black;
+        MajDuo();
         MajPastille();
         var s = R.Prochaine();
         SuivantLab.Text = s?.Label ?? "—";
@@ -860,7 +870,7 @@ public partial class MainWindow : Window
     {
         var e = R.Etat;
         bool ouvert = R.EcranOuvert();
-        PastilleTexte.Text = noir ? "Écran noir" : ouvert ? (e.Vide ? "Écran ouvert · vide" : "À l'écran") : App.Obs.Actif ? "OBS non connecté" : "Aperçu seulement";
+        PastilleTexte.Text = noir ? "Écran noir" : ouvert ? (e.Vide && e.Duo == null ? "Écran ouvert · vide" : "À l'écran") : App.Obs.Actif ? "OBS non connecté" : "Aperçu seulement";
         Pastille.Background = ouvert && !noir ? Pinceau("Vert") : new SolidColorBrush(Color.FromArgb(0xD9, 0xFF, 0xFF, 0xFF));
         PastilleTexte.Foreground = ouvert && !noir ? new SolidColorBrush(Color.FromRgb(0x03, 0x20, 0x10)) : Pinceau("Brume");
         var m = App.Donnees.Reglages.Ecran;
@@ -890,7 +900,7 @@ public partial class MainWindow : Window
         App.Donnees.Reglages.Ecran = new EcranChoisi { Mode = plein ? "plein" : "fenetre", X = m.X, Y = m.Y, W = m.W, H = m.H, Nom = m.Nom, Principal = m.Principal };
         App.Donnees.SauverReglages();
         w.Show();
-        w.Rendu.Afficher(noir ? R.Etat with { Mode = "vide", Media = null, Lignes = Array.Empty<string>(), Ref = "", Second = null } : R.Etat);
+        w.Rendu.Afficher(EtatProjete());
         Toast(plein ? $"Projection plein écran sur {m.Nom}." : "Projection en fenêtre.");
         MajEcran();
         App.Telephone.Actualiser();

@@ -284,6 +284,37 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Duo : deux contenus en même temps (un contenu épinglé dans un coin, ou côte à côte) -->
+                        <Border Style="{StaticResource Carte}" Padding="16" Margin="0,14,0,0">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock x:Name="DuoEtat" DockPanel.Dock="Right" Text="rien d'épinglé" FontSize="12" Foreground="{StaticResource Brume}" VerticalAlignment="Center" />
+                                    <TextBlock Text="DUO" Style="{StaticResource CarteTitre}" Margin="0" VerticalAlignment="Center" />
+                                </DockPanel>
+                                <TextBlock x:Name="DuoAide" Text="Deux contenus en même temps : affichez le premier, épinglez-le, puis affichez le second." FontSize="12" Foreground="{StaticResource Brume}" TextWrapping="Wrap" Margin="0,0,0,10" />
+                                <Border x:Name="DuoBoite" Background="{StaticResource Nuit2}" CornerRadius="12" Padding="12,9" Margin="0,0,0,10" Visibility="Collapsed">
+                                    <DockPanel>
+                                        <TextBlock Text="ÉPINGLÉ" DockPanel.Dock="Left" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Or}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                        <TextBlock x:Name="DuoLibelle" FontSize="13" FontWeight="Bold" Foreground="{StaticResource Blanc}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                    </DockPanel>
+                                </Border>
+                                <Button x:Name="DuoEpingler" Style="{StaticResource BtnOr}" Content="Épingler ce qui est à l'écran" Height="44" Padding="0" ToolTip="Touche P · ce qui est à l'écran part dans le coin, l'écran se libère pour autre chose" />
+                                <Button x:Name="DuoRetirer" Style="{StaticResource Btn}" Content="Retirer le duo" Height="44" Padding="0" Margin="0,8,0,0" IsEnabled="False" ToolTip="Touche P · retire seulement le contenu épinglé" />
+                                <DockPanel Margin="0,12,0,0">
+                                    <ComboBox x:Name="DuoPlace" DockPanel.Dock="Right" Width="150" ToolTip="Place du contenu épinglé">
+                                        <ComboBoxItem Tag="hd" Content="Haut droite" />
+                                        <ComboBoxItem Tag="hg" Content="Haut gauche" />
+                                        <ComboBoxItem Tag="bd" Content="Bas droite" />
+                                        <ComboBoxItem Tag="bg" Content="Bas gauche" />
+                                        <ComboBoxItem Tag="cote" Content="Côte à côte" />
+                                    </ComboBox>
+                                    <TextBlock Text="Place" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Encre2}" VerticalAlignment="Center" />
+                                </DockPanel>
+                                <TextBlock x:Name="DuoTailleLab" Text="Taille du contenu épinglé : 35 %" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Encre2}" Margin="0,12,0,4" />
+                                <Slider x:Name="DuoTaille" Minimum="20" Maximum="50" SmallChange="5" LargeChange="5" TickFrequency="5" IsSnapToTickEnabled="True" Value="35" />
+                            </StackPanel>
+                        </Border>
+
                         <Border Style="{StaticResource Carte}" Padding="16" Margin="0,14,0,0">
                             <StackPanel>
                                 <TextBlock Text="HABILLAGE DE L'ÉCRAN" Style="{StaticResource CarteTitre}" Margin="0,0,0,10" />

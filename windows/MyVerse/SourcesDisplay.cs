@@ -9,9 +9,14 @@ using OpenCvSharp;
 
 namespace MyVerse.Ui;
 
-/// <summary>Only the explicitly selected device/window is captured. No audio is recorded.</summary>
+/// <summary>Only the explicitly selected device/window is captured. No audio is recorded.
+/// Une instance par contenu vivant : App.Sources (écran principal) et App.SourcesDuo (contenu épinglé du Duo).</summary>
 public sealed class SourcesDisplay : IDisposable
 {
+    /// <summary>Nom de l'image écrite pour la page OBS : display.jpg (écran principal) ou display-duo.jpg (Duo).</summary>
+    readonly string export;
+    public SourcesDisplay(string export = "display.jpg") { this.export = export; }
+
     public sealed record Peripherique(int Index, string Nom, string Id);
     public sealed record Fenetre(long Handle, int Processus, string Titre);
     public BitmapSource? Image { get; private set; }
@@ -23,9 +28,11 @@ public sealed class SourcesDisplay : IDisposable
     int generation;
     long dernierExport;
 
-    public void Choisir(EtatEcran etat)
+    public void Choisir(EtatEcran etat) => ChoisirSource(etat.Mode == "media" ? etat.Media : null);
+
+    /// <summary>La source à capturer (null : aucune). Sans effet si c'est déjà elle.</summary>
+    public void ChoisirSource(SourceDisplay? nouvelle)
     {
-        var nouvelle = etat.Mode == "media" ? etat.Media : null;
         if (nouvelle == source) return;
         source = nouvelle;
         try { fin?.Cancel(); } catch (ObjectDisposedException) { }
@@ -117,21 +124,21 @@ public sealed class SourcesDisplay : IDisposable
             BitmapSource sortie = b.PixelWidth > 1280 ? new TransformedBitmap(b, new ScaleTransform(1280.0 / b.PixelWidth, 1280.0 / b.PixelWidth)) : b;
             var encoder = new JpegBitmapEncoder { QualityLevel = 85 };
             encoder.Frames.Add(BitmapFrame.Create(sortie));
-            var path = Path.Combine(App.SortieObs.Dossier, "display.jpg");
+            var path = Path.Combine(App.SortieObs.Dossier, export);
             using (var file = File.Create(path + ".tmp")) encoder.Save(file);
             if (g == generation) File.Move(path + ".tmp", path, true);
         }
         catch (IOException) { }
     }
 
-    static void ViderExport()
+    void ViderExport()
     {
         if (!App.SortieObs.Prete) return;
         try
         {
             var encoder = new JpegBitmapEncoder();
             encoder.Frames.Add(BitmapFrame.Create(BitmapSource.Create(1, 1, 96, 96, PixelFormats.Bgr24, null, new byte[3], 3)));
-            var path = Path.Combine(App.SortieObs.Dossier, "display.jpg");
+            var path = Path.Combine(App.SortieObs.Dossier, export);
             // Distinct temp path: an in-flight old source may still finish encoding its last frame.
             using (var f = File.Create(path + ".blank")) encoder.Save(f);
             File.Move(path + ".blank", path, true);
@@ -140,6 +147,7 @@ public sealed class SourcesDisplay : IDisposable
     }
 
     public void Reconnecter(EtatEcran e) { source = null; Choisir(e); }
+    public void ReconnecterSource(SourceDisplay? s) { source = null; ChoisirSource(s); }
     public void Dispose() { ++generation; try { fin?.Cancel(); } catch (ObjectDisposedException) { } }
 
     public static List<Peripherique> Peripheriques()

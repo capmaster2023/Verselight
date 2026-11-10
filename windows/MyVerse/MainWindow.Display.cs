@@ -14,7 +14,7 @@ public partial class MainWindow
         DisplayImage.Click += (_, _) => AjouterImage();
         DisplayCamera.Click += (_, _) => AjouterCamera();
         DisplayFenetre.Click += (_, _) => AjouterFenetre();
-        DisplayReconnecter.Click += (_, _) => App.Sources.Reconnecter(R.Etat);
+        DisplayReconnecter.Click += (_, _) => ReconnecterSources();
         VirtualCamBtn.Click += (_, _) =>
         {
             if (MyVirtualCam.Installee) Toast("MyVirtualCam est disponible. Choisissez-la comme caméra dans votre logiciel vidéo.");
@@ -34,6 +34,7 @@ public partial class MainWindow
         {
             var b = App.Sources.Image;
             ApercuRendu.ImageDisplay(b); ecran?.Rendu.ImageDisplay(b); App.CameraVirtuelle?.Media(b);
+            if (duoMemeSource) ImagesDuo();
             DisplaySourceInfo.Text = App.Sources.Statut;
         };
     }

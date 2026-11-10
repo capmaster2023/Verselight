@@ -34,6 +34,8 @@ public sealed class MyVirtualCam : IDisposable
     }
     public void Afficher(EtatEcran e) { rendu.Afficher(e); sale = true; }
     public void Media(BitmapSource? b) { rendu.ImageDisplay(b); sale = true; }
+    /// <summary>Image vivante du contenu épinglé (Duo).</summary>
+    public void MediaDuo(BitmapSource? b) { rendu.ImageDuo(b); sale = true; }
     void Publier()
     {
         try

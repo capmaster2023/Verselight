@@ -78,14 +78,15 @@ public sealed class Rendu : Grid
         SizeChanged += (_, _) => { Placer(); Ajuster(); PlacerDuo(); };
     }
 
-    public void ImageDisplay(ImageSource? image) { media.Source = image; gauche?.ImageDisplay(image); }
+    public void ImageDisplay(ImageSource? image) { media.Source = image; if (gauche != null) gauche.media.Source = image; }
 
     // ------------------------------------------------------------ Duo : un second contenu dans un coin, ou côte à côte
     Rendu? gauche, epingle;
     DuoEcran? duo;
+    ImageSource? imageDuo;
 
     /// <summary>Image vivante (caméra, fenêtre, image) du contenu épinglé.</summary>
-    public void ImageDuo(ImageSource? image) { if (epingle != null) epingle.media.Source = image; }
+    public void ImageDuo(ImageSource? image) { imageDuo = image; if (epingle != null) epingle.media.Source = image; }
 
     Rendu Enfant(ref Rendu? r)
     {
@@ -94,33 +95,46 @@ public sealed class Rendu : Grid
             r = new Rendu { Transitions = Transitions, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
             Children.Add(r);
         }
+        r.Transitions = Transitions;
         return r;
     }
 
+    /// <summary>Taille connue : celle du dessin, sinon celle demandée (aperçu 1920 × 1080, caméra virtuelle) avant la première mise en page.</summary>
+    static double Cote(double reel, double demande) => reel > 0 ? reel : double.IsNaN(demande) ? 0 : demande;
+
     void PlacerDuo()
     {
-        double W = ActualWidth, H = ActualHeight;
-        if (W <= 0 || H <= 0) return;
         if (duo == null)
         {
             if (gauche != null) gauche.Visibility = Visibility.Collapsed;
             if (epingle != null) epingle.Visibility = Visibility.Collapsed;
             return;
         }
+        // les deux dessins existent toujours quand il y a un Duo, même si la taille n'est pas encore connue
         var ep = Enfant(ref epingle);
         ep.Visibility = Visibility.Visible;
+        ep.media.Source = imageDuo;
+        Rendu? g = null;
         if (duo.Place == "cote")
         {
-            var g = Enfant(ref gauche);
+            g = Enfant(ref gauche);
             g.Visibility = Visibility.Visible;
+            g.media.Source = media.Source;
+        }
+        else if (gauche != null) gauche.Visibility = Visibility.Collapsed;
+        double W = Cote(ActualWidth, Width), H = Cote(ActualHeight, Height);
+        if (W <= 0 || H <= 0) return;
+        if (g != null)
+        {
+            // côte à côte : deux moitiés de même forme que l'écran, centrées en hauteur ; le fond principal reste visible autour
             double w = W / 2, h = H / 2, y = (H - h) / 2;
             g.Width = w; g.Height = h; g.Margin = new Thickness(0, y, 0, 0);
             ep.Width = w; ep.Height = h; ep.Margin = new Thickness(w, y, 0, 0);
         }
         else
         {
-            if (gauche != null) gauche.Visibility = Visibility.Collapsed;
-            double w = W * duo.Part, h = H * duo.Part, m = 0.03 * H;
+            double part = Math.Clamp(duo.Part, 0.2, 0.5);
+            double w = W * part, h = H * part, m = 0.03 * H;
             ep.Width = w; ep.Height = h;
             ep.Margin = new Thickness(duo.Place is "hg" or "bg" ? m : W - w - m, duo.Place is "hd" or "hg" ? m : H - h - m, 0, 0);
         }
@@ -132,16 +146,22 @@ public sealed class Rendu : Grid
         duo = e.Duo;
         var seul = e with { Duo = null };
         PlacerDuo();
-        if (duo != null)
+        if (duo == null)
         {
-            epingle!.Afficher(duo.Etat with { Theme = e.Theme, Taille = e.Taille, Presentation = "plein" });
-            if (duo.Place == "cote")
-            {
-                gauche!.Afficher(seul with { Presentation = "plein" });
-                AfficherSeul(seul with { Mode = "vide", Media = null, Lignes = Array.Empty<string>(), Ref = "", Second = null });
-                Animer(fond, 1, 0);
-                return;
-            }
+            // plus de Duo : les dessins cachés ne gardent ni texte ni image
+            if (epingle != null) { epingle.media.Source = null; imageDuo = null; }
+            if (gauche != null) gauche.media.Source = null;
+            AfficherSeul(seul);
+            return;
+        }
+        epingle!.Afficher(duo.Etat with { Duo = null, Theme = e.Theme, Taille = e.Taille, Presentation = "plein" });
+        if (duo.Place == "cote")
+        {
+            gauche!.Afficher(seul with { Presentation = "plein" });
+            // l'écran principal ne garde que son fond, visible derrière les deux moitiés
+            AfficherSeul(seul with { Mode = "vide", Media = null, Lignes = Array.Empty<string>(), Ref = "", Second = null });
+            Animer(fond, 1, 0);
+            return;
         }
         AfficherSeul(seul);
     }

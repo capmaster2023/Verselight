@@ -66,13 +66,14 @@ public partial class MainWindow
     {
         var m = new ContextMenu();
         m.Items.Add(Article("Afficher en direct", () => R.AfficherAnnonce(a), true));
+        m.Items.Add(Article("Afficher puis épingler", () => EpinglerDisplay(a)));
         m.Items.Add(Article("Modifier…", () => ModifierDisplay(a)));
         m.Items.Add(a.Grille ? Article("Retirer de la grille", () => R.GrilleAnnonce(a.Id, false)) : Article("Ajouter à la grille", () => R.GrilleAnnonce(a.Id, true)));
         m.Items.Add(Article("Ajouter au déroulé du culte", () =>
         {
             if (R.AjouterAnnonceAgenda(a.Id) is { } el) Toast($"« {el.Titre} » ajouté au déroulé « {R.Agenda.Nom} ».");
         }));
-        if (a.Source?.Type is "camera" or "fenetre") m.Items.Add(Article("Reconnecter la source", () => App.Sources.Reconnecter(R.Etat)));
+        if (a.Source?.Type is "camera" or "fenetre") m.Items.Add(Article("Reconnecter la source", ReconnecterSources));
         m.Items.Add(new Separator());
         m.Items.Add(Article("Supprimer", () => SupprimerDisplay(a)));
         Ouvrir(m, cible, PlacementMode.MousePoint);
