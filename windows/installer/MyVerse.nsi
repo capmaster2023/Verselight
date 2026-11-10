@@ -1,11 +1,13 @@
-; Installateur de MyChurch 4 (logiciel Windows natif), compilé sur GitHub Actions.
+; Installateur de MyChurch 3 (logiciel Windows natif), compilé sur GitHub Actions.
+; Le dossier « app » (copié en entier, sous-dossiers compris) contient aussi « obs » : libobs (OBS Studio 33.0.1, GNU GPL v2 ou ultérieure)
+; et COPYING.txt. VB-CABLE n'est jamais inclus : MyChurch le télécharge à la demande depuis le site officiel.
 ; Installation par utilisateur (pas besoin d'être administrateur), au même endroit que la 3.x : la mise à jour la remplace.
 ; Chants, réglages, Bibles importées et téléphones jumelés (%APPDATA%\VerseLight) sont gardés.
 Unicode true
 !include "MUI2.nsh"
 
 !ifndef VERSION
-  !define VERSION "1.2.0-beta"
+  !define VERSION "3.0.0"
 !endif
 !define APP "MyChurch"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\MyVerse"
@@ -21,7 +23,7 @@ SetCompressor /SOLID lzma
 !define MUI_FINISHPAGE_RUN "$INSTDIR\MyChurch.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "Lancer MyChurch"
 
-VIProductVersion "1.2.0.0"
+VIProductVersion "3.0.0.0"
 VIAddVersionKey /LANG=1036 "ProductName" "MyChurch"
 VIAddVersionKey /LANG=1036 "FileDescription" "Installateur de MyChurch"
 VIAddVersionKey /LANG=1036 "FileVersion" "${VERSION}"
@@ -91,6 +93,11 @@ Section "MyVerse"
   RMDir /r "$INSTDIR\.tmp"
   RMDir /r "$INSTDIR\.storage"
 
+  ; moteur audio OBS : remplacé en entier à chaque mise à jour (aucun ancien module ne reste),
+  ; seulement dans un dossier de MyChurch (MyChurch est déjà fermé par FermerMyVerse)
+  IfFileExists "$INSTDIR\MyChurch.exe" 0 +2
+    RMDir /r "$INSTDIR\obs"
+
   ; MyVirtualCam : quand un logiciel (OBS, Zoom…) utilise la caméra virtuelle, Windows garde ses deux fichiers ouverts
   ; et refuse de les remplacer (« Erreur lors de l'ouverture du fichier en écriture »). Un fichier ouvert peut par contre
   ; être renommé : les anciens passent en .old, les nouveaux s'écrivent à leur place, et les .old sont supprimés
@@ -145,7 +152,8 @@ Section "Uninstall"
   Delete "$DESKTOP\MyChurch.lnk"
   Delete "$SMPROGRAMS\MyChurch.lnk"
   ; par sécurité : on ne vide le dossier que si c'est bien celui de MyVerse
-  IfFileExists "$INSTDIR\MyChurch.exe" 0 +2
+  IfFileExists "$INSTDIR\MyChurch.exe" 0 +3
+    RMDir /r "$INSTDIR\obs"
     RMDir /r "$INSTDIR"
   RMDir "$INSTDIR"
   DeleteRegKey HKCU "${UNINST_KEY}"

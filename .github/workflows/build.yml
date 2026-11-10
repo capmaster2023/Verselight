@@ -34,9 +34,68 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Tests du cœur (Bible, recherche, chants, téléphone)
+      - name: Moteur audio OBS (libobs 33.0.1, paquet officiel, SHA-256 vérifié)
         run: |
           New-Item -ItemType Directory -Force ci | Out-Null
+          $zip = "$env:RUNNER_TEMP\obs-33.0.1.zip"
+          Invoke-WebRequest "https://github.com/obsproject/obs-studio/releases/download/33.0.1/OBS-Studio-33.0.1-Windows-x64.zip" -OutFile $zip
+          $sha = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          "OBS 33.0.1 : SHA-256 $sha" | Tee-Object -FilePath ci/obs.txt
+          if ($sha -ne "0d9436451c2d772b33428e3fdae9776f071895c335de17283176306fb72651d3") { throw "SHA-256 du paquet OBS inattendu" }
+          $tmp = "$env:RUNNER_TEMP\obs-33.0.1"
+          Expand-Archive $zip -DestinationPath $tmp -Force
+          # seulement libobs et ses bibliothèques (pas l'interface d'OBS : ni Qt, ni obs64.exe, ni les *-test.exe), plus trois modules
+          $obs = "out/obs"
+          New-Item -ItemType Directory -Force "$obs/bin/64bit", "$obs/data", "$obs/core" | Out-Null
+          Get-ChildItem "$tmp/bin/64bit/*.dll" | Where-Object { $_.Name -notlike 'Qt6*' -and $_.Name -notin @('obs-frontend-api.dll', 'obs-scripting.dll') } | Copy-Item -Destination "$obs/bin/64bit"
+          Copy-Item -Recurse "$tmp/data/libobs" "$obs/data/libobs"
+          foreach ($m in @("win-wasapi", "obs-filters", "obs-ffmpeg")) {
+            New-Item -ItemType Directory -Force "$obs/core/$m" | Out-Null
+            Copy-Item "$tmp/core/$m/$m.dll" "$obs/core/$m/"
+            Copy-Item -Recurse "$tmp/core/$m/data" "$obs/core/$m/data"
+          }
+          # runtime Microsoft Visual C++ 2015-2022 (fichiers redistribuables) : libobs en a besoin, il n'est pas dans le zip d'OBS
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+          $crt = Get-ChildItem "$vs\VC\Redist\MSVC" -Directory | Where-Object { $_.Name -match '^\d+\.\d+\.\d+$' } | Sort-Object { [version]$_.Name } -Descending |
+            ForEach-Object { Get-ChildItem "$($_.FullName)\x64" -Directory -Filter "Microsoft.VC14*.CRT" -ErrorAction SilentlyContinue } | Select-Object -First 1
+          if (-not $crt) { throw "Runtime Visual C++ introuvable sur la machine de compilation" }
+          foreach ($f in @("vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll")) { Copy-Item "$($crt.FullName)\$f" "$obs/bin/64bit/" }
+          "runtime Visual C++ : $($crt.FullName)" | Tee-Object -FilePath ci/obs.txt -Append
+          # chaque DLL chargée par MyChurch doit trouver ses dépendances : dans bin/64bit, ou dans Windows (le runtime Visual C++ doit être dans bin/64bit)
+          $dumpbin = Get-ChildItem "$vs\VC\Tools\MSVC" -Recurse -Filter dumpbin.exe | Where-Object { $_.FullName -like '*Hostx64\x64*' } | Select-Object -First 1
+          if (-not $dumpbin) { throw "dumpbin introuvable" }
+          $bin = (Resolve-Path "$obs/bin/64bit").Path
+          $crtNoms = @("vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll")
+          $file = New-Object System.Collections.Generic.Queue[string]
+          foreach ($f in @("$obs/bin/64bit/obs.dll", "$obs/bin/64bit/libobs-d3d11.dll", "$obs/core/win-wasapi/win-wasapi.dll", "$obs/core/obs-filters/obs-filters.dll", "$obs/core/obs-ffmpeg/obs-ffmpeg.dll")) { $file.Enqueue((Resolve-Path $f).Path) }
+          $vus = @{}
+          $manque = @()
+          while ($file.Count -gt 0) {
+            $f = $file.Dequeue()
+            if ($vus.ContainsKey($f)) { continue }
+            $vus[$f] = $true
+            $mode = $false
+            $deps = foreach ($l in (& $dumpbin.FullName /nologo /dependents $f)) {
+              if ($l -match 'following dependencies') { $mode = $true; continue }
+              if ($l -match 'delay load dependencies' -or $l -match '^\s*Summary') { $mode = $false; continue }
+              if ($mode -and $l -match '^\s+(\S+\.dll)\s*$') { $Matches[1] }
+            }
+            foreach ($d in $deps) {
+              $local = Join-Path $bin $d
+              if (Test-Path $local) { $file.Enqueue((Resolve-Path $local).Path); continue }
+              if ($crtNoms -contains $d.ToLowerInvariant()) { $manque += "$d (pour $(Split-Path $f -Leaf))"; continue }
+              if ($d -like 'api-ms-win-*' -or $d -like 'ext-ms-*' -or (Test-Path "$env:WINDIR\System32\$d")) { continue }
+              $manque += "$d (pour $(Split-Path $f -Leaf))"
+            }
+          }
+          "$($vus.Count) DLL vérifiées : $(($vus.Keys | ForEach-Object { Split-Path $_ -Leaf }) -join ', ')" | Tee-Object -FilePath ci/obs.txt -Append
+          if ($manque.Count -gt 0) { "MANQUANTES : $($manque -join ', ')" | Tee-Object -FilePath ci/obs.txt -Append; throw "Dépendances d'OBS manquantes" }
+          Get-ChildItem -Recurse $obs -File | Measure-Object -Property Length -Sum | ForEach-Object { "dossier obs : {0} fichiers, {1:N1} Mo" -f $_.Count, ($_.Sum / 1MB) } | Tee-Object -FilePath ci/obs.txt -Append
+
+      - name: Tests du cœur (Bible, recherche, chants, téléphone, mélangeur sur la vraie libobs)
+        run: |
+          New-Item -ItemType Directory -Force ci | Out-Null
+          $env:MYCHURCH_OBS = (Resolve-Path "out/obs").Path
           dotnet run --project windows/MyVerse.Tests -c Release -- "$PWD/windows/MyVerse/Ressources" 2>&1 | Tee-Object -FilePath ci/tests.log
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
@@ -73,6 +132,9 @@ jobs:
           dotnet publish windows/MyVerse/MyVerse.csproj -c Release -r win-x64 --self-contained true -p:PublishReadyToRun=true -p:Version=${{ steps.v.outputs.version }} -o out/MyChurch -v:m 2>&1 | Tee-Object -FilePath ci/windows-build.log
           if ($LASTEXITCODE -ne 0) { exit 1 }
           Copy-Item windows/LISEZ-MOI.txt out/MyChurch/
+          # moteur audio OBS (libobs, GNU GPL v2 ou ultérieure) et le texte de la licence
+          Copy-Item -Recurse out/obs out/MyChurch/obs
+          Copy-Item COPYING out/MyChurch/COPYING.txt
           Copy-Item out/cam-x64/Release/MyVirtualCam.dll out/MyChurch/MyVirtualCam.dll
           Copy-Item out/cam-Win32/Release/MyVirtualCam.dll out/MyChurch/MyVirtualCam32.dll
           Get-ChildItem out/directshow/LICENSE* | Copy-Item -Destination out/MyChurch/
@@ -169,7 +231,7 @@ jobs:
           "MyVerse rouvert après la mise à jour : $([bool]$ouvert)" | Tee-Object -FilePath ci/installateur.txt -Append
           $ouvert | Stop-Process -Force -ErrorAction SilentlyContinue
           $ok = $true
-          foreach ($f in @("MyChurch.exe", "Ressources\lsg.json", "Ressources\obs\ecran.html", "Desinstaller.exe")) { $e = Test-Path "$dir\$f"; "présent $f : $e" | Tee-Object -FilePath ci/installateur.txt -Append; if (-not $e) { $ok = $false } }
+          foreach ($f in @("MyChurch.exe", "Ressources\lsg.json", "Ressources\obs\ecran.html", "Desinstaller.exe", "obs\bin\64bit\obs.dll", "obs\core\win-wasapi\win-wasapi.dll", "COPYING.txt")) { $e = Test-Path "$dir\$f"; "présent $f : $e" | Tee-Object -FilePath ci/installateur.txt -Append; if (-not $e) { $ok = $false } }
           foreach ($f in @("resources.neu", "extensions", "neutralinojs.log")) { $e = Test-Path "$dir\$f"; "ancien $f retiré : $(-not $e)" | Tee-Object -FilePath ci/installateur.txt -Append; if ($e) { $ok = $false } }
           "raccourci Bureau : $(Test-Path "$env:USERPROFILE\Desktop\MyChurch.lnk")" | Tee-Object -FilePath ci/installateur.txt -Append
           "Applications installées : $((Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MyVerse' -ErrorAction SilentlyContinue).DisplayVersion)" | Tee-Object -FilePath ci/installateur.txt -Append
@@ -302,6 +364,7 @@ jobs:
             tail -c 40000 /tmp/w/windows-build.log > windows.log 2>/dev/null || true
             cp /tmp/w/windows.status windows.status 2>/dev/null || true
             cp /tmp/w/installateur.txt installateur.txt 2>/dev/null || true
+            cp /tmp/w/obs.txt obs.txt 2>/dev/null || true
             if [ -d /tmp/w/autotest ]; then cp -r /tmp/w/autotest autotest; fi
           fi
           git add -A && git commit -qm "CI ${GITHUB_SHA}" && git push -f origin ci-logs
