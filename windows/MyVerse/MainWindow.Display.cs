@@ -37,6 +37,19 @@ public partial class MainWindow
         menu.Items.Add(Article("Images", AjouterImage));
         menu.Items.Add(Article("Périphérique de capture vidéo", AjouterCamera));
         menu.Items.Add(Article("Capture de fenêtre", AjouterFenetre));
+        // les dossiers de l'onglet Duo : un clic les met dans la bibliothèque et dans la grille
+        var duos = R.Duos.ToList();
+        if (duos.Count > 0) menu.Items.Add(new Separator());
+        foreach (var x in duos)
+        {
+            var d = x;
+            menu.Items.Add(Article("Duo · " + d.Nom, () =>
+            {
+                if (!d.A.Choisi || !d.B.Choisi) { Toast($"« {d.Nom} » n'a pas encore ses 2 éléments : complétez-le dans l'onglet Duo."); return; }
+                R.AjouterDuoDisplay(d);
+                Toast($"« {d.Nom} » est dans la grille : un clic l'envoie en direct.");
+            }));
+        }
         menu.Items.Add(new Separator());
         menu.Items.Add(Article("Caméra virtuelle MyVirtualCam", () =>
         {
@@ -132,7 +145,7 @@ public partial class MainWindow
         var menu = MenuAjouterSource();
         var commandes = menu.Items.OfType<MenuItem>().ToList();
         Ouvrir(menu, DisplayAjouter, PlacementMode.Bottom);
-        bool ok = menu.IsOpen && commandes.Count == 5 && commandes[0].Header?.ToString() == "Nouveau texte" && commandes[4].Header?.ToString() == "Caméra virtuelle MyVirtualCam";
+        bool ok = menu.IsOpen && commandes.Count == 5 + R.Duos.Count && commandes[0].Header?.ToString() == "Nouveau texte" && commandes[^1].Header?.ToString() == "Caméra virtuelle MyVirtualCam";
         menu.IsOpen = false;
         return ok;
     }
