@@ -63,7 +63,7 @@ public static class MiseAJour
         using (r)
         {
             if (r.StatusCode == HttpStatusCode.NotFound)
-                return new Resultat(false, "", "", "Mises à jour inaccessibles : le dépôt GitHub de MyVerse est privé (il doit être public pour que Outils › Mise à jour fonctionne).");
+                return new Resultat(false, "", "", "Mises à jour inaccessibles : le dépôt GitHub de MyVerse est privé (il doit être public pour que Paramètres › Mise à jour fonctionne).");
             if (!r.IsSuccessStatusCode)
                 return new Resultat(false, "", "", $"Impossible de vérifier les mises à jour (GitHub : {(int)r.StatusCode}). Réessayez plus tard.");
             try

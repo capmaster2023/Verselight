@@ -1,7 +1,7 @@
 namespace MyVerse;
 
 /// <summary>
-/// Journal d'erreurs : erreurs et événements importants. Visible dans Outils › Journal ;
+/// Journal d'erreurs : erreurs et événements importants. Visible dans Paramètres › Journal d'erreurs ;
 /// copie dans %APPDATA%\VerseLight\journal-myverse.txt (lisible même si MyVerse ne s'ouvre pas).
 /// </summary>
 public static class Journal

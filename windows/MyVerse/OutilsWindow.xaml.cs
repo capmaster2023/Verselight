@@ -4,7 +4,7 @@ using System.Windows.Input;
 
 namespace MyVerse.Ui;
 
-/// <summary>Outils : mise à jour (GitHub Releases) et journal d'erreurs (copier, vider).</summary>
+/// <summary>Paramètres : audio (moteur OBS, MyVirtualSound, enregistrement), code source et licences, mise à jour (GitHub Releases), transfert et journal d'erreurs.</summary>
 public partial class OutilsWindow : FenetreDialogue
 {
     MiseAJour.Resultat? maj;
@@ -12,6 +12,7 @@ public partial class OutilsWindow : FenetreDialogue
     public OutilsWindow(bool chercher)
     {
         InitializeComponent();
+        AudioSections.Content = new Audio.AudioSettingsPanel();
         maj = (Application.Current.MainWindow as MainWindow)?.MiseAJourDisponible;
         MajEtat.Text = "Version installée : " + App.Version + (maj != null ? " · nouvelle version " + maj.Version + " disponible" : "");
         Installer.Visibility = maj != null ? Visibility.Visible : Visibility.Collapsed;
@@ -149,7 +150,7 @@ public partial class OutilsWindow : FenetreDialogue
         try
         {
             var m = Patienter(() => Transfert.Exporter(dlg.FileName, App.Donnees, chants, bibles, App.Version));
-            Dialogue.Informer(this, $"Exporté : {Contenu(m)}.\n\nFichier : {dlg.FileName}\n\nSur l'autre ordinateur : Outils → Importer un fichier MyChurch.");
+            Dialogue.Informer(this, $"Exporté : {Contenu(m)}.\n\nFichier : {dlg.FileName}\n\nSur l'autre ordinateur : Paramètres → Importer un fichier MyChurch.");
         }
         catch (Exception x)
         {
@@ -171,7 +172,7 @@ public partial class OutilsWindow : FenetreDialogue
         catch (Exception x)
         {
             Journal.Erreur("import MyVerse", x);
-            Dialogue.Informer(this, "Ce fichier n'est pas un export MyChurch. Sur l'autre ordinateur : Outils → Exporter.");
+            Dialogue.Informer(this, "Ce fichier n'est pas un export MyChurch. Sur l'autre ordinateur : Paramètres → Exporter.");
             return;
         }
         var contenu = Contenu(m);
