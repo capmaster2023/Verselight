@@ -1,24 +1,47 @@
-MYCHURCH 1.0.2 BÊTA
+MYCHURCH 3.0.0
 
 PROJECTION AUTONOME
 Dans Projection, choisissez votre écran ou Nouvelle fenêtre. Cliquez sur une vignette pour envoyer son contenu directement à cette sortie.
 
 DISPLAY
-Le menu + Ajouter une source propose Nouveau texte, Images, Périphérique de capture vidéo, Capture de fenêtre et MyVirtualCam. Dans la bibliothèque, + ajoute à la grille et Modifier permet de changer le titre ou le texte. Un clic sur une vignette affiche son contenu; le clic droit propose les autres actions.
+Le menu + Ajouter une source propose Nouveau texte, Images, Vidéos, Périphérique de capture vidéo, Capture de fenêtre et MyVirtualCam. Dans la bibliothèque, + ajoute à la grille et Modifier permet de changer le titre ou le texte. Un clic sur une vignette affiche son contenu; le clic droit propose les autres actions.
+
+AUDIO (MOTEUR OBS)
+Le panneau Audio est dans Display, sous la grille. Le son est traité par libobs, la bibliothèque d'OBS Studio 33.0.1 (dossier « obs » à côté de MyChurch.exe).
+- Le mélangeur démarre vide : + Source audio ajoute un microphone, le son d'une sortie (son de l'ordinateur), un fichier audio ou vidéo, ou le son de la vidéo projetée depuis Display.
+- Chaque bande : 2 vumètres, volume de -60 à +6 dB, M = sourdine, casque = écoute (coupée, écoute seule, écoute et sortie, comme dans OBS), Filtres, et les pistes 1 à 6 où la source est envoyée.
+- Clic droit sur une bande : renommer, changer de périphérique ou de fichier, mono, relancer le média, monter, descendre, supprimer.
+- Filtres d'OBS : réduction du bruit (RNNoise ou Speex), noise gate, compresseur, limiteur. Ils s'appliquent de haut en bas, en direct.
+- À droite : les filtres de la source choisie (interrupteurs), l'écoute au casque, les 6 pistes indépendantes et MyVirtualSound.
+- ● Enregistrer : enregistre une piste en WAV (ou FLAC avec un ffmpeg.exe que vous fournissez), dans Vidéos\MyChurch par défaut. Réglages dans Paramètres > Enregistrement.
+Le mixage audio local de la 1.2 bêta et le minuteur de prédication ont été retirés. Les anciens réglages audio de la 1.2 ne sont pas repris : le mélangeur repart vide.
+
+MYVIRTUALSOUND (ZOOM)
+MyVirtualSound envoie le mix d'une piste vers un câble audio virtuel : Zoom, Teams ou un navigateur le reçoivent comme un micro. Dans Zoom, choisissez « CABLE Output » comme microphone.
+VB-CABLE n'est pas inclus dans MyChurch. Paramètres > MyVirtualSound > Installer VB-CABLE télécharge le paquet officiel et lance son installateur (accord administrateur de Windows).
+VB-CABLE est un logiciel de VB-Audio Software (www.vb-cable.com), distribué en donationware : chacun paie ce qu'il veut s'il le trouve utile.
 
 DUO
-Affichez un premier contenu, puis Épingler le contenu en direct (touche P). Affichez ensuite un second contenu. Les deux restent à l'écran. La carte DUO permet de choisir un coin ou Côte à côte, et une taille de 20 à 50 % pour un coin.
+Affichez un premier contenu, puis Épingler le contenu en direct (touche P). Affichez ensuite un second contenu. Les deux restent à l'écran. La carte Duo permet de choisir un coin ou Côte à côte, et une taille de 20 à 50 % pour un coin.
 Retirer de l'écran ne vide que le contenu principal. Retirer le duo enlève le contenu épinglé. B masque tout temporairement.
 
 MYVIRTUALCAM
-La caméra virtuelle reçoit automatiquement la sortie de MyChurch, Duo compris. L'installation demande l'autorisation Windows une fois. En version portable, utilisez + Ajouter une source > Caméra virtuelle MyVirtualCam pour l'enregistrer. Elle reste sélectionnable avec une image noire quand MyChurch est fermé. Pas d'audio virtuel.
+La caméra virtuelle reçoit automatiquement la sortie de MyChurch, Duo compris. L'installation demande l'autorisation Windows une fois. En version portable, utilisez + Ajouter une source > Caméra virtuelle MyVirtualCam pour l'enregistrer. Elle reste sélectionnable avec une image noire quand MyChurch est fermé. Le son passe par MyVirtualSound.
+
+PARAMÈTRES
+Le bouton en haut à droite ouvre les Paramètres : périphériques audio (micro et sortie proposés, écoute au casque), MyVirtualSound, enregistrement, code source et licences, mise à jour, transfert vers un autre ordinateur, journal d'erreurs.
 
 MISE À JOUR
 Les chants, Bibles, réglages et jumelages sont conservés. Une caméra virtuelle déjà utilisée est renommée avant remplacement. Fermez puis rouvrez le logiciel vidéo qui l'utilise pour charger la nouvelle version.
-Le dépôt GitHub est privé : les téléchargements nécessitent un compte autorisé.
 
 TÉLÉPHONE
 Installez MyChurch.apk sur Android. Ouvrez Téléphone dans MyChurch et scannez le code QR pour le premier jumelage. Gardez le PC et le téléphone sur le même réseau.
 
 CAPTURE
 Gardez la fenêtre à capturer ouverte et non réduite. Certains contenus protégés ou accélérés par le GPU ne permettent pas la capture. Une webcam ou carte de capture nécessite un pilote Windows et les permissions de caméra.
+
+LICENCE ET CODE SOURCE
+MyChurch est un logiciel libre, sous licence GNU GPL version 2 ou ultérieure, parce que son moteur audio utilise libobs (OBS Studio 33.0.1). Le texte de la licence est dans COPYING.txt, à côté de MyChurch.exe.
+Code source de MyChurch : https://github.com/capmaster2023/Verselight
+Code source d'OBS Studio 33.0.1 : https://github.com/obsproject/obs-studio/tree/33.0.1
+Le dossier « obs » contient aussi le runtime Microsoft Visual C++ (fichiers redistribuables) dont libobs a besoin.
