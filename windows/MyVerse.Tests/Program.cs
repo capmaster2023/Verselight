@@ -770,6 +770,43 @@ if (Actif())
     Ok(MiseAJour.PlusRecente("6.0.0", "6.0.0-beta") && !MiseAJour.PlusRecente("6.0.0-beta", "6.0.0"), "passage bêta vers version finale");
 }
 
+Groupe("Dossiers Duo");
+if (Actif())
+{
+    var don = Donnees.Charger(Temp(), res);
+    var rg = new Regie(don, new Bibles(don));
+    int changes = 0; string dit = "";
+    rg.Change += () => changes++;
+    rg.Message += m => dit = m;
+    var d = rg.NouveauDuo("Chant et verset");
+    Ok(rg.Duos.Count == 1 && !rg.AfficherDuo(d) && dit.Contains("deux éléments"), "dossier vide : refusé, avec un message");
+    var ch = don.Chants.First(c => c.Sections.Count > 1);
+    d.A = new PartDuo { Type = "chant", Id = ch.Id, Titre = ch.Title, X = 0, Y = 0, L = 1 };
+    d.B = new PartDuo { Type = "bible", Ref = new[] { 42, 3, 16, 16 }, Titre = "Jean 3:16", X = 0.9, Y = 0.03, L = 0.35 };
+    rg.EnregistrerDuo(d);
+    Ok(d.B.X <= 0.65 + 1e-9, "mesures bornées : le cadre reste dans l'écran");
+    changes = 0;
+    Ok(rg.AfficherDuo(d), "afficher un dossier : chant + verset");
+    Egal(changes, 1, "un seul changement d'écran pour les deux éléments");
+    Ok(rg.Etat.Mode == "chant" && rg.Etat.Duo is { Place: "libre" } e1 && e1.Etat.Mode == "verset" && e1.Dossier == d.Id && e1.Cadres is { Length: 6 }, "écran : le chant, avec le verset dans le Duo (place libre, 6 mesures)");
+    rg.Bouger(1);
+    Ok(rg.Cible is CibleChant { I: 1 } && rg.Etat.Duo != null, "Suivant : la strophe suivante, le dossier reste");
+    d.B.L = 0.2; rg.EnregistrerDuo(d, false);
+    Ok(rg.Etat.Duo?.Cadres?[5] == 0.2, "mesure changée pendant l'affichage : appliquée tout de suite");
+    rg.AfficherVerset(42, 3, 17, 17);
+    Ok(rg.Etat.Duo == null && rg.Etat.Mode == "verset", "autre chose à l'écran : le dossier s'en va");
+    var an = rg.AjouterDuoDisplay(d);
+    Ok(an.Grille && an.Source?.Type == "duo" && rg.AjouterDuoDisplay(d).Id == an.Id && rg.Annonces.Count(x => x.Source?.Type == "duo") == 1, "+ Display : une seule tuile, dans la grille");
+    rg.AfficherAnnonce(an);
+    Ok(rg.Etat.Duo is { Place: "libre" } && rg.Etat.Mode == "chant", "clic sur la tuile Display : le dossier part en direct");
+    rg.Effacer();
+    Ok(rg.Etat.Vide && rg.Etat.Duo == null, "Retirer de l'écran : tout le dossier part");
+    var relu = Donnees.Charger(don.Dossier, res);
+    Ok(relu.Duos.Count == 1 && relu.Duos[0].A.Type == "chant" && relu.Duos[0].B.Ref?[2] == 16, "dossiers relus du disque");
+    rg.SupprimerDuo(d.Id);
+    Ok(rg.Duos.Count == 0 && rg.Annonces.All(x => x.Source?.Type != "duo"), "supprimer le dossier : sa tuile Display part aussi");
+}
+
 Groupe("Duo");
 if (Actif())
 {

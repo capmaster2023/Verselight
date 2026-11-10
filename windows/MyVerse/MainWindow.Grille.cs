@@ -109,7 +109,7 @@ public partial class MainWindow
         {
             vue.Children.Add(new TextBlock
             {
-                Text = type == "camera" ? "Caméra" : type == "fenetre" ? "Fenêtre" : "Image", FontSize = 15, FontWeight = FontWeights.SemiBold,
+                Text = type == "camera" ? "Caméra" : type == "fenetre" ? "Fenêtre" : type == "duo" ? "Duo · 2 éléments" : "Image", FontSize = 15, FontWeight = FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Color.FromRgb(0xC9, 0xBE, 0xAA)), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
             });
             image = new Image { Stretch = Stretch.Uniform };
@@ -156,10 +156,13 @@ public partial class MainWindow
     /// <summary>La tuile à l'écran : cadre rouge, « EN DIRECT », et l'image vivante d'une caméra ou d'une fenêtre.</summary>
     void GrilleDirect()
     {
-        var c = R.ElementCourant == null && !R.Etat.Vide ? R.Cible as CibleTexte : null;
+        var cible = R.ElementCourant == null && !R.Etat.Vide ? R.Cible : null;
+        var dossier = R.Etat.Duo is { Place: "libre" } dl ? dl.Dossier : null;
+        var c = dossier == null ? cible as CibleTexte : null;
+        var tuileDuo = dossier == null ? null : R.Annonces.FirstOrDefault(a => a.Source is { Type: "duo" } s && s.Chemin == dossier)?.Id;
         foreach (var t in tuiles)
         {
-            bool ok = c != null && c.Element == t.Id && c.I == t.I;
+            bool ok = c != null && c.Element == t.Id && c.I == t.I || dossier == null && cible is CibleDisplay cd && cd.Id == t.Id || tuileDuo == t.Id;
             t.Tuile.BorderBrush = Pinceau(ok ? "Direct" : "Nuit3");
             t.Direct.Visibility = ok ? Visibility.Visible : Visibility.Collapsed;
             if (t.Vue != null) t.Vue.Source = ok ? App.Sources.Image : null;

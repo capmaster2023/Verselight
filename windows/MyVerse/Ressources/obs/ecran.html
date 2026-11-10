@@ -139,6 +139,17 @@ function afficher(e) {
   const meme = e.mode === 'media' && d.etat.mode === 'media' && JSON.stringify(e.media || null) === JSON.stringify(d.etat.media || null);
   const epingle = cadreDuo('epingle');
   envoyerDuo(epingle, Object.assign({}, d.etat, { duo: null, theme: e.theme, taille: e.taille, presentation: 'plein' }), meme ? 'display.jpg' : 'display-duo.jpg');
+  if (d.place === 'libre' && d.cadres && d.cadres.length >= 6) {
+    // dossier de l'onglet Duo : chaque élément a sa place et sa taille
+    const k = d.cadres.map(v => v * 100), gauche = cadreDuo('gauche');
+    envoyerDuo(gauche, Object.assign({}, seul, { presentation: 'plein' }), 'display.jpg');
+    gauche.f.style.zIndex = 3; epingle.f.style.zIndex = 4;
+    placerDuo(gauche, k[0], k[1], k[2], k[2]);
+    placerDuo(epingle, k[3], k[4], k[5], k[5]);
+    afficherSeul(Object.assign({}, seul, RIEN));
+    document.body.classList.add('duo-cote');
+    return;
+  }
   if (d.place === 'cote') {
     // deux moitiés de même forme que l'écran, centrées en hauteur ; le fond principal reste visible autour
     const gauche = cadreDuo('gauche');

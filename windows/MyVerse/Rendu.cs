@@ -115,16 +115,23 @@ public sealed class Rendu : Grid
         ep.Visibility = Visibility.Visible;
         ep.media.Source = imageDuo;
         Rendu? g = null;
-        if (duo.Place == "cote")
+        if (duo.Place is "cote" or "libre")
         {
             g = Enfant(ref gauche);
+            SetZIndex(g, 1); SetZIndex(ep, 2);
             g.Visibility = Visibility.Visible;
             g.media.Source = media.Source;
         }
         else if (gauche != null) gauche.Visibility = Visibility.Collapsed;
         double W = Cote(ActualWidth, Width), H = Cote(ActualHeight, Height);
         if (W <= 0 || H <= 0) return;
-        if (g != null)
+        if (g != null && duo.Place == "libre" && duo.Cadres is { Length: >= 6 } k)
+        {
+            // dossier de l'onglet Duo : chaque élément a sa place et sa taille (même forme que l'écran)
+            g.Width = W * k[2]; g.Height = H * k[2]; g.Margin = new Thickness(W * k[0], H * k[1], 0, 0);
+            ep.Width = W * k[5]; ep.Height = H * k[5]; ep.Margin = new Thickness(W * k[3], H * k[4], 0, 0);
+        }
+        else if (g != null)
         {
             // côte à côte : deux moitiés de même forme que l'écran, centrées en hauteur ; le fond principal reste visible autour
             double w = W / 2, h = H / 2, y = (H - h) / 2;
@@ -155,7 +162,7 @@ public sealed class Rendu : Grid
             return;
         }
         epingle!.Afficher(duo.Etat with { Duo = null, Theme = e.Theme, Taille = e.Taille, Presentation = "plein" });
-        if (duo.Place == "cote")
+        if (duo.Place is "cote" or "libre")
         {
             gauche!.Afficher(seul with { Presentation = "plein" });
             // l'écran principal ne garde que son fond, visible derrière les deux moitiés

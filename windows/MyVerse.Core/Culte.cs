@@ -202,6 +202,12 @@ public sealed partial class Regie
     void AfficherSource(string id, string titre, SourceDisplay? source)
     {
         if (source == null) { Dire("Cette source Display est absente."); return; }
+        if (source.Type == "duo")
+        {
+            if (donnees.Duos.FirstOrDefault(x => x.Id == source.Chemin) is { } dossier) AfficherDuo(dossier);
+            else Dire($"Le duo « {titre} » n'existe plus.");
+            return;
+        }
         Cible = new CibleDisplay(id);
         Oeil?.Invoke(true);
         Etat = Etat with { Mode = "media", Media = source, Lignes = Array.Empty<string>(), Ref = titre, Second = null };

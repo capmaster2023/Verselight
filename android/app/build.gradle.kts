@@ -17,7 +17,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 600000 + (System.getenv("VERSION_CODE") ?: "0").toInt()
-        versionName = System.getenv("VERSION_NAME") ?: "1.0.2-beta"
+        versionName = System.getenv("VERSION_NAME") ?: "1.1.0"
     }
 
     signingConfigs {

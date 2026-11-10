@@ -52,6 +52,7 @@ public partial class MainWindow : Window
         OngletBible.Checked += (_, _) => MontrerOnglet("bible");
         OngletChants.Checked += (_, _) => MontrerOnglet("chants");
         OngletAnnonces.Checked += (_, _) => MontrerOnglet("annonces");
+        OngletDuo.Checked += (_, _) => MontrerOnglet("duo");
         Q.TextChanged += (_, _) =>
         {
             QIndice.Visibility = Q.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -194,7 +195,7 @@ public partial class MainWindow : Window
         PreviewTextInput += (_, e) =>
         {
             if (e.Text != "/" || Keyboard.FocusedElement is TextBox or PasswordBox) return;
-            (onglet is "agenda" or "annonces" ? Cmd : ongletBible ? Q : Qc).Focus();
+            (onglet is "agenda" or "annonces" or "duo" ? Cmd : ongletBible ? Q : Qc).Focus();
             e.Handled = true;
         };
         SizeChanged += (_, _) => Placement();
@@ -208,6 +209,7 @@ public partial class MainWindow : Window
         InitAgenda();
         InitDisplay();
         InitGrille();
+        InitDossiersDuo();
         InitDuo();
         AgendaAjoutBible.Click += (_, _) =>
         {
@@ -242,7 +244,7 @@ public partial class MainWindow : Window
 
     void Demarre()
     {
-        (onglet is "agenda" or "annonces" ? Cmd : Q).Focus();
+        (onglet is "agenda" or "annonces" or "duo" ? Cmd : Q).Focus();
         // l'index de recherche se prépare en arrière-plan : la première recherche est instantanée
         _ = Task.Run(async () =>
         {
@@ -320,11 +322,12 @@ public partial class MainWindow : Window
         PanneauBible.Visibility = o == "bible" ? Visibility.Visible : Visibility.Collapsed;
         PanneauChants.Visibility = o == "chants" ? Visibility.Visible : Visibility.Collapsed;
         PanneauAnnonces.Visibility = o == "annonces" ? Visibility.Visible : Visibility.Collapsed;
-        RechercheCulte.Visibility = o is "agenda" or "annonces" ? Visibility.Visible : Visibility.Collapsed;
+        PanneauDuo.Visibility = o == "duo" ? Visibility.Visible : Visibility.Collapsed;
+        RechercheCulte.Visibility = o is "agenda" or "annonces" or "duo" ? Visibility.Visible : Visibility.Collapsed;
         RechercheBible.Visibility = o == "bible" ? Visibility.Visible : Visibility.Collapsed;
         RechercheChants.Visibility = o == "chants" ? Visibility.Visible : Visibility.Collapsed;
-        if (o is not ("agenda" or "annonces")) CmdPopup.IsOpen = false;
-        (o switch { "agenda" => OngletAgenda, "bible" => OngletBible, "annonces" => OngletAnnonces, _ => OngletChants }).IsChecked = true;
+        if (o is not ("agenda" or "annonces" or "duo")) CmdPopup.IsOpen = false;
+        (o switch { "agenda" => OngletAgenda, "bible" => OngletBible, "annonces" => OngletAnnonces, "duo" => OngletDuo, _ => OngletChants }).IsChecked = true;
     }
 
     // ------------------------------------------------------------ raccourcis clavier
@@ -358,7 +361,7 @@ public partial class MainWindow : Window
         switch (e.Key)
         {
             case Key.Divide:
-                (onglet is "agenda" or "annonces" ? Cmd : ongletBible ? Q : Qc).Focus();
+                (onglet is "agenda" or "annonces" or "duo" ? Cmd : ongletBible ? Q : Qc).Focus();
                 e.Handled = true;
                 break;
             case Key.B:
@@ -804,6 +807,7 @@ public partial class MainWindow : Window
     void AfficherCourant()
     {
         if (onglet == "agenda") { AfficherAgendaCourant(); return; }
+        if (onglet == "duo") { AfficherDuoChoisi(); return; }
         if (onglet == "annonces")
         {
             if (annonceChoisie == null && AnnonceTexte.Text.Trim().Length == 0) Toast("Choisissez d'abord un display.");

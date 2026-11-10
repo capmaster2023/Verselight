@@ -27,7 +27,12 @@ public sealed record DuoEcran(
     [property: JsonPropertyName("etat")] EtatEcran Etat,
     [property: JsonPropertyName("libelle")] string Libelle,
     [property: JsonPropertyName("place")] string Place,
-    [property: JsonPropertyName("part")] double Part);
+    [property: JsonPropertyName("part")] double Part)
+{
+    /// <summary>Place « libre » (dossier de l'onglet Duo) : le dossier, et les cadres [x1, y1, largeur1, x2, y2, largeur2] en parts de l'écran.</summary>
+    [JsonPropertyName("dossier"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Dossier { get; init; }
+    [JsonPropertyName("cadres"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public double[]? Cadres { get; init; }
+}
 
 /// <summary>Ce qui est à l'écran : des versets (éventuellement un morceau d'un verset découpé) ou une strophe de chant.</summary>
 public abstract record Cible;
@@ -78,7 +83,13 @@ public sealed partial class Regie
 
     public Donnees Donnees => donnees;
     Bible B => Bibles.Principale;
-    void Signaler() => Change?.Invoke();
+    bool muet;
+    void Signaler()
+    {
+        if (muet) return;
+        LacherDuoLibre();
+        Change?.Invoke();
+    }
     public void Dire(string m) { Journal.Info("message : " + m); Message?.Invoke(m); }
 
     // ------------------------------------------------------------ réglages de l'écran
@@ -193,7 +204,7 @@ public sealed partial class Regie
         r.DuoPlace = PlaceValide(place);
         r.DuoPart = PartValide(part);
         donnees.SauverReglages();
-        if (Etat.Duo is { } d) { Etat = Etat with { Duo = d with { Place = r.DuoPlace, Part = r.DuoPart } }; Signaler(); }
+        if (Etat.Duo is { } d && d.Place != "libre") { Etat = Etat with { Duo = d with { Place = r.DuoPlace, Part = r.DuoPart } }; Signaler(); }
     }
 
     // ------------------------------------------------------------ retirer, suivant, précédent
@@ -201,8 +212,10 @@ public sealed partial class Regie
     public void Effacer()
     {
         // avec un Duo, il reste quelque chose à montrer : la source OBS reste visible
-        Oeil?.Invoke(Etat.Duo != null);
-        Etat = Etat with { Mode = "vide", Media = null, Lignes = Array.Empty<string>(), Ref = "", Second = null };
+        // un dossier Duo part en entier ; un contenu épinglé reste
+        var garde = Etat.Duo is { Place: "libre" } ? null : Etat.Duo;
+        Oeil?.Invoke(garde != null);
+        Etat = Etat with { Mode = "vide", Media = null, Lignes = Array.Empty<string>(), Ref = "", Second = null, Duo = garde };
         Cible = null;
         ElementCourant = null;
         Signaler();

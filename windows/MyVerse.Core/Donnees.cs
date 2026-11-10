@@ -91,6 +91,9 @@ public sealed class Donnees
     public Dictionary<string, List<string>> Decoupes { get; private set; } = new();
     public List<Agenda> Agendas { get; private set; } = new();
     public List<Annonce> Annonces { get; private set; } = new();
+    public List<DossierDuo> Duos { get; private set; } = new();
+    string FDuos => Path.Combine(Dossier, "duos.json");
+    public void SauverDuos() => Sauver(FDuos, Duos, "duos");
     /// <summary>Ce qui a été repris de la 3.x au premier démarrage (vide sinon).</summary>
     public string Migration { get; private set; } = "";
 
@@ -121,6 +124,8 @@ public sealed class Donnees
         d.Agendas = Lire<List<Agenda>>(d.FAgendas) ?? new List<Agenda>();
         foreach (var a in d.Agendas) { a.Elements ??= new(); a.Nom ??= ""; }
         d.Annonces = Lire<List<Annonce>>(d.FAnnonces) ?? new List<Annonce>();
+        d.Duos = Lire<List<DossierDuo>>(d.FDuos) ?? new List<DossierDuo>();
+        foreach (var x in d.Duos) { x.A ??= new(); x.B ??= new(); x.Nom ??= ""; }
         if (nouveau)
         {
             try { d.Migrer(); }

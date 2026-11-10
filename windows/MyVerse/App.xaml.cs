@@ -6,14 +6,14 @@ namespace MyVerse.Ui;
 /// <summary>MyVerse 4.0 : démarrage, une seule copie à la fois, services (Bibles, régie, téléphone, OBS).</summary>
 public partial class App : Application
 {
-    /// <summary>La version compilée (fichier VERSION du dépôt, « 1.0.2-beta »), sans le numéro de commit ajouté par la compilation.</summary>
+    /// <summary>La version compilée (fichier VERSION du dépôt, « 1.1.0 »), sans le numéro de commit ajouté par la compilation.</summary>
     public static string Version { get; } = LireVersion();
     static string LireVersion()
     {
         var v = System.Reflection.CustomAttributeExtensions.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(typeof(App).Assembly)?.InformationalVersion ?? "";
         int plus = v.IndexOf('+');
         if (plus >= 0) v = v[..plus];
-        return v.Trim().Length > 0 ? v.Trim() : "1.0.2-beta";
+        return v.Trim().Length > 0 ? v.Trim() : "1.1.0";
     }
     public static string Ressources => Path.Combine(AppContext.BaseDirectory, "Ressources");
     public static Donnees Donnees { get; private set; } = null!;

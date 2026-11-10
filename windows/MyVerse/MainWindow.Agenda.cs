@@ -533,7 +533,7 @@ public partial class MainWindow
     // ------------------------------------------------------------ recherche du culte (Ctrl K)
     void OuvrirCommande()
     {
-        if (onglet is not ("agenda" or "annonces")) MontrerOnglet("agenda");
+        if (onglet is not ("agenda" or "annonces" or "duo")) MontrerOnglet("agenda");
         Cmd.Focus();
         Cmd.SelectAll();
     }

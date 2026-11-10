@@ -291,6 +291,28 @@ public static class AutoTest
             R.AfficherAnnonce(absent); await Attendre(500);
             Ok(App.Sources.Image == null && App.Sources.Statut.Contains("fermée"), "fenêtre fermée : image effacée et message utile");
             // 1.0.2 : Duo (deux contenus en même temps à l'écran)
+            // 1.1 : onglet Duo — un dossier de 2 éléments, chacun à sa place, ajouté dans Display
+            var dossier = R.NouveauDuo("Verset et annonce");
+            dossier.A = new PartDuo { Type = "bible", Ref = new[] { 42, 3, 16, 16 }, Titre = "Jean 3:16", X = 0, Y = 0, L = 0.7 };
+            dossier.B = new PartDuo { Type = "display", Id = an.Id, Titre = an.Titre, X = 0.55, Y = 0.55, L = 0.45 };
+            R.EnregistrerDuo(dossier);
+            w.TestOngletDuo();
+            w.TestChoisirDossier(dossier);
+            w.TestAfficherDossier();
+            await Attendre(1600);
+            Ok(R.Etat.Mode == "verset" && R.Etat.Duo is { Place: "libre" } dl0 && dl0.Dossier == dossier.Id, "onglet Duo : le dossier part en direct (verset + annonce)");
+            Capture(w, "31-onglet-duo.png");
+            if (w.Ecran != null) Capture(w.Ecran, "31-onglet-duo-ecran.png");
+            var tuileDuo = R.AjouterDuoDisplay(dossier);
+            R.Effacer();
+            Ok(R.Etat.Duo == null, "Retirer de l'écran : le dossier part en entier");
+            R.AfficherAnnonce(tuileDuo);
+            await Attendre(400);
+            Ok(R.Etat.Duo is { Place: "libre" } && R.Etat.Mode == "verset", "Display : la tuile du dossier Duo l'envoie en direct");
+            R.SupprimerDuo(dossier.Id);
+            Ok(R.Etat.Vide && R.Annonces.All(x => x.Source?.Type != "duo"), "dossier supprimé : sa tuile Display aussi");
+            w.TestOngletAnnonces();
+
             R.Effacer();
             R.AfficherAnnonce(an);
             await Attendre(400);
