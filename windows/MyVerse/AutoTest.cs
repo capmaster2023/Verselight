@@ -257,6 +257,17 @@ public static class AutoTest
             await Attendre(1300);
             Ok(R.Etat.Mode == "media" && App.Sources.Image != null, "image Display chargée et projetée");
             Capture(w, "25-display-image.png");
+            // 1.0.1 : grille de sources (un clic sur une tuile = en direct)
+            R.GrilleAnnonce(an.Id, true);
+            R.GrilleAnnonce(img.Id, true);
+            await Attendre(400);
+            Ok(w.TestTuiles == 2, "grille Display : " + w.TestTuiles + " tuiles (un texte, une image)");
+            Ok(w.TestCliquerTuile(0) && R.Cible is CibleTexte { I: 0 } ct && ct.Element == an.Id && R.Etat.Lignes.FirstOrDefault() == "Repas fraternel après le culte", "clic sur une tuile de la grille : en direct");
+            await Attendre(500);
+            Capture(w, "27-display-grille.png");
+            w.TestCliquerTuile(1);
+            await Attendre(1300);
+            Ok(R.Etat.Mode == "media" && App.Sources.Image != null, "clic sur la tuile image : en direct");
             if (w.Ecran != null) Capture(w.Ecran, "26-ecran-image.png");
             Ok(File.Exists(Path.Combine(App.SortieObs.Dossier, "display.jpg")), "image Display publiée pour la source navigateur OBS");
             if (App.CameraVirtuelle != null)

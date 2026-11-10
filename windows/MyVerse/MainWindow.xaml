@@ -451,10 +451,10 @@
                     </Border>
                     <Border Grid.Column="2" Style="{StaticResource Carte}" Padding="20">
                         <DockPanel>
-                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                                <TextBlock x:Name="GrilleInfo" DockPanel.Dock="Right" FontSize="12" Foreground="{StaticResource Brume}" VerticalAlignment="Center" />
+                            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
                                 <TextBlock Text="GRILLE · UN CLIC = EN DIRECT" Style="{StaticResource CarteTitre}" />
-                            </DockPanel>
+                                <TextBlock x:Name="GrilleInfo" FontSize="12" Foreground="{StaticResource Brume}" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
                             <StackPanel DockPanel.Dock="Top" Visibility="Collapsed">
                                 <TextBlock Text="TITRE" Style="{StaticResource CarteTitre}" />
                                 <TextBox x:Name="AnnonceTitre" Style="{StaticResource Champ}" Margin="0,6,0,14" FontSize="17" />

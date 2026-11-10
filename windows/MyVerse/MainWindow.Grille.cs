@@ -166,6 +166,15 @@ public partial class MainWindow
         GrilleInfo.Text = ecran != null ? "Écran : " + NomEcran() : "Aucun écran choisi (bouton Projection en haut)";
     }
 
+    // ------------------------------------------------------------ pour le test automatique
+    public int TestTuiles => tuiles.Count;
+    public bool TestCliquerTuile(int k)
+    {
+        if (k < 0 || k >= tuiles.Count) return false;
+        tuiles[k].Tuile.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = UIElement.MouseLeftButtonUpEvent });
+        return true;
+    }
+
     // ------------------------------------------------------------ écran de projection (à la place d'OBS)
     string NomEcran()
     {
