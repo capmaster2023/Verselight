@@ -12,7 +12,7 @@
     <ApplicationIcon>myverse.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Version>1.2.0-beta</Version>
-    <FileVersion>1.2.0-beta.1</FileVersion>
+    <FileVersion>1.2.0.0</FileVersion>
     <Product>MyChurch</Product>
     <AssemblyTitle>MyChurch</AssemblyTitle>
     <Company>MEPC Montréal</Company>

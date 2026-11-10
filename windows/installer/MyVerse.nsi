@@ -21,7 +21,7 @@ SetCompressor /SOLID lzma
 !define MUI_FINISHPAGE_RUN "$INSTDIR\MyChurch.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "Lancer MyChurch"
 
-VIProductVersion "1.2.0-beta.1"
+VIProductVersion "1.2.0.0"
 VIAddVersionKey /LANG=1036 "ProductName" "MyChurch"
 VIAddVersionKey /LANG=1036 "FileDescription" "Installateur de MyChurch"
 VIAddVersionKey /LANG=1036 "FileVersion" "${VERSION}"
