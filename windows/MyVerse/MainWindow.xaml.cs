@@ -111,7 +111,7 @@ public partial class MainWindow : Window
         NumEffacer.Click += (_, _) => { NumChant.Clear(); NumChant.Focus(); };
         minuterieNum.Tick += (_, _) => AllerAuNumero(false);
         TelBtn.Click += (_, _) => new TelephoneWindow { Owner = this }.ShowDialog();
-        ObsBtn.Click += (_, _) => { if (new ObsWindow { Owner = this }.ShowDialog() == true) App.Obs.Reconnecter(); };
+        ObsBtn.Click += (_, _) => MenuProjection();
         OutilsBtn.Click += (_, _) => OuvrirOutils(true);
         VersionBtn.Click += (_, _) => OuvrirOutils(true);
         MajBtn.Click += (_, _) => OuvrirOutils(false);
@@ -208,6 +208,7 @@ public partial class MainWindow : Window
         OuvrirChapitre(42, 3, 16, 16);
         InitAgenda();
         InitDisplay();
+        InitGrille();
         AgendaAjoutBible.Click += (_, _) =>
         {
             if (sel is Ref s && s.V1 > 0) Toast($"{R.AjouterBibleAgenda(s).Titre} ajouté au déroulé « {R.Agenda.Nom} ».");
@@ -864,6 +865,7 @@ public partial class MainWindow : Window
         PastilleTexte.Foreground = ouvert && !noir ? new SolidColorBrush(Color.FromRgb(0x03, 0x20, 0x10)) : Pinceau("Brume");
         var m = App.Donnees.Reglages.Ecran;
         EcranInfo.Text = ecran != null && m != null ? $"{m.Nom} · {m.W} × {m.H}" : ouvert ? "OBS" : "écran fermé";
+        MajProjection();
     }
 
     // ------------------------------------------------------------ écran de projection
@@ -902,9 +904,7 @@ public partial class MainWindow : Window
     void MajObs()
     {
         var o = App.Obs;
-        ObsTexte.Text = ObsCompact ? "OBS" : o.Statut;
-        ObsBtn.ToolTip = "Piloter OBS · " + o.Statut;
-        ObsPoint.Fill = Pinceau(o.Connecte ? "Vert" : "Brume2");
+        MajProjection();
         MajPastille();
         App.Telephone.Actualiser();
     }

@@ -132,14 +132,10 @@ public partial class MainWindow
         };
         AnnonceNouvelle.Click += (_, _) =>
         {
-            annonceChoisie = R.NouvelleAnnonce("Nouveau texte", "");
-            AnnonceTitre.Text = annonceChoisie.Titre;
-            AnnonceTexte.Text = "";
-            AnnonceTexte.IsReadOnly = false;
-            DisplayReconnecter.Visibility = Visibility.Collapsed;
-            AnnoncesMaj();
-            AnnonceTitre.Focus();
-            AnnonceTitre.SelectAll();
+            if (Dialogue.DemanderTexte(this, "Nouveau texte", "Nouveau texte", "") is not { } t || t.Texte.Trim().Length == 0) return;
+            var a = R.NouvelleAnnonce(t.Titre, t.Texte);
+            R.GrilleAnnonce(a.Id, true);
+            ChoisirDisplay(a);
         };
         AnnonceEnregistrer.Click += (_, _) => { if (EnregistrerAnnonce() != null) Toast("Display enregistré."); };
         AnnonceAfficher.Click += (_, _) => { if (EnregistrerAnnonce() is { } a) R.AfficherAnnonce(a); };
@@ -347,6 +343,7 @@ public partial class MainWindow
     /// <summary>L'écran a changé : « EN COURS », éléments faits, la carte à l'écran et le résumé suivent.</summary>
     void MajAgendaEcran()
     {
+        GrilleDirect();
         if (R.ElementCourant is { } el && el != elementChoisi && R.Agenda.Elements.Contains(el)) ChoisirElement(el);
         if (ListeAgenda.ItemsSource is List<LigneAgenda> l)
             foreach (var x in l) MajLigne(x);
@@ -780,6 +777,7 @@ public partial class MainWindow
         ListeAnnonces.SelectedItem = annonceChoisie != null ? l.FirstOrDefault(a => a.Id == annonceChoisie.Id) : null;
         AnnoncesVide.Visibility = l.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         AnnonceSupprimer.IsEnabled = annonceChoisie != null;
+        GrilleMaj();
     }
 
     /// <summary>Enregistre ce qui est tapé (crée le display au besoin). Null si tout est vide.</summary>

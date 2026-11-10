@@ -5,7 +5,7 @@ Unicode true
 !include "MUI2.nsh"
 
 !ifndef VERSION
-  !define VERSION "6.0.0-beta"
+  !define VERSION "1.0.1-beta"
 !endif
 !define APP "MyChurch"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\MyVerse"
@@ -21,7 +21,7 @@ SetCompressor /SOLID lzma
 !define MUI_FINISHPAGE_RUN "$INSTDIR\MyChurch.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "Lancer MyChurch"
 
-VIProductVersion "6.0.0.0"
+VIProductVersion "1.0.1.0"
 VIAddVersionKey /LANG=1036 "ProductName" "MyChurch"
 VIAddVersionKey /LANG=1036 "FileDescription" "Installateur de MyChurch"
 VIAddVersionKey /LANG=1036 "FileVersion" "${VERSION}"

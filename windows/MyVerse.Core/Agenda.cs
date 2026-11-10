@@ -39,6 +39,8 @@ public sealed class Annonce
     [JsonPropertyName("titre")] public string Titre { get; set; } = "";
     [JsonPropertyName("texte")] public string Texte { get; set; } = "";
     [JsonPropertyName("source"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public SourceDisplay? Source { get; set; }
+    /// <summary>Dans la grille de Display (un clic = en direct).</summary>
+    [JsonPropertyName("grille")] public bool Grille { get; set; }
     [JsonIgnore] public string Description => Source?.Type switch { "camera" => "Périphérique de capture vidéo · " + Source.Peripherique, "fenetre" => "Capture de fenêtre · " + Titre, "image" => "Image · " + Path.GetFileName(Source.Chemin), _ => Texte };
 }
 

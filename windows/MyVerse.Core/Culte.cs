@@ -209,6 +209,18 @@ public sealed partial class Regie
         Signaler();
     }
 
+    /// <summary>Met (ou retire) une source dans la grille de Display.</summary>
+    public void GrilleAnnonce(string id, bool dans)
+    {
+        var a = donnees.Annonces.FirstOrDefault(x => x.Id == id);
+        if (a == null || a.Grille == dans) return;
+        a.Grille = dans;
+        AnnoncesModifiees();
+    }
+
+    /// <summary>Le texte de chaque diapositive d'un display texte.</summary>
+    public IReadOnlyList<string> TextesAnnonce(Annonce a) => a.Source != null ? new[] { "" } : BlocsTexte(a.Texte);
+
     public int DiaposAnnonce(Annonce a) => a.Source != null ? 1 : BlocsTexte(a.Texte).Count;
 
     public void AfficherAnnonce(Annonce a, int i = 0)
