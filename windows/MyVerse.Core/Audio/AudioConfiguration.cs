@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MyVerse.Audio;
 
@@ -120,19 +121,35 @@ public sealed class AudioConfiguration
     public string MonitorDeviceName { get; set; } = "";
     public bool PanelVisible { get; set; } = true;
     public VirtualSoundSettings VirtualSound { get; set; } = new();
+    /// <summary>
+    /// Sources du mélangeur OBS. Le nom JSON « obsSources » est voulu : la liste « sources » de la 1.2 bêta
+    /// (types « Capture »/« Loopback », filtres « Gain », « Equalizer »…) est ainsi ignorée au lieu de faire échouer la lecture des réglages.
+    /// </summary>
+    [JsonPropertyName("obsSources")]
     public List<AudioSource> Sources { get; set; } = new();
     public List<RecordingProfile> Profiles { get; set; } = new();
+
+    /// <summary>Dossier des enregistrements par défaut : Vidéos\MyChurch.</summary>
+    public static string DossierEnregistrements
+    {
+        get
+        {
+            string v = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
+            if (string.IsNullOrEmpty(v)) v = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Videos");
+            return Path.Combine(v, "MyChurch");
+        }
+    }
 
     public static T Copy<T>(T x) => JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(x, Donnees.Json), Donnees.Json)!;
     public static double Bound(double x, double min, double max, double fallback = 0) => double.IsFinite(x) ? Math.Clamp(x, min, max) : fallback;
 
-    /// <summary>Remet les valeurs dans leurs bornes. Les réglages du mixeur local de la 1.2 bêta ne sont pas repris : le mélangeur repart vide.</summary>
+    /// <summary>Remet les valeurs dans leurs bornes. Les sources du mixeur local de la 1.2 bêta ne sont pas reprises (autre nom JSON) : le mélangeur repart vide.</summary>
     public void Normalize()
     {
         Sources ??= new(); Profiles ??= new(); FfmpegPath ??= ""; VirtualSound ??= new();
         VirtualSound.DeviceId ??= ""; VirtualSound.DeviceName ??= "";
         VirtualSound.Track = Math.Clamp(VirtualSound.Track, 1, Pistes); VirtualSound.VolumeDb = Bound(VirtualSound.VolumeDb, -60, 6);
-        if (Version < Actuelle) { Sources.Clear(); Version = Actuelle; }
+        Version = Actuelle;
         if (string.IsNullOrEmpty(MonitorDeviceId)) MonitorDeviceId = "default";
         MonitorDeviceName ??= "";
         var ids = new HashSet<string>();
@@ -160,8 +177,9 @@ public sealed class AudioConfiguration
                 if (f.Method != "speex") f.Method = "rnnoise";
             }
         }
+        if (Profiles.Count == 0) Profiles.Add(new RecordingProfile { Name = "Enregistrement", Format = "wav", AudioOnly = true, Track = 1 });
         if (Profiles.Count > 4) Profiles.RemoveRange(4, Profiles.Count - 4);
-        foreach (var p in Profiles) { p.Track = Math.Clamp(p.Track, 1, Pistes); p.Visuals ??= new(); p.Directory ??= ""; p.Name ??= "Enregistrement"; p.Color ??= "#B3261E"; }
+        foreach (var p in Profiles) { p.Track = Math.Clamp(p.Track, 1, Pistes); p.Visuals ??= new(); if (string.IsNullOrWhiteSpace(p.Directory)) p.Directory = DossierEnregistrements; p.Name ??= "Enregistrement"; p.Color ??= "#B3261E"; }
     }
 }
 

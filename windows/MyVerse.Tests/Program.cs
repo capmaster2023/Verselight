@@ -354,6 +354,51 @@ if (Actif())
     Egal(d3.Chants.Count, 2000, "LevelDB : 2000 chants repris");
 }
 
+// ------------------------------------------------------------------ réglages de la 1.2 bêta (ancien mixeur local) → 3.0
+Groupe("Reglages 1.2");
+if (Actif())
+{
+    var dir = Temp();
+    File.WriteAllText(Path.Combine(dir, "chants.json"), """[{"id":"c12","title":"Chant gardé","author":"Recueil 1.2","sections":[{"label":"Couplet","text":"Ligne"}]}]""");
+    File.WriteAllText(Path.Combine(dir, "reglages.json"), """
+    {"theme":"ciel","taille":1.3,"presentation":"bandeau","recueil":"Recueil 1.2","inclus":true,
+     "bibles":{"principale":"kjv","seconde":"lsg","importees":[]},
+     "audio":{"version":2,"sampleRate":48000,"monitorDeviceId":null,"monitorDb":-12,"listenZoom":true,
+       "sources":[{"id":"a","name":"Micro","kind":"Capture","stereo":true,"channel":1,"sends":{"salle":{"enabled":true,"volumeDb":-3}},
+                   "filters":[{"kind":"Equalizer","q":0.7},{"kind":"Gain","gainDb":3},{"kind":"Sidechain","sidechainSourceId":"b"}]},
+                  {"id":"b","name":"PC","kind":"Loopback","filters":[{"kind":9}]},{"id":"c","kind":2}],
+       "buses":[{"id":"salle","outputDeviceId":"x"}],"scenes":[{"name":"Culte","sources":[{"kind":"Capture"}]}],
+       "profiles":[{"name":"Culte","icon":"●","format":"wav","allowedSources":["a"],"sendDb":{"a":-6},"applyToRoom":true}]}}
+    """);
+    var d12 = Donnees.Charger(dir, res);
+    Egal(d12.Reglages.Theme, "ciel", "1.2 : thème conservé (les réglages se lisent malgré l'ancien audio)");
+    Egal(d12.Reglages.Taille, 1.3, "1.2 : taille conservée");
+    Egal(d12.Reglages.Bibles.Principale, "kjv", "1.2 : Bible principale conservée");
+    Egal(d12.Reglages.Recueil, "Recueil 1.2", "1.2 : recueil conservé");
+    Egal(d12.Chants.Count, 1, "1.2 : chants conservés");
+    var a12 = d12.Reglages.Audio;
+    a12.Normalize();
+    Egal(a12.Sources.Count, 0, "1.2 : le mélangeur OBS repart vide (anciennes sources ignorées)");
+    Egal(a12.Profiles.Count, 1, "1.2 : profil d'enregistrement gardé");
+    Egal(a12.Profiles[0].Track, 1, "1.2 : profil → piste 1");
+    Egal(a12.MonitorDeviceId, "default", "1.2 : écoute au casque sur le périphérique par défaut");
+    Egal(a12.Version, MyVerse.Audio.AudioConfiguration.Actuelle, "1.2 : version des réglages audio mise à jour");
+    // nouvelles sources : enregistrées sous « obsSources » et relues telles quelles
+    a12.Sources.Add(new MyVerse.Audio.AudioSource { Name = "Chaire", Kind = MyVerse.Audio.AudioInputKind.Microphone, Tracks = 5, Monitoring = MyVerse.Audio.AudioMonitoring.Only,
+        Filters = { new MyVerse.Audio.AudioFilter { Kind = MyVerse.Audio.AudioFilterKind.Compressor, Ratio = 6 } } });
+    d12.SauverReglages();
+    var json = File.ReadAllText(Path.Combine(dir, "reglages.json"));
+    Ok(json.Contains("\"obsSources\"") && !json.Contains("\"sources\""), "3.0 : sources écrites sous « obsSources »");
+    var r12 = Donnees.Charger(dir, res).Reglages.Audio;
+    r12.Normalize();
+    Egal(r12.Sources.Count, 1, "3.0 : source relue");
+    Egal(r12.Sources.FirstOrDefault()?.Tracks, 5, "3.0 : pistes relues");
+    Egal(r12.Sources.FirstOrDefault()?.Monitoring, MyVerse.Audio.AudioMonitoring.Only, "3.0 : écoute relue");
+    Egal(r12.Sources.FirstOrDefault()?.Filters.FirstOrDefault()?.Ratio, 6.0, "3.0 : filtre relu");
+    var neuf = new MyVerse.Audio.AudioConfiguration(); neuf.Normalize();
+    Ok(neuf.Sources.Count == 0 && neuf.Profiles.Count == 1 && neuf.Profiles[0].Format == "wav" && neuf.Profiles[0].Directory.EndsWith("MyChurch"), "nouveaux réglages : mélangeur vide, profil WAV piste 1 dans Vidéos\\MyChurch");
+}
+
 // ------------------------------------------------------------------ régie
 Groupe("Transfert");
 if (Actif())
