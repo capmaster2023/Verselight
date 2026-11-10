@@ -86,13 +86,13 @@ public static class AutoTest
             Ok(App.Audio.Running, "moteur audio OBS démarré dans MyChurch (" + App.Audio.Diagnostic + ")");
             string sinus = Path.Combine(App.Donnees.Dossier, "test-sinus.wav");
             EcrireSinus(sinus);
-            var micro = new MyVerse.Audio.AudioSource { Name = "Micro pasteur", Kind = MyVerse.Audio.AudioInputKind.Microphone, DeviceId = "default", Tracks = 3, VolumeDb = -4 };
+            var micro = new MyVerse.Audio.AudioSource { Name = "Micro pasteur", Kind = MyVerse.Audio.AudioInputKind.Microphone, DeviceId = "default", Tracks = 3, VolumeDb = -4, Monitoring = MyVerse.Audio.AudioMonitoring.AndOutput };
             micro.Filters.Add(new MyVerse.Audio.AudioFilter { Kind = MyVerse.Audio.AudioFilterKind.NoiseSuppression });
             micro.Filters.Add(new MyVerse.Audio.AudioFilter { Kind = MyVerse.Audio.AudioFilterKind.NoiseGate, AttackMs = 25, ReleaseMs = 150 });
             micro.Filters.Add(new MyVerse.Audio.AudioFilter { Kind = MyVerse.Audio.AudioFilterKind.Compressor });
             micro.Filters.Add(new MyVerse.Audio.AudioFilter { Kind = MyVerse.Audio.AudioFilterKind.Limiter, ThresholdDb = -6 });
             var ordi = new MyVerse.Audio.AudioSource { Name = "Son de l'ordinateur", Kind = MyVerse.Audio.AudioInputKind.Sortie, DeviceId = "default", Tracks = 1, VolumeDb = -12, Muted = true };
-            var media = new MyVerse.Audio.AudioSource { Name = "Sinus de test", Kind = MyVerse.Audio.AudioInputKind.Media, MediaPath = sinus, Loop = true, Tracks = 3, Monitoring = MyVerse.Audio.AudioMonitoring.AndOutput };
+            var media = new MyVerse.Audio.AudioSource { Name = "Sinus de test", Kind = MyVerse.Audio.AudioInputKind.Media, MediaPath = sinus, Loop = true, Tracks = 3 };
             cfg.Sources.Clear();
             cfg.Sources.Add(micro); cfg.Sources.Add(ordi); cfg.Sources.Add(media);
             App.Audio.Apply();
@@ -106,7 +106,8 @@ public static class AutoTest
                 Ok(App.Audio.InputReady(micro.Id) && App.Audio.InputReady(ordi.Id), "micro et son de l'ordinateur créés dans OBS");
                 if (App.Audio.TracksActive)
                 {
-                    float p1 = App.Audio.TrackLevel(0);
+                    float p1 = float.NegativeInfinity;
+                    for (int i = 0; i < 25 && !(p1 > -12); i++) { await Attendre(200); p1 = App.Audio.TrackLevel(0); }
                     Ok(p1 > -12, $"piste 1 : reçoit le sinus ({p1:0.0} dBFS)");
                 }
                 else Note("pistes d'OBS inactives sur cette machine (pas de carte graphique) : essais des pistes non faits");

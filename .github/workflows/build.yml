@@ -140,6 +140,11 @@ jobs:
           Get-ChildItem out/directshow/LICENSE* | Copy-Item -Destination out/MyChurch/
           Get-ChildItem out/MyChurch | Measure-Object -Property Length -Sum | ForEach-Object { "{0} fichiers, {1:N1} Mo" -f $_.Count, ($_.Sum / 1MB) }
 
+      - name: Écran de 1920 × 1080 pour les captures (si Windows le permet)
+        continue-on-error: true
+        run: |
+          try { Set-DisplayResolution -Width 1920 -Height 1080 -Force -ErrorAction Stop; "écran : 1920 × 1080" } catch { "résolution inchangée : $($_.Exception.Message)" }
+
       - name: Test automatique (fenêtres, projection, captures d'écran)
         run: |
           $env:MYCHURCH_TEST_CAM = "1"

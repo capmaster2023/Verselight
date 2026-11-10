@@ -37,6 +37,7 @@ public sealed class AudioPanel : Border
         public Slider Volume = null!;
         public Button Muet = null!, Casque = null!, Filtres = null!;
         public Shapes.Path CasqueIcone = null!;
+        public StackPanel Boutons = null!;
         public readonly Button[] Pistes = new Button[AudioConfiguration.Pistes];
     }
 
@@ -61,6 +62,10 @@ public sealed class AudioPanel : Border
     readonly Button vsMuet;
     readonly TextBlock vsEtat = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0) };
     readonly List<Ligne> lignes = new();
+    readonly DockPanel tete = new();
+    readonly WrapPanel actions = new() { VerticalAlignment = VerticalAlignment.Center };
+    readonly StackPanel droite = new();
+    bool? etroit, bandesEtroites;
     string? choisie;
     bool remplissage, demarre, enregistrementActif;
     string dernierMessage;
@@ -98,12 +103,10 @@ public sealed class AudioPanel : Border
         };
         reduire = new Button { Style = S("BtnPlat"), Width = 38, Height = 38, Padding = new Thickness(0), Margin = new Thickness(6, 0, 0, 0), HorizontalContentAlignment = HorizontalAlignment.Center, Content = chevron };
         reduire.Click += (_, _) => { C.PanelVisible = !C.PanelVisible; MajReduction(); A.Apply(); };
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         actions.Children.Add(enregistrer);
         actions.Children.Add(ajouter);
         actions.Children.Add(peripheriques);
         actions.Children.Add(reduire);
-        var tete = new DockPanel();
         DockPanel.SetDock(actions, Dock.Right);
         tete.Children.Add(actions);
         tete.Children.Add(titre);
@@ -121,13 +124,14 @@ public sealed class AudioPanel : Border
         gauche.Children.Add(legende);
         vide = new TextBlock { Text = Vide, FontSize = 14, Foreground = P("Brume"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(2, 4, 2, 12), LineHeight = 22 };
         var zone = new Grid();
-        zone.Children.Add(new ScrollViewer { Content = bandes, MaxHeight = 430, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Padding = new Thickness(0, 0, 4, 0) });
+        zone.Children.Add(new ScrollViewer { Content = bandes, MaxHeight = 430, VerticalAlignment = VerticalAlignment.Top, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Padding = new Thickness(0, 0, 4, 0) });
         zone.Children.Add(vide);
         gauche.Children.Add(zone);
         corps.Children.Add(gauche);
 
         // ---------------- à droite : filtres de la source choisie, écoute, pistes, MyVirtualSound
-        var droite = new StackPanel();
+        corps.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        corps.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         Grid.SetColumn(droite, 2);
         filtresTitre.Style = S("CarteTitre");
         droite.Children.Add(filtresTitre);
@@ -212,6 +216,8 @@ public sealed class AudioPanel : Border
         A.Recorder.Changed += () => Dispatcher.BeginInvoke(new Action(MajEnregistrement));
         minuterie.Tick += (_, _) => Battre();
         Loaded += (_, _) => minuterie.Start();
+        SizeChanged += (_, e) => Disposer(e.NewSize.Width);
+        bandes.SizeChanged += (_, e) => Compacter(e.NewSize.Width < 560);
         Unloaded += (_, _) => minuterie.Stop();
         Rafraichir();
         MajReduction();
@@ -250,6 +256,7 @@ public sealed class AudioPanel : Border
                 lignes.Add(l);
                 bandes.Children.Add(l.Cadre);
                 MajLigne(l);
+                if (bandesEtroites == true) Compacter(l, true);
             }
             vide.Visibility = C.Sources.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             vsActif.IsChecked = C.VirtualSound.Enabled;
@@ -310,6 +317,7 @@ public sealed class AudioPanel : Border
 
         // M, casque, filtres ; puis les pistes 1 à 6
         var boutons = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        l.Boutons = boutons;
         var haut = new StackPanel { Orientation = Orientation.Horizontal };
         l.Muet = BoutonM(40, 32);
         l.Muet.Click += (_, _) => { s.Muted = !s.Muted; A.Apply(); MajLigne(l); };
@@ -353,6 +361,47 @@ public sealed class AudioPanel : Border
         l.Cadre.PreviewMouseLeftButtonDown += (_, _) => { if (choisie != s.Id) Choisir(s.Id); };
         l.Cadre.MouseRightButtonUp += (_, e) => { Choisir(s.Id); MenuLigne(l); e.Handled = true; };
         return l;
+    }
+
+    /// <summary>Petits écrans (1366 px et moins) : la colonne de droite passe sous le mélangeur, les boutons de l'en-tête sous le titre.</summary>
+    void Disposer(double largeur)
+    {
+        bool e = largeur < 860;
+        if (e == etroit) return;
+        etroit = e;
+        corps.ColumnDefinitions[0].MinWidth = e ? 0 : 420;
+        corps.ColumnDefinitions[1].Width = new GridLength(e ? 0 : 26);
+        corps.ColumnDefinitions[2].Width = new GridLength(e ? 0 : 272);
+        Grid.SetColumn(droite, e ? 0 : 2);
+        Grid.SetRow(droite, e ? 1 : 0);
+        droite.Margin = new Thickness(0, e ? 22 : 0, 0, 0);
+        DockPanel.SetDock(actions, e ? Dock.Bottom : Dock.Right);
+        actions.Margin = new Thickness(0, e ? 12 : 0, 0, 0);
+        actions.HorizontalAlignment = e ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+    }
+
+    /// <summary>Bande étroite : les boutons (M, casque, filtres, pistes) passent sous les vumètres.</summary>
+    void Compacter(bool e)
+    {
+        if (e == bandesEtroites) return;
+        bandesEtroites = e;
+        foreach (var l in lignes) Compacter(l, e);
+    }
+
+    static void Compacter(Ligne l, bool e)
+    {
+        if (l.Boutons.Parent is not Grid g) return;
+        if (g.RowDefinitions.Count == 0)
+        {
+            g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        }
+        Grid.SetRow(l.Boutons, e ? 1 : 0);
+        Grid.SetColumn(l.Boutons, e ? 0 : 2);
+        Grid.SetColumnSpan(l.Boutons, e ? 3 : 1);
+        l.Boutons.Margin = new Thickness(0, e ? 12 : 0, 0, 0);
+        l.Boutons.HorizontalAlignment = e ? HorizontalAlignment.Left : HorizontalAlignment.Stretch;
+        g.ColumnDefinitions[0].Width = new GridLength(e ? 120 : 150);
     }
 
     void Choisir(string id)
