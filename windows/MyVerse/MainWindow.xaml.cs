@@ -41,7 +41,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         PositionDepart();
         VersionBtn.Content = "v" + App.Version;
-        SousTitre.Text = App.Version;
+        SousTitre.Text = "version " + App.Version;
         Placement();
         ConstruireLivres();
         ConstruireAide();
@@ -113,14 +113,9 @@ public partial class MainWindow : Window
         minuterieNum.Tick += (_, _) => AllerAuNumero(false);
         TelBtn.Click += (_, _) => new TelephoneWindow { Owner = this }.ShowDialog();
         ProjectionBtn.Click += (_, _) => MenuProjection();
-        Audio.AudioWindow? audioWindow = null;
-        AudioBtn.Click += (_, _) =>
-        {
-            if (audioWindow != null) { audioWindow.Activate(); return; }
-            audioWindow = new Audio.AudioWindow { Owner = this };
-            audioWindow.Closed += (_, _) => audioWindow = null;
-            audioWindow.Show();
-        };
+        // le mélangeur audio (moteur OBS) : dans Display, sous la grille
+        PanneauAudio = new Audio.AudioPanel();
+        AudioHote.Child = PanneauAudio;
         OutilsBtn.Click += (_, _) => OuvrirOutils(true);
         VersionBtn.Click += (_, _) => OuvrirOutils(true);
         MajBtn.Click += (_, _) => OuvrirOutils(false);
@@ -308,9 +303,11 @@ public partial class MainWindow : Window
     void Placement()
     {
         double w = ActualWidth > 0 ? ActualWidth : Width;
-        Colonne.Width = Math.Clamp(w * 0.24, 360, 520);
+        // MyChurch 3.0 : colonnes de côté plus étroites, la grille et le mélangeur gardent la place au centre
+        Colonne.Width = Math.Clamp(w * 0.21, 330, 480);
         ColonneCote.Width = new GridLength(Math.Clamp(w * 0.17, 260, 340));
-        ColonneAgenda.Width = ColonneAnnonces.Width = new GridLength(Math.Clamp(w * 0.23, 300, 400));
+        ColonneAgenda.Width = new GridLength(Math.Clamp(w * 0.23, 300, 400));
+        ColonneAnnonces.Width = new GridLength(Math.Clamp(w * 0.17, 250, 340));
         // petit écran (1024 px) : barre du haut plus courte, la recherche garde sa place
         bool compact = w < 1360;
         VersionPastille.Visibility = VersionsLab.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
@@ -892,10 +889,11 @@ public partial class MainWindow : Window
         var e = R.Etat;
         bool ouvert = R.EcranOuvert();
         PastilleTexte.Text = noir ? "Écran noir" : ouvert ? (e.Vide && e.Duo == null ? "Écran ouvert · vide" : "À l'écran") : "Aperçu seulement";
-        Pastille.Background = ouvert && !noir ? Pinceau("Vert") : new SolidColorBrush(Color.FromArgb(0xD9, 0xFF, 0xFF, 0xFF));
-        PastilleTexte.Foreground = ouvert && !noir ? new SolidColorBrush(Color.FromRgb(0x03, 0x20, 0x10)) : Pinceau("Brume");
+        // l'état s'affiche à droite d'« EN DIRECT » (« Aperçu seulement » tant qu'aucun écran n'est ouvert)
         var m = App.Donnees.Reglages.Ecran;
-        EcranInfo.Text = ecran != null && m != null ? $"{m.Nom} · {m.W} × {m.H}" : "écran fermé";
+        EcranInfo.Text = PastilleTexte.Text;
+        EcranInfo.Foreground = Pinceau(ouvert && !noir ? "Vert" : "Brume");
+        EcranInfo.ToolTip = ecran != null && m != null ? $"{m.Nom} · {m.W} × {m.H}" : "Aucun écran de projection : bouton Projection en haut";
         MajProjection();
     }
 
@@ -935,7 +933,9 @@ public partial class MainWindow : Window
     public void MajTelephone()
     {
         int n = App.Telephone.Connectes().Count;
-        TelPoint.Fill = Pinceau(n > 0 ? "Vert" : App.Parefeu_ is "missing" or "refused" or "error" ? "Rouge" : "Brume2");
+        bool parefeu = App.Parefeu_ is "missing" or "refused" or "error";
+        TelPoint.Fill = Pinceau(n > 0 ? "Vert" : parefeu ? "Rouge" : "Brume2");
+        TelPoint.Visibility = n > 0 || parefeu ? Visibility.Visible : Visibility.Collapsed;
         TelTexte.Text = n > 0 ? $"{n} téléphone{(n > 1 ? "s" : "")}" : "Téléphone";
         TelBtn.ToolTip = n > 0 ? $"{n} téléphone(s) connecté(s)" : App.Parefeu_ is "missing" or "refused" or "error" ? "Pare-feu Windows : autorisation nécessaire pour le téléphone" : "Aucun téléphone connecté";
     }
@@ -957,6 +957,16 @@ public partial class MainWindow : Window
     }
 
     void OuvrirOutils(bool chercher) => new OutilsWindow(chercher) { Owner = this }.ShowDialog();
+    /// <summary>Paramètres (audio, MyVirtualSound, enregistrement, code source…), sans chercher de mise à jour.</summary>
+    public void OuvrirParametres() => OuvrirOutils(false);
+    /// <summary>Le mélangeur audio de Display.</summary>
+    public Audio.AudioPanel? PanneauAudio { get; private set; }
+    /// <summary>Montre le mélangeur : onglet Display, panneau Audio déplié.</summary>
+    public void MontrerAudio()
+    {
+        MontrerOnglet("annonces");
+        PanneauAudio?.Deplier();
+    }
 
     // ------------------------------------------------------------ pour le test automatique
     public void TestRecherche(string q) { MontrerOnglet(true); Q.Text = q; minuterieQ.Stop(); Chercher(); }

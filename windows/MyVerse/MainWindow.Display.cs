@@ -110,12 +110,8 @@ public partial class MainWindow
         var dialog = new OpenFileDialog { Title = "Ajouter une vidéo à Display", Filter = "Vidéos|*.mp4;*.mkv;*.wmv;*.avi;*.mov", Multiselect = false };
         if (dialog.ShowDialog(this) != true) return;
         ChoisirDisplay(R.NouveauDisplay(Path.GetFileNameWithoutExtension(dialog.FileName), new SourceDisplay { Type = "video", Chemin = dialog.FileName }));
-        if (!App.Audio.Config.Sources.Any(s => s.Kind == MyVerse.Audio.AudioInputKind.Media && s.FollowProjection))
-        {
-            App.Audio.Config.Sources.Add(new MyVerse.Audio.AudioSource { Name = "Média Display", Kind = MyVerse.Audio.AudioInputKind.Media, Stereo = true, FollowProjection = true });
-            App.Audio.Apply();
-        }
-        Toast("Vidéo ajoutée. Activez le moteur audio et choisissez une sortie Salle dans Audio pour l’entendre.");
+        // le mélangeur reste choisi par l'utilisateur : aucune source audio n'est ajoutée toute seule
+        Toast("Vidéo ajoutée. Son de la vidéo : ajoutez « Son de la vidéo projetée » dans le panneau Audio.");
     }
     void AjouterCamera()
     {

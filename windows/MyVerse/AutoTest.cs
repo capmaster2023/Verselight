@@ -74,6 +74,70 @@ public static class AutoTest
         finally { try { d?.Close(); } catch (Exception) { } }
     }
 
+    /// <summary>Le mélangeur dans MyChurch : trois sources (dont un sinus à −6 dBFS joué par OBS), capture du panneau et de la fenêtre Filtres.</summary>
+    static async Task TestAudio(MainWindow w)
+    {
+        var cfg = App.Audio.Config;
+        var avant = cfg.Sources.ToList();
+        try
+        {
+            for (int i = 0; i < 40 && !App.Audio.Running && !App.Audio.Diagnostic.Contains("indisponible"); i++) await Attendre(250);
+            Note("audio : " + App.Audio.Diagnostic);
+            Ok(App.Audio.Running, "moteur audio OBS démarré dans MyChurch (" + App.Audio.Diagnostic + ")");
+            string sinus = Path.Combine(App.Donnees.Dossier, "test-sinus.wav");
+            EcrireSinus(sinus);
+            var micro = new MyVerse.Audio.AudioSource { Name = "Micro pasteur", Kind = MyVerse.Audio.AudioInputKind.Microphone, DeviceId = "default", Tracks = 3, VolumeDb = -4 };
+            micro.Filters.Add(new MyVerse.Audio.AudioFilter { Kind = MyVerse.Audio.AudioFilterKind.NoiseSuppression });
+            micro.Filters.Add(new MyVerse.Audio.AudioFilter { Kind = MyVerse.Audio.AudioFilterKind.NoiseGate, AttackMs = 25, ReleaseMs = 150 });
+            micro.Filters.Add(new MyVerse.Audio.AudioFilter { Kind = MyVerse.Audio.AudioFilterKind.Compressor });
+            micro.Filters.Add(new MyVerse.Audio.AudioFilter { Kind = MyVerse.Audio.AudioFilterKind.Limiter, ThresholdDb = -6 });
+            var ordi = new MyVerse.Audio.AudioSource { Name = "Son de l'ordinateur", Kind = MyVerse.Audio.AudioInputKind.Sortie, DeviceId = "default", Tracks = 1, VolumeDb = -12, Muted = true };
+            var media = new MyVerse.Audio.AudioSource { Name = "Sinus de test", Kind = MyVerse.Audio.AudioInputKind.Media, MediaPath = sinus, Loop = true, Tracks = 3, Monitoring = MyVerse.Audio.AudioMonitoring.AndOutput };
+            cfg.Sources.Clear();
+            cfg.Sources.Add(micro); cfg.Sources.Add(ordi); cfg.Sources.Add(media);
+            App.Audio.Apply();
+            w.MontrerAudio();
+            w.PanneauAudio?.Rafraichir();
+            await Attendre(1800);
+            if (App.Audio.Running)
+            {
+                var (g, d) = App.Audio.Level(media.Id);
+                Ok(g > -12 && g < -2, $"vumètre OBS dans MyChurch : sinus à −6 dBFS ({g:0.0} / {d:0.0} dBFS)");
+                Ok(App.Audio.InputReady(micro.Id) && App.Audio.InputReady(ordi.Id), "micro et son de l'ordinateur créés dans OBS");
+                if (App.Audio.TracksActive)
+                {
+                    float p1 = App.Audio.TrackLevel(0);
+                    Ok(p1 > -12, $"piste 1 : reçoit le sinus ({p1:0.0} dBFS)");
+                }
+                else Note("pistes d'OBS inactives sur cette machine (pas de carte graphique) : essais des pistes non faits");
+            }
+            Capture(w, "32-audio.png");
+            await Fenetre(w, () => new Audio.FiltresWindow(micro), "33-filtres.png");
+        }
+        catch (Exception x) { Echec("panneau Audio : " + x); }
+        finally
+        {
+            cfg.Sources.Clear();
+            cfg.Sources.AddRange(avant);
+            App.Audio.Apply();
+            w.PanneauAudio?.Rafraichir();
+        }
+    }
+
+    static void EcrireSinus(string chemin)
+    {
+        const int rate = 48000, secondes = 4;
+        using var f = new BinaryWriter(File.Create(chemin));
+        int octets = rate * secondes * 4;
+        f.Write("RIFF"u8); f.Write(36 + octets); f.Write("WAVEfmt "u8); f.Write(16); f.Write((short)1); f.Write((short)2); f.Write(rate); f.Write(rate * 4); f.Write((short)4); f.Write((short)16);
+        f.Write("data"u8); f.Write(octets);
+        for (int i = 0; i < rate * secondes; i++)
+        {
+            short v = (short)(Math.Sin(2 * Math.PI * 440 * i / rate) * 0.5 * 32767);
+            f.Write(v); f.Write(v);
+        }
+    }
+
     static string Police(string cle)
     {
         try
@@ -94,6 +158,9 @@ public static class AutoTest
         {
             Note($"MyChurch {App.Version} · données : {App.Donnees.Dossier} · {App.Donnees.Chants.Count} chants");
             Note("police Serif : " + Police("Serif") + " · Sans : " + Police("Sans") + " · Titre : " + Police("Titre"));
+            Note("police de l'interface : " + Police("Ui") + " · titres : " + Police("Grotesk"));
+            Ok(Police("Ui").Contains("Inter"), "police Inter incluse (interface 3.0)");
+            Ok(Police("Grotesk").Contains("Space Grotesk"), "police Space Grotesk incluse (titres des Paramètres)");
             Ok(Police("Serif").Contains("Literata"), "police Literata incluse");
             Ok(Police("Sans").Contains("Atkinson"), "police Atkinson incluse");
             await Attendre(1500);
@@ -273,6 +340,9 @@ public static class AutoTest
             Ok(w.TestCliquerTuile(0) && R.Cible is CibleTexte { I: 0 } ct && ct.Element == an.Id && R.Etat.Lignes.FirstOrDefault() == "Repas fraternel après le culte", "clic sur une tuile de la grille : en direct");
             await Attendre(500);
             Capture(w, "27-display-grille.png");
+
+            // 3.0 : panneau Audio sous la grille, sur le vrai moteur d'OBS (dossier « obs » à côté de MyChurch.exe)
+            await TestAudio(w);
             w.TestCliquerTuile(1);
             await Attendre(1300);
             Ok(R.Etat.Mode == "media" && App.Sources.Image != null, "clic sur la tuile image : en direct");

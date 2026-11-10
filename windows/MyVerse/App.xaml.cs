@@ -6,14 +6,14 @@ namespace MyVerse.Ui;
 /// <summary>MyVerse 4.0 : démarrage, une seule copie à la fois, services (Bibles, régie, téléphone, OBS).</summary>
 public partial class App : Application
 {
-    /// <summary>La version compilée (fichier VERSION du dépôt, « 1.2.0-beta »), sans le numéro de commit ajouté par la compilation.</summary>
+    /// <summary>La version compilée (fichier VERSION du dépôt, « 3.0.0 »), sans le numéro de commit ajouté par la compilation.</summary>
     public static string Version { get; } = LireVersion();
     static string LireVersion()
     {
         var v = System.Reflection.CustomAttributeExtensions.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(typeof(App).Assembly)?.InformationalVersion ?? "";
         int plus = v.IndexOf('+');
         if (plus >= 0) v = v[..plus];
-        return v.Trim().Length > 0 ? v.Trim() : "1.2.0-beta";
+        return v.Trim().Length > 0 ? v.Trim() : "3.0.0";
     }
     public static string Ressources => Path.Combine(AppContext.BaseDirectory, "Ressources");
     public static Donnees Donnees { get; private set; } = null!;
@@ -83,7 +83,7 @@ public partial class App : Application
             Journal.Erreur("erreur", ev.Exception);
             ev.Handled = true;
             if (AutoTest != null) Ui.AutoTest.Echec("exception : " + ev.Exception);
-            else if (MainWindow is MainWindow mw) mw.Toast("Erreur : " + ev.Exception.Message + " (détails dans Outils › Journal)");
+            else if (MainWindow is MainWindow mw) mw.Toast("Erreur : " + ev.Exception.Message + " (détails dans Paramètres › Journal d'erreurs)");
         };
         AppDomain.CurrentDomain.UnhandledException += (_, ev) =>
         {
@@ -127,6 +127,9 @@ public partial class App : Application
         var w = new MainWindow();
         MainWindow = w;
         w.Show();
+        // le moteur audio d'OBS démarre une fois la fenêtre affichée (quelques dixièmes de seconde) ;
+        // sans le dossier « obs », MyChurch fonctionne normalement et le panneau Audio l'indique
+        Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => Audio.Start()));
         if (Donnees.Migration.Length > 0) w.Toast("Données de MyChurch 3 reprises : " + Donnees.Migration + ".");
         if (AutoTest != null) Ui.AutoTest.Lancer(w, AutoTest);
     }
