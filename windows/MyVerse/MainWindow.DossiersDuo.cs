@@ -109,10 +109,11 @@ public partial class MainWindow
 
         DuoPile.Children.Add(Etiquette("PLAN DE L'ÉCRAN"));
         duoPlan = new Canvas { Width = PlanL, Height = PlanH, ClipToBounds = true };
-        DuoPile.Children.Add(new Border
+        // le plan rétrécit avec la fenêtre (jamais coupé)
+        DuoPile.Children.Add(new Viewbox
         {
-            Width = PlanL, Height = PlanH, HorizontalAlignment = HorizontalAlignment.Left, CornerRadius = new CornerRadius(10), ClipToBounds = true,
-            Background = new SolidColorBrush(Color.FromRgb(0x1C, 0x17, 0x12)), Margin = new Thickness(0, 0, 0, 14), Child = duoPlan,
+            MaxWidth = PlanL, Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 14),
+            Child = new Border { Width = PlanL, Height = PlanH, CornerRadius = new CornerRadius(10), ClipToBounds = true, Background = new SolidColorBrush(Color.FromRgb(0x1C, 0x17, 0x12)), Child = duoPlan },
         });
 
         var parts = new WrapPanel();
