@@ -117,6 +117,7 @@ public sealed partial class Regie
         var cibleAvant = Cible;
         bool ok = false;
         muet = true;
+        dansDuo = true;
         try
         {
             Etat = Etat with { Duo = null };
@@ -130,24 +131,34 @@ public sealed partial class Regie
             else ElementCourant = null;
         }
         finally { muet = false; }
+        try
+        {
         if (!ok) { Dire($"Un élément du duo « {d.Nom} » n'existe plus : choisissez-le à nouveau dans l'onglet Duo."); return false; }
         Oeil?.Invoke(true);
         Signaler();
         return true;
+        }
+        finally { dansDuo = false; }
     }
+    bool dansDuo;
+    Cible? cibleDuo;
 
     /// <summary>Autre chose que le premier élément du dossier arrive à l'écran : le dossier s'en va.</summary>
     void LacherDuoLibre()
     {
         if (Etat.Duo is not { Place: "libre" } e) return;
         var d = donnees.Duos.FirstOrDefault(x => x.Id == e.Dossier);
-        bool meme = d != null && !Etat.Vide && d.A.Type switch
+        // un clic sur une autre source, ou sur l'élément seul, remplace le dossier ; seul Suivant / Précédent le garde
+        // rien de nouveau à l'écran (fond, taille, mesures) : le dossier reste
+        if (ReferenceEquals(Cible, cibleDuo)) return;
+        bool meme = (avance || dansDuo) && d != null && !Etat.Vide && d.A.Type switch
         {
             "chant" => Cible is CibleChant c && c.Id == d.A.Id,
             "bible" => Cible is CibleVerset v && d.A.Ref is { Length: >= 2 } r && v.B == r[0] && v.C == r[1],
             "display" => Cible is CibleTexte t && t.Element == d.A.Id || Cible is CibleDisplay s && s.Id == d.A.Id,
             _ => false,
         };
-        if (!meme) Etat = Etat with { Duo = null };
+        if (meme) cibleDuo = Cible;
+        else { Etat = Etat with { Duo = null }; cibleDuo = null; }
     }
 }

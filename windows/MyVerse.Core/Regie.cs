@@ -221,7 +221,15 @@ public sealed partial class Regie
         Signaler();
     }
 
+    /// <summary>Vrai pendant Suivant / Précédent : le dossier Duo à l'écran reste, son premier élément avance.</summary>
+    bool avance;
     public void Bouger(int d)
+    {
+        avance = true;
+        try { BougerSeul(d); } finally { avance = false; }
+    }
+
+    void BougerSeul(int d)
     {
         if (BougerAgenda(d) || BougerAnnonce(d)) return;
         if (Cible is CibleChant cc)

@@ -11,13 +11,13 @@
     <AssemblyName>MyChurch</AssemblyName>
     <ApplicationIcon>myverse.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.1.1</Version>
-    <FileVersion>1.1.1.1</FileVersion>
+    <Version>1.1.2</Version>
+    <FileVersion>1.1.2.1</FileVersion>
     <Product>MyChurch</Product>
     <AssemblyTitle>MyChurch</AssemblyTitle>
     <Company>MEPC Montréal</Company>
     <Copyright>MEPC Montréal</Copyright>
-    <Description>MyChurch 1.1.1</Description>
+    <Description>MyChurch 1.1.2</Description>
     <NeutralLanguage>fr</NeutralLanguage>
     <SatelliteResourceLanguages>fr</SatelliteResourceLanguages>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>

@@ -795,6 +795,9 @@ if (Actif())
     Ok(rg.Etat.Duo?.Cadres?[5] == 0.2, "mesure changée pendant l'affichage : appliquée tout de suite");
     rg.AfficherVerset(42, 3, 17, 17);
     Ok(rg.Etat.Duo == null && rg.Etat.Mode == "verset", "autre chose à l'écran : le dossier s'en va");
+    rg.AfficherDuo(d);
+    rg.AfficherSection(ch.Id, 0);
+    Ok(rg.Etat.Duo == null && rg.Etat.Mode == "chant", "clic sur l'élément 1 seul : il s'affiche seul, le dossier s'en va");
     var an = rg.AjouterDuoDisplay(d);
     Ok(an.Grille && an.Source?.Type == "duo" && rg.AjouterDuoDisplay(d).Id == an.Id && rg.Annonces.Count(x => x.Source?.Type == "duo") == 1, "+ Display : une seule tuile, dans la grille");
     rg.AfficherAnnonce(an);
