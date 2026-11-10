@@ -71,7 +71,20 @@ public static class ObsTests
             m.Apply(c);
             v = Attendre(m, () => m.Level(s.Id).L, x => x > -40, 3000);
             ok(v > -40 && !journal.Any(l => l.Contains("filtre OBS refusé")), "compresseur, noise gate et réduction du bruit acceptés par OBS", v.ToString("0.0"));
+            var ordre = m.FilterOrder(s.Id);
+            ok(ordre.SequenceEqual(s.Filters.Select(f => f.Id)), "OBS applique les filtres dans l'ordre du mélangeur", string.Join(", ", ordre));
+            (s.Filters[0], s.Filters[3]) = (s.Filters[3], s.Filters[0]);
+            (s.Filters[1], s.Filters[2]) = (s.Filters[2], s.Filters[1]);
+            m.Apply(c);
+            ordre = m.FilterOrder(s.Id);
+            ok(ordre.SequenceEqual(s.Filters.Select(f => f.Id)), "Monter / Descendre : OBS suit le nouvel ordre des filtres", string.Join(", ", ordre));
+            v = Attendre(m, () => m.Level(s.Id).L, x => x > -40, 3000);
+            ok(v > -40, "le son passe toujours après le changement d'ordre", v.ToString("0.0"));
+            s.Filters.RemoveAt(1); m.Apply(c);
+            ordre = m.FilterOrder(s.Id);
+            ok(ordre.SequenceEqual(s.Filters.Select(f => f.Id)), "filtre supprimé : l'ordre des autres est gardé", string.Join(", ", ordre));
             s.Filters.Clear(); m.Apply(c);
+            ok(m.FilterOrder(s.Id).Count == 0, "tous les filtres retirés d'OBS", null);
 
             if (m.TracksActive)
             {

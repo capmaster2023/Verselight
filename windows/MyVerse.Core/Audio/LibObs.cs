@@ -96,6 +96,11 @@ public static class LibObs
     [DllImport(Lib)] public static extern void obs_source_filter_add(IntPtr source, IntPtr filter);
     [DllImport(Lib)] public static extern void obs_source_filter_remove(IntPtr source, IntPtr filter);
     [DllImport(Lib)] public static extern void obs_source_media_restart(IntPtr source);
+    [DllImport(Lib)] public static extern IntPtr obs_source_get_name(IntPtr source);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void EnumSource(IntPtr parent, IntPtr child, IntPtr param);
+    /// <summary>Les filtres d'une source, dans l'ordre où OBS les applique (le premier de la liste d'abord).</summary>
+    [DllImport(Lib)] public static extern void obs_source_enum_filters(IntPtr source, EnumSource callback, IntPtr param);
     /// <summary>libobs 33 et suivantes.</summary>
     [DllImport(Lib)] public static extern void obs_source_set_monitoring_enabled(IntPtr source, [MarshalAs(UnmanagedType.U1)] bool enabled);
     /// <summary>libobs 32 et précédentes : 0 = aucune écoute, 2 = écoute et sortie.</summary>

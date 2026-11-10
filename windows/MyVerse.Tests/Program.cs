@@ -382,6 +382,7 @@ if (Actif())
     Egal(a12.Profiles.Count, 1, "1.2 : profil d'enregistrement gardé");
     Egal(a12.Profiles[0].Track, 1, "1.2 : profil → piste 1");
     Egal(a12.MonitorDeviceId, "default", "1.2 : écoute au casque sur le périphérique par défaut");
+    Ok(a12.MicrophoneId == "default" && a12.OutputId == "default", "1.2 : micro et sortie proposés = périphériques Windows par défaut");
     Egal(a12.Version, MyVerse.Audio.AudioConfiguration.Actuelle, "1.2 : version des réglages audio mise à jour");
     // nouvelles sources : enregistrées sous « obsSources » et relues telles quelles
     a12.Sources.Add(new MyVerse.Audio.AudioSource { Name = "Chaire", Kind = MyVerse.Audio.AudioInputKind.Microphone, Tracks = 5, Monitoring = MyVerse.Audio.AudioMonitoring.Only,

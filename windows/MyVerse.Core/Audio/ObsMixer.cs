@@ -61,6 +61,8 @@ public sealed class ObsMixer : IDisposable
         public string Signature = "";
         public AudioMonitoring Monitor;
         public readonly Dictionary<string, Filtre> Filtres = new();
+        /// <summary>Ordre des filtres tel qu'OBS les applique (identifiants).</summary>
+        public readonly List<string> Ordre = new();
         public volatile float PeakL = float.NegativeInfinity, PeakR = float.NegativeInfinity;
         public long Vu;
     }
@@ -72,6 +74,10 @@ public sealed class ObsMixer : IDisposable
     static readonly LibObs.AudioOutputCallback sortie = Sortie;
     static readonly LibObs.EnumAudioDevice enumerer = Enumerer;
     static List<AudioDevice>? enumeration;
+    static readonly LibObs.EnumSource lireFiltre = LireFiltre;
+    static List<string>? filtresLus;
+    static readonly object verrouFiltres = new();
+    const string PrefixeFiltre = "MyChurch filtre ";
 
     readonly Dictionary<string, Bande> bandes = new();
     readonly ConcurrentDictionary<long, Bande> parCanal = new();
@@ -352,7 +358,7 @@ public sealed class ObsMixer : IDisposable
             foreach (var fid in b.Filtres.Keys.Where(fid => s.Filters.All(f => f.Id != fid || f.Kind != b.Filtres[fid].Kind)).ToList())
             {
                 var ancien = b.Filtres[fid];
-                LibObs.obs_source_filter_remove(b.Source, ancien.Ptr); LibObs.obs_source_release(ancien.Ptr); b.Filtres.Remove(fid);
+                LibObs.obs_source_filter_remove(b.Source, ancien.Ptr); LibObs.obs_source_release(ancien.Ptr); b.Filtres.Remove(fid); b.Ordre.Remove(fid);
             }
             foreach (var f in s.Filters)
             {
@@ -360,12 +366,12 @@ public sealed class ObsMixer : IDisposable
                 if (!b.Filtres.TryGetValue(f.Id, out var filtre))
                 {
                     IntPtr reglages = ReglagesFiltre(f);
-                    IntPtr ptr = LibObs.obs_source_create(TypeFiltre(f.Kind), "MyChurch filtre " + f.Id, reglages, IntPtr.Zero);
+                    IntPtr ptr = LibObs.obs_source_create(TypeFiltre(f.Kind), PrefixeFiltre + f.Id, reglages, IntPtr.Zero);
                     LibObs.obs_data_release(reglages);
                     if (ptr == IntPtr.Zero) { Log?.Invoke(100, "MyChurch : filtre OBS refusé (" + TypeFiltre(f.Kind) + ")"); continue; }
                     LibObs.obs_source_filter_add(b.Source, ptr);
                     filtre = new Filtre { Ptr = ptr, Kind = f.Kind, Signature = sf };
-                    b.Filtres[f.Id] = filtre;
+                    b.Filtres[f.Id] = filtre; b.Ordre.Add(f.Id);
                 }
                 else if (filtre.Signature != sf)
                 {
@@ -376,7 +382,34 @@ public sealed class ObsMixer : IDisposable
                 }
                 if (filtre.Enabled != f.Enabled) { LibObs.obs_source_set_enabled(filtre.Ptr, f.Enabled); filtre.Enabled = f.Enabled; }
             }
+            // Monter / Descendre : OBS applique les filtres dans l'ordre où ils ont été ajoutés, on les repose donc dans l'ordre voulu
+            var voulu = s.Filters.Where(f => b.Filtres.ContainsKey(f.Id)).Select(f => f.Id).ToList();
+            if (!voulu.SequenceEqual(b.Ordre))
+            {
+                foreach (var fid in b.Ordre) LibObs.obs_source_filter_remove(b.Source, b.Filtres[fid].Ptr);
+                foreach (var fid in voulu) LibObs.obs_source_filter_add(b.Source, b.Filtres[fid].Ptr);
+                b.Ordre.Clear(); b.Ordre.AddRange(voulu);
+            }
         }
+    }
+
+    static void LireFiltre(IntPtr parent, IntPtr filtre, IntPtr param)
+    {
+        string nom = LibObs.Str(LibObs.obs_source_get_name(filtre)) ?? "";
+        filtresLus?.Add(nom.StartsWith(PrefixeFiltre, StringComparison.Ordinal) ? nom[PrefixeFiltre.Length..] : nom);
+    }
+    /// <summary>Les filtres d'une source tels qu'OBS les applique (identifiants MyChurch, dans l'ordre).</summary>
+    public List<string> FilterOrder(string id)
+    {
+        var liste = new List<string>();
+        if (!Running || !bandes.TryGetValue(id, out var b)) return liste;
+        lock (verrouFiltres)
+        {
+            filtresLus = liste;
+            try { LibObs.obs_source_enum_filters(b.Source, lireFiltre, IntPtr.Zero); }
+            finally { filtresLus = null; }
+        }
+        return liste;
     }
     void Retirer(string id)
     {

@@ -119,6 +119,12 @@ public sealed class AudioConfiguration
     /// <summary>Périphérique d'écoute au casque (monitoring OBS) ; « default » = sortie Windows par défaut.</summary>
     public string MonitorDeviceId { get; set; } = "default";
     public string MonitorDeviceName { get; set; } = "";
+    /// <summary>Microphone proposé en premier dans « + Source audio » (Paramètres) ; « default » = périphérique Windows par défaut.</summary>
+    public string MicrophoneId { get; set; } = "default";
+    public string MicrophoneName { get; set; } = "";
+    /// <summary>Sortie audio proposée en premier pour « Son d'une sortie audio » (Paramètres).</summary>
+    public string OutputId { get; set; } = "default";
+    public string OutputName { get; set; } = "";
     public bool PanelVisible { get; set; } = true;
     public VirtualSoundSettings VirtualSound { get; set; } = new();
     /// <summary>
@@ -152,6 +158,9 @@ public sealed class AudioConfiguration
         Version = Actuelle;
         if (string.IsNullOrEmpty(MonitorDeviceId)) MonitorDeviceId = "default";
         MonitorDeviceName ??= "";
+        if (string.IsNullOrEmpty(MicrophoneId)) MicrophoneId = "default";
+        if (string.IsNullOrEmpty(OutputId)) OutputId = "default";
+        MicrophoneName ??= ""; OutputName ??= "";
         var ids = new HashSet<string>();
         Sources.RemoveAll(s => s == null || string.IsNullOrEmpty(s.Id) || !ids.Add(s.Id));
         if (Sources.Count > 32) Sources.RemoveRange(32, Sources.Count - 32);
