@@ -37,8 +37,9 @@ public sealed class AudioEngine
             Source = source; Input = input; State = old?.State ?? new();
             foreach (var id in source.Sends.Keys) if (!State.Sends.ContainsKey(id)) State.Sends[id] = 0;
             bool same = old != null && System.Text.Json.JsonSerializer.Serialize(source.Filters, Donnees.Json) == System.Text.Json.JsonSerializer.Serialize(old.Source.Filters, Donnees.Json);
-            Chain = same ? old!.Chain : new(source.Filters);
-            if (!same && old != null) { PreviousChain = old.Chain; FadeFilter = 960; }
+            Chain = same ? old!.Chain : new(source.Filters, old?.Chain);
+            // mêmes filtres, paramètres changés : l'état est repris, pas de fondu ; structure changée : fondu de 20 ms
+            if (!same && old != null && !Chain.Inherited) { PreviousChain = old.Chain; FadeFilter = 960; }
         }
     }
     sealed class Bus
@@ -143,11 +144,12 @@ public sealed class AudioEngine
                 bool allowed = g.Restriction?.Allows(s.Id, bus.Config.Id) ?? true;
                 double sendTarget = allowed && send.Enabled && !send.Muted && s.Monitoring != AudioMonitoring.Only ? AudioMath.Linear(send.VolumeDb) * (g.Restriction?.Gain(s.Id, bus.Config.Id) ?? 1) : 0;
                 // Restrictions close immediately to guarantee no excluded source leaks into a new recording.
-                if (!allowed) state.Sends[bus.Config.Id] = 0;
+                // fermeture très rapide (environ 3 ms) mais sans clic sur le bus Zoom en direct
+                double pas = allowed ? g.Smooth : Math.Max(g.Smooth, 1d / 24);
                 double gain = state.Sends[bus.Config.Id];
                 for (int i = 0; i < Samples; i += 2)
                 {
-                    gain += (sendTarget - gain) * g.Smooth;
+                    gain += (sendTarget - gain) * pas;
                     bus.Data[i] += (float)(data[i] * gain); bus.Data[i + 1] += (float)(data[i + 1] * gain);
                 }
                 state.Sends[bus.Config.Id] = gain;

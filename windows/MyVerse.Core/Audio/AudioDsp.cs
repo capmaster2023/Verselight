@@ -95,6 +95,7 @@ sealed class Biquad
             b0 = (1 + sign * c) / 2 / a0; b1 = -sign * (1 + sign * c) / a0; b2 = b0; a1 = -2 * c / a0; a2 = (1 - alpha) / a0;
         }
     }
+    public void CopyState(Biquad o) { z1[0] = o.z1[0]; z1[1] = o.z1[1]; z2[0] = o.z2[0]; z2[1] = o.z2[1]; }
     public float Run(float x, int channel)
     {
         double y = b0 * x + z1[channel]; z1[channel] = b1 * x - a1 * y + z2[channel]; z2[channel] = b2 * x - a2 * y;
@@ -165,15 +166,26 @@ public sealed class AudioFilterChain
     {
         public readonly AudioFilter F;
         readonly Biquad? eq;
-        readonly NoiseSuppressor? noise;
+        NoiseSuppressor? noise;
         double envelope, gain = 1;
-        int hold;
+        int hold, lookPos;
+        // limiteur à anticipation : 2 ms de retard, le gain descend avant que la crête ne sorte
+        readonly float[]? look;
+        /// <summary>Même structure : la nouvelle chaîne reprend l'état (pas de remise à zéro en bougeant un curseur).</summary>
+        public void CopyState(Stage o)
+        {
+            envelope = o.envelope; gain = o.gain; hold = o.hold;
+            if (eq != null && o.eq != null) eq.CopyState(o.eq);
+            if (noise != null && o.noise != null && F.ThresholdDb == o.F.ThresholdDb) noise = o.noise;
+            if (look != null && o.look != null) { Array.Copy(o.look, look, look.Length); lookPos = o.lookPos; }
+        }
         readonly double attack, release;
         public Stage(AudioFilter f)
         {
             F = f; attack = Math.Exp(-1 / (48 * f.AttackMs)); release = Math.Exp(-1 / (48 * f.ReleaseMs));
             if (f.Kind is AudioFilterKind.HighPass or AudioFilterKind.LowPass or AudioFilterKind.Equalizer) eq = new(f);
             if (f.Kind == AudioFilterKind.NoiseReduction) noise = new(f.ThresholdDb);
+            if (f.Kind == AudioFilterKind.Limiter) look = new float[96 * 2];
         }
         public void Run(Span<float> data, double sidechain)
         {
@@ -184,6 +196,18 @@ public sealed class AudioFilterChain
                 if (eq != null) { data[i] = eq.Run(data[i], 0); data[i + 1] = eq.Run(data[i + 1], 1); continue; }
                 if (F.Kind == AudioFilterKind.Gain) { data[i] *= (float)makeup; data[i + 1] *= (float)makeup; continue; }
                 double peak = Math.Max(Math.Abs(data[i]), Math.Abs(data[i + 1]));
+                if (look != null)
+                {
+                    double cible = peak > threshold ? threshold / peak : 1;
+                    gain = cible < gain ? cible + (gain - cible) * .92 : cible + (gain - cible) * release;
+                    float dl = look[lookPos], dr = look[lookPos + 1];
+                    look[lookPos] = data[i]; look[lookPos + 1] = data[i + 1];
+                    lookPos = (lookPos + 2) % look.Length;
+                    double plafond = threshold * makeup;
+                    data[i] = (float)Math.Clamp(dl * gain * makeup, -plafond, plafond);
+                    data[i + 1] = (float)Math.Clamp(dr * gain * makeup, -plafond, plafond);
+                    continue;
+                }
                 double level = F.Kind == AudioFilterKind.Sidechain ? sidechain : peak;
                 envelope = level + (envelope - level) * (level > envelope ? attack : release);
                 double wanted = 1;
@@ -200,9 +224,29 @@ public sealed class AudioFilterChain
             }
         }
     }
-    public AudioFilterChain(IEnumerable<AudioFilter> filters) => stages = filters.Where(f => f.Enabled).Select(f => new Stage(f)).ToArray();
+    /// <summary>Vrai si l'état de la chaîne précédente a été repris (mêmes filtres, même ordre).</summary>
+    public bool Inherited { get; }
+    /// <summary>Nombre de fois où un filtre a produit une valeur invalide (NaN, infini) et a été remis à zéro.</summary>
+    public long Faults { get; private set; }
+    public AudioFilterChain(IEnumerable<AudioFilter> filters, AudioFilterChain? previous = null)
+    {
+        stages = filters.Where(f => f.Enabled).Select(f => new Stage(f)).ToArray();
+        if (previous == null || previous.stages.Length != stages.Length) return;
+        for (int i = 0; i < stages.Length; i++) if (stages[i].F.Kind != previous.stages[i].F.Kind) return;
+        for (int i = 0; i < stages.Length; i++) stages[i].CopyState(previous.stages[i]);
+        Inherited = true;
+    }
     public void Process(Span<float> data, IReadOnlyDictionary<string, double>? levels = null)
     {
         foreach (var stage in stages) { double side = 0; levels?.TryGetValue(stage.F.SidechainSourceId, out side); stage.Run(data, side); }
+        // garde-fou : une valeur invalide ne doit jamais atteindre les bus
+        for (int i = 0; i < data.Length; i++)
+        {
+            if (float.IsFinite(data[i])) continue;
+            data.Clear();
+            for (int k = 0; k < stages.Length; k++) stages[k] = new Stage(stages[k].F);
+            Faults++;
+            break;
+        }
     }
 }

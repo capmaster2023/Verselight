@@ -107,8 +107,24 @@ sealed class WindowsOutput : IDisposable
 {
     readonly MMDevice device;
     readonly WasapiOut output;
-    readonly BufferedWaveProvider buffer = new(WaveFormat.CreateIeeeFloatWaveFormat(48000, 2)) { BufferDuration = TimeSpan.FromMilliseconds(200), DiscardOnBufferOverflow = true };
-    readonly byte[] bytes = new byte[AudioEngine.Samples * 4];
+    // La carte de sortie a sa propre horloge : l'anneau adapte son débit (comme pour les entrées) au lieu de jeter ou de manquer des blocs.
+    sealed class Lecteur : IWaveProvider
+    {
+        public readonly AudioRing Ring = new(2, 48000, 1440);
+        float[] tampon = new float[4096];
+        public WaveFormat WaveFormat { get; } = WaveFormat.CreateIeeeFloatWaveFormat(48000, 2);
+        public int Read(byte[] buffer, int offset, int count)
+        {
+            int n = count / 8 * 2;
+            if (tampon.Length < n) tampon = new float[n];
+            Ring.Read(tampon.AsSpan(0, n));
+            Buffer.BlockCopy(tampon, 0, buffer, offset, n * 4);
+            return count;
+        }
+    }
+    readonly Lecteur buffer = new();
+    public long Underruns => buffer.Ring.Underruns;
+    public long Overruns => buffer.Ring.Overruns;
     public string Id => device.ID;
     public string[] Buses { get; }
     public bool Monitor { get; }
@@ -125,7 +141,7 @@ sealed class WindowsOutput : IDisposable
     {
         // Safety ceiling on physical outputs; meters still show pre-ceiling overloads.
         for (int i = 0; i < Mix.Length; i++) Mix[i] = Math.Clamp(Mix[i], -1, 1);
-        Buffer.BlockCopy(Mix, 0, bytes, 0, bytes.Length); buffer.AddSamples(bytes, 0, bytes.Length);
+        buffer.Ring.Write(Mix);
     }
     public void Dispose() { try { output.Stop(); } catch (Exception) { } output.Dispose(); device.Dispose(); }
 }
@@ -319,8 +335,12 @@ public sealed class ChurchAudioService : IDisposable
         lock (renderGate) Engine.Configure(ProcessingConfiguration(), s => sourceInputs.GetValueOrDefault(s.Id), profile, 20);
     }
     public bool InputReady(string id) => sourceInputs.ContainsKey(id);
+    [System.Runtime.InteropServices.DllImport("winmm.dll")] static extern uint timeBeginPeriod(uint ms);
+    [System.Runtime.InteropServices.DllImport("avrt.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)] static extern IntPtr AvSetMmThreadCharacteristicsW(string tache, ref uint index);
     void Render()
     {
+        // minuterie à 1 ms (sinon 15,6 ms sous Windows) et priorité audio du système
+        try { timeBeginPeriod(1); uint index = 0; AvSetMmThreadCharacteristicsW("Pro Audio", ref index); } catch (Exception) { }
         var clock = Stopwatch.StartNew(); long next = 0;
         while (!stop.IsSet)
         {
