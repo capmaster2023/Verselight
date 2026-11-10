@@ -5,7 +5,7 @@ Unicode true
 !include "MUI2.nsh"
 
 !ifndef VERSION
-  !define VERSION "1.0.1-beta"
+  !define VERSION "1.0.2-beta"
 !endif
 !define APP "MyChurch"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\MyVerse"
@@ -21,7 +21,7 @@ SetCompressor /SOLID lzma
 !define MUI_FINISHPAGE_RUN "$INSTDIR\MyChurch.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "Lancer MyChurch"
 
-VIProductVersion "1.0.1.0"
+VIProductVersion "1.0.2.0"
 VIAddVersionKey /LANG=1036 "ProductName" "MyChurch"
 VIAddVersionKey /LANG=1036 "FileDescription" "Installateur de MyChurch"
 VIAddVersionKey /LANG=1036 "FileVersion" "${VERSION}"
@@ -52,6 +52,25 @@ Function FermerMyVerse
   Sleep 1200
 FunctionEnd
 
+; Écarte un fichier du dossier d'installation (renommé en .old) pour que sa nouvelle version puisse s'écrire,
+; même si un autre logiciel le garde ouvert. Si un ancien .old est encore utilisé, un autre nom libre est pris.
+Function LibererFichier
+  Exch $R0
+  Push $R1
+  IfFileExists "$INSTDIR\$R0" 0 liberer_fin
+  ClearErrors
+  Rename "$INSTDIR\$R0" "$INSTDIR\$R0.old"
+  IfErrors 0 liberer_fin
+  GetTempFileName $R1 "$INSTDIR"
+  Delete "$R1"
+  ClearErrors
+  Rename "$INSTDIR\$R0" "$R1.old"
+  liberer_fin:
+  ClearErrors
+  Pop $R1
+  Pop $R0
+FunctionEnd
+
 Section "MyVerse"
   Call FermerMyVerse
   Delete "$INSTDIR\MyVerse.exe"
@@ -72,8 +91,26 @@ Section "MyVerse"
   RMDir /r "$INSTDIR\.tmp"
   RMDir /r "$INSTDIR\.storage"
 
+  ; MyVirtualCam : quand un logiciel (OBS, Zoom…) utilise la caméra virtuelle, Windows garde ses deux fichiers ouverts
+  ; et refuse de les remplacer (« Erreur lors de l'ouverture du fichier en écriture »). Un fichier ouvert peut par contre
+  ; être renommé : les anciens passent en .old, les nouveaux s'écrivent à leur place, et les .old sont supprimés
+  ; tout de suite s'ils sont libres, sinon au prochain redémarrage ou à la prochaine installation.
+  Delete "$INSTDIR\MyVirtualCam.dll.old"
+  Delete "$INSTDIR\MyVirtualCam32.dll.old"
+  Delete "$INSTDIR\ns*.tmp.old"
+  Push "MyVirtualCam.dll"
+  Call LibererFichier
+  Push "MyVirtualCam32.dll"
+  Call LibererFichier
+
   SetOutPath "$INSTDIR"
   File /r "app\*.*"
+
+  Delete /REBOOTOK "$INSTDIR\MyVirtualCam.dll.old"
+  Delete /REBOOTOK "$INSTDIR\MyVirtualCam32.dll.old"
+  Delete "$INSTDIR\ns*.tmp.old"
+  ; aucun redémarrage n'est demandé : le logiciel qui utilise la caméra garde l'ancienne version jusqu'à sa fermeture
+  SetRebootFlag false
 
   ; pare-feu Windows (une seule autorisation) : pour que le téléphone puisse joindre le PC, même sur un Wi-Fi « public ».
   ; Mise à jour silencieuse : seulement en venant de la 3.x (le programme qui écoute a changé).

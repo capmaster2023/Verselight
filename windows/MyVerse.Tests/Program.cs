@@ -770,5 +770,85 @@ if (Actif())
     Ok(MiseAJour.PlusRecente("6.0.0", "6.0.0-beta") && !MiseAJour.PlusRecente("6.0.0-beta", "6.0.0"), "passage bêta vers version finale");
 }
 
+Groupe("Duo");
+if (Actif())
+{
+    var don = Donnees.Charger(Temp(), res);
+    var rg = new Regie(don, new Bibles(don));
+    int changes = 0; bool? oeil = null; string dit = "";
+    rg.Change += () => changes++;
+    rg.Oeil += v => oeil = v;
+    rg.Message += m => dit = m;
+    Egal(don.Reglages.DuoPlace, "hd", "place par défaut : haut droite");
+    Egal(don.Reglages.DuoPart, 0.35, "taille par défaut : 35 %");
+    // rien à l'écran : rien à épingler
+    Ok(!rg.Epingler() && rg.Etat.Duo == null && dit.Contains("Affichez d'abord"), "épingler un écran vide : refusé, avec un message");
+    Ok(!System.Text.Json.JsonSerializer.Serialize(rg.Etat, Donnees.Json).Contains("\"duo\""), "etat.json sans Duo : pas de clé « duo »");
+    // un verset épinglé, puis un chant à l'écran
+    rg.AfficherVerset(42, 3, 16, 16);
+    changes = 0;
+    Ok(rg.Epingler(), "épingler un verset");
+    Ok(rg.Etat.Vide && rg.Cible == null && rg.Etat.Lignes.Count == 0, "épingler libère l'écran principal");
+    Ok(rg.Etat.Duo is { Place: "hd", Part: 0.35 } d1 && d1.Libelle == "Jean 3:16 (LSG)" && d1.Etat.Mode == "verset" && d1.Etat.Lignes[0].StartsWith("Car Dieu"), "le verset est dans le Duo (libellé, texte, place, taille)");
+    Ok(changes > 0 && oeil == true, "épingler : l'écran est prévenu et la source OBS reste visible");
+    var idDuo = rg.EnregistrerChant(null, "Chant du duo", new List<Section> { new() { Label = "Couplet 1", Text = "Ligne une\nLigne deux" }, new() { Label = "Refrain", Text = "Gloire à toi" } });
+    rg.AfficherSection(idDuo, 0);
+    Ok(rg.Etat.Mode == "chant" && rg.Etat.Lignes[0] == "Ligne une" && rg.Etat.Duo?.Libelle == "Jean 3:16 (LSG)", "un chant + un verset épinglé");
+    rg.Bouger(1);
+    Ok(rg.Etat.Lignes[0] == "Gloire à toi" && rg.Etat.Duo != null, "Suivant garde le Duo");
+    rg.Theme("aube"); rg.Taille(0.9); rg.Presentation("bandeau");
+    Ok(rg.Etat.Duo != null && rg.Etat.Theme == "aube", "habillage de l'écran : le Duo reste");
+    rg.Presentation("plein");
+    var json = System.Text.Json.JsonSerializer.Serialize(rg.Etat, Donnees.Json);
+    Ok(json.Contains("\"duo\"") && json.Contains("\"place\"") && json.Contains("\"libelle\"") && json.Contains("\"part\""), "etat.json contient le Duo (pour la page OBS)");
+    var relu = System.Text.Json.JsonSerializer.Deserialize<EtatEcran>(json, Donnees.Json)!;
+    Ok(relu.Duo is { Place: "hd" } dr && dr.Etat.Ref == "Jean 3:16 (LSG)" && dr.Etat.Duo == null, "etat.json relu : même Duo");
+    // Effacer garde le Duo
+    oeil = null;
+    rg.Effacer();
+    Ok(rg.Etat.Vide && rg.Etat.Duo?.Libelle == "Jean 3:16 (LSG)", "Retirer de l'écran garde le Duo");
+    Ok(oeil == true, "Retirer avec un Duo : la source OBS reste visible");
+    // place et taille, bornées et gardées
+    rg.PlaceDuo("cote", 0.9);
+    Ok(rg.Etat.Duo is { Place: "cote", Part: 0.5 }, "côte à côte, taille bornée à 50 %");
+    rg.PlaceDuo("bg", 0.01);
+    Ok(rg.Etat.Duo is { Place: "bg", Part: 0.2 }, "bas gauche, taille bornée à 20 %");
+    rg.PlaceDuo("n'importe quoi", 0.4);
+    Ok(rg.Etat.Duo is { Place: "hd", Part: 0.4 }, "place inconnue : haut droite");
+    rg.PlaceDuo("hg", double.NaN);
+    Ok(rg.Etat.Duo is { Place: "hg", Part: 0.35 }, "taille illisible : 35 %");
+    rg.PlaceDuo("bd", 0.3);
+    var regRelu = Donnees.Charger(don.Dossier, res).Reglages;
+    Ok(regRelu.DuoPlace == "bd" && regRelu.DuoPart == 0.3, "place et taille gardées pour la prochaine fois");
+    // épingler autre chose remplace le Duo (jamais de Duo dans un Duo)
+    rg.AfficherSection(idDuo, 1);
+    Ok(rg.Epingler() && rg.Etat.Duo is { Place: "bd", Part: 0.3 } d2 && d2.Libelle == "Gloire à toi" && d2.Etat.Mode == "chant" && d2.Etat.Duo == null, "épingler un chant remplace le verset épinglé");
+    rg.AfficherVerset(18, 23, 1, 1);
+    Ok(rg.Etat.Mode == "verset" && rg.Etat.Duo?.Etat.Mode == "chant", "un verset + un chant épinglé");
+    // désépingler
+    changes = 0;
+    rg.Desepingler();
+    Ok(rg.Etat.Duo == null && rg.Etat.Mode == "verset" && changes == 1, "Retirer le duo : l'écran principal ne change pas");
+    rg.Desepingler();
+    Ok(changes == 1, "Retirer le duo sans Duo : rien ne se passe");
+    // deux sources Display en même temps
+    var camera = rg.NouveauDisplay("Caméra salle", new SourceDisplay { Type = "camera", Peripherique = "@device:pnp:duo" });
+    var image = rg.NouveauDisplay("Logo", new SourceDisplay { Type = "image", Chemin = "/test/logo.png" });
+    rg.AfficherAnnonce(camera);
+    Ok(rg.Epingler() && rg.Etat.Duo is { Libelle: "Caméra salle" } d3 && d3.Etat.Mode == "media" && d3.Etat.Media == camera.Source && rg.Etat.Media == null, "une source Display épinglée (caméra)");
+    rg.AfficherAnnonce(image);
+    Ok(rg.Etat.Mode == "media" && rg.Etat.Media == image.Source && rg.Etat.Duo?.Etat.Media == camera.Source, "deux sources Display en même temps");
+    rg.AfficherVerset(42, 3, 16, 16);
+    Ok(rg.Etat.Media == null && rg.Etat.Duo?.Etat.Media == camera.Source, "une source épinglée + un verset");
+    Ok(rg.Epingler("  Mon libellé  ") && rg.Etat.Duo?.Libelle == "Mon libellé", "libellé choisi (menu « Afficher puis épingler »)");
+    // tout retirer : la source OBS se cache
+    oeil = null;
+    rg.Desepingler();
+    Ok(rg.Etat.Vide && rg.Etat.Duo == null && oeil == false, "plus rien à l'écran : la source OBS se cache");
+    // un Duo n'est pas gardé d'une séance à l'autre
+    var rg2 = new Regie(Donnees.Charger(don.Dossier, res), new Bibles(don));
+    Ok(rg2.Etat.Duo == null && rg2.Etat.Vide, "au démarrage : pas de Duo");
+}
+
 Console.WriteLine($"\n{total - echecs}/{total} vérifications réussies" + (echecs > 0 ? $" — {echecs} ÉCHEC(S)" : " — tout est bon"));
 return echecs == 0 ? 0 : 1;

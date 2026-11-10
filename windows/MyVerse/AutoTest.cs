@@ -282,6 +282,50 @@ public static class AutoTest
             var absent = R.NouveauDisplay("Fenêtre fermée", new SourceDisplay { Type = "fenetre", Fenetre = 1, Processus = -1 });
             R.AfficherAnnonce(absent); await Attendre(500);
             Ok(App.Sources.Image == null && App.Sources.Statut.Contains("fermée"), "fenêtre fermée : image effacée et message utile");
+            // 1.0.2 : Duo (deux contenus en même temps à l'écran)
+            R.Effacer();
+            R.AfficherAnnonce(an);
+            await Attendre(400);
+            w.TestBasculerDuo();
+            await Attendre(300);
+            Ok(R.Etat.Duo != null && R.Etat.Vide && R.Etat.Duo.Libelle == "Repas fraternel après le culte", "Duo : texte Display épinglé (touche P), écran principal libéré");
+            R.AfficherVerset(42, 3, 16, 16);
+            await Attendre(1600);
+            Ok(R.Etat.Duo != null && R.Etat.Mode == "verset", "Duo : un verset + un texte épinglé");
+            Ok(w.TestDuoLibelle == "Repas fraternel après le culte", "carte DUO : contenu épinglé affiché (" + w.TestDuoLibelle + ")");
+            Capture(w, "28-duo.png");
+            if (w.Ecran != null) Capture(w.Ecran, "28-duo-ecran.png");
+            Ok(w.TestDuoPlace("cote", 35) && R.Etat.Duo?.Place == "cote", "carte DUO : côte à côte");
+            await Attendre(1300);
+            Capture(w, "29-duo-cote.png");
+            if (w.Ecran != null) Capture(w.Ecran, "29-duo-cote-ecran.png");
+            Ok(w.TestDuoPlace("bg", 50) && R.Etat.Duo is { Place: "bg", Part: 0.5 }, "carte DUO : bas gauche, 50 %");
+            Ok(w.TestDuoPlace("hd", 35) && R.Etat.Duo is { Place: "hd", Part: 0.35 }, "carte DUO : haut droite, 35 %");
+            // une image épinglée : la 2e capture fournit son image vivante pendant qu'un verset est à l'écran
+            R.AfficherAnnonce(img);
+            await Attendre(1300);
+            w.TestEpingler();
+            R.AfficherVerset(42, 3, 16, 16);
+            await Attendre(1600);
+            Ok(R.Etat.Duo?.Etat.Media == img.Source && R.Etat.Mode == "verset", "Duo : un verset + une image épinglée");
+            Ok(App.SourcesDuo.Image != null && App.Sources.Image == null, "Duo : image vivante du contenu épinglé (2e capture)");
+            var duoJpg = new FileInfo(Path.Combine(App.SortieObs.Dossier, "display-duo.jpg"));
+            Ok(duoJpg.Exists && duoJpg.Length > 3000, "Duo : image épinglée publiée pour la page OBS (" + (duoJpg.Exists ? duoJpg.Length : 0) + " octets)");
+            if (App.CameraVirtuelle != null)
+            {
+                await Attendre(300);
+                using var mm = System.IO.MemoryMappedFiles.MemoryMappedFile.OpenExisting(@"Local\MyChurch.MyVirtualCam.frames.v1");
+                using var view = mm.CreateViewAccessor();
+                // milieu du coin haut droite (35 % de 1280 × 720, marge 3 %) ; l'image de la caméra virtuelle est rangée de bas en haut
+                var pixel = 64 + ((719 - 147) * 1280 + 1034) * 3;
+                Ok(view.ReadByte(pixel) == 40 && view.ReadByte(pixel + 1) == 30 && view.ReadByte(pixel + 2) == 200,
+                    $"MyVirtualCam reçoit l'image du contenu épinglé ({view.ReadByte(pixel + 2)},{view.ReadByte(pixel + 1)},{view.ReadByte(pixel)})");
+            }
+            Capture(w, "30-duo-image.png");
+            if (w.Ecran != null) Capture(w.Ecran, "30-duo-image-ecran.png");
+            w.TestBasculerDuo();
+            await Attendre(400);
+            Ok(R.Etat.Duo == null && R.Etat.Mode == "verset" && App.SourcesDuo.Image == null, "Duo retiré (touche P) : le verset reste, la 2e capture s'arrête");
             R.Effacer();
             R.SupprimerAnnonce(img.Id); R.SupprimerAnnonce(absent.Id);
             R.SupprimerAnnonce(an.Id);

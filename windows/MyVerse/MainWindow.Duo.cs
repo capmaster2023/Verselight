@@ -114,6 +114,19 @@ public partial class MainWindow
         App.CameraVirtuelle?.MediaDuo(b);
     }
 
+    // ------------------------------------------------------------ pour le test automatique
+    public void TestBasculerDuo() => BasculerDuo();
+    public void TestEpingler() => Epingler();
+    public string TestDuoLibelle => DuoBoite.Visibility == Visibility.Visible ? DuoLibelle.Text : "";
+    /// <summary>Choisit la place et la taille dans la carte DUO, comme à la souris.</summary>
+    public bool TestDuoPlace(string place, double pourcent)
+    {
+        if (DuoPlace.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == place) is not { } item) return false;
+        DuoPlace.SelectedItem = item;
+        DuoTaille.Value = pourcent;
+        return true;
+    }
+
     /// <summary>« Reconnecter » : relance les captures en cours (écran principal et Duo).</summary>
     void ReconnecterSources()
     {
