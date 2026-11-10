@@ -107,19 +107,19 @@ jobs:
         run: |
           $p = Start-Process -FilePath "out\MyChurch\MyChurch.exe" -ArgumentList "--parefeu" -PassThru
           $null = $p.Handle
-          if (-not $p.WaitForExit(120000)) { $p.Kill(); "délai dépassé" | Tee-Object -FilePath ci/autotest/autotest.txt -Append; exit 1 }
-          "code de sortie : $($p.ExitCode)" | Tee-Object -FilePath ci/autotest/autotest.txt -Append
+          if (-not $p.WaitForExit(120000)) { $p.Kill(); "délai dépassé" | Tee-Object -FilePath ci/parefeu.txt -Append; exit 1 }
+          "code de sortie : $($p.ExitCode)" | Tee-Object -FilePath ci/parefeu.txt -Append
           foreach ($r in @("MyVerse (TCP)", "MyVerse (UDP)", "MyVerse (programme)")) {
             $sortie = netsh advfirewall firewall show rule name="$r" verbose
             $code = $LASTEXITCODE
-            $sortie | Select-Object -First 16 | Tee-Object -FilePath ci/autotest/autotest.txt -Append
-            if ($code -ne 0) { "règle absente : $r" | Tee-Object -FilePath ci/autotest/autotest.txt -Append; exit 1 }
+            $sortie | Select-Object -First 16 | Tee-Object -FilePath ci/parefeu.txt -Append
+            if ($code -ne 0) { "règle absente : $r" | Tee-Object -FilePath ci/parefeu.txt -Append; exit 1 }
           }
           if ($p.ExitCode -ne 0) { exit $p.ExitCode }
           $v = Start-Process -FilePath "out\MyChurch\MyChurch.exe" -ArgumentList "--parefeu-verifier" -PassThru
           $null = $v.Handle
           $v.WaitForExit(120000) | Out-Null
-          "vérification du pare-feu par MyVerse : code $($v.ExitCode) (0 = en place)" | Tee-Object -FilePath ci/autotest/autotest.txt -Append
+          "vérification du pare-feu par MyVerse : code $($v.ExitCode) (0 = en place)" | Tee-Object -FilePath ci/parefeu.txt -Append
           exit $v.ExitCode
 
       - name: Installateur (NSIS) et dossier portable
