@@ -38,7 +38,7 @@ public static class RecordingIntegrationTests
     {
         string? executable = Environment.GetEnvironmentVariable("MYCHURCH_FFMPEG");
         string directory = Environment.GetEnvironmentVariable("MYCHURCH_AUDIO_FIXTURES") ?? Path.Combine(Path.GetTempPath(), "mychurch-recording-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
-        var frame = new Frames(); var block = new float[AudioEngine.Samples];
+        var frame = new Frames(); var block = new float[AudioBlock.Samples];
         var formats = executable == null ? new[] { "wav" } : new[] { "wav", "flac", "mkv" };
         foreach (string format in formats)
         {

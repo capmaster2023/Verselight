@@ -732,8 +732,7 @@ if (Actif())
     Ok(c1.Count > 0 && c1[0].Type == "BIBLE" && c1[0].Titre == "Jean 3:16", "commande « jean 3 16 »");
     var c2 = rg.Commande("chant 1", "Recueil A");
     Ok(c2.Count > 0 && c2[0].ChantId == idChant, "commande « chant 1 » : le recueil choisi d'abord");
-    var c3 = rg.Commande("minuteur 35");
-    Ok(c3.Count == 1 && c3[0].Action == "minuteur" && c3[0].Minutes == 35, "commande « minuteur 35 »");
+    Ok(!rg.Commande("minuteur 35").Any(x => x.Action == "minuteur"), "3.0 : plus de minuteur de prédication");
     Ok(rg.Commande("Chant de test").Any(x => x.ChantId == idChant), "commande : titre d'un chant");
     Ok(rg.Commande("romains").Any(x => x.Type == "BIBLE" && x.Titre == "Romains 1"), "commande : nom d'un livre");
 }
@@ -890,8 +889,8 @@ if (Actif())
     Ok(rg2.Etat.Duo == null && rg2.Etat.Vide, "au démarrage : pas de Duo");
 }
 
-Groupe("Audio");
-if (Actif()) MyVerse.Tests.AudioTests.Run(Ok);
+Groupe("Audio OBS");
+if (Actif()) MyVerse.Tests.ObsTests.Run(Ok);
 Groupe("Enregistrement");
 if (Actif()) MyVerse.Tests.RecordingIntegrationTests.RunAsync(Ok).GetAwaiter().GetResult();
 

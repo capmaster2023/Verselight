@@ -230,7 +230,7 @@ public static class AutoTest
             if (w.Ecran != null) Capture(w.Ecran, "22b-ecran-ciel.png");
             R.Theme("aube");
 
-            // écran de scène (minuteur de prédication)
+            // écran de scène
             var scene = w.TestScene();
             await Attendre(1200);
             Ok(scene != null, "écran de scène ouvert");

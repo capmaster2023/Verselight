@@ -11,7 +11,7 @@ public interface IRecordingFrameProvider { void CopyFrame(byte[] destination); }
 public sealed class RecordingSession : IDisposable
 {
     const int Slots = 200;
-    readonly float[][] blocks = Enumerable.Range(0, Slots).Select(_ => new float[AudioEngine.Samples]).ToArray();
+    readonly float[][] blocks = Enumerable.Range(0, Slots).Select(_ => new float[AudioBlock.Samples]).ToArray();
     readonly object gate = new();
     readonly SemaphoreSlim available = new(0);
     readonly CancellationTokenSource cancel = new();
@@ -70,7 +70,7 @@ public sealed class RecordingSession : IDisposable
     }
     public bool Accept(ReadOnlySpan<float> audio)
     {
-        if (audio.Length != AudioEngine.Samples) throw new ArgumentException("Un bloc stéréo de 480 trames est requis.");
+        if (audio.Length != AudioBlock.Samples) throw new ArgumentException("Un bloc stéréo de 480 trames est requis.");
         lock (gate)
         {
             if (finished || error != null) return false;
@@ -92,7 +92,7 @@ public sealed class RecordingSession : IDisposable
     }
     async Task WriteAsync()
     {
-        var block = new float[AudioEngine.Samples]; var bytes = new byte[AudioEngine.Samples * 4]; PcmRecordingWriter? wav = null;
+        var block = new float[AudioBlock.Samples]; var bytes = new byte[AudioBlock.Samples * 4]; PcmRecordingWriter? wav = null;
         try
         {
             if (audioPipe == null) { wav = new(Path); ready.TrySetResult(); }
@@ -124,7 +124,7 @@ public sealed class RecordingSession : IDisposable
                 }
                 if (!got) continue;
                 if (wav != null) wav.Write(block);
-                else { Buffer.BlockCopy(block, 0, bytes, 0, bytes.Length); await audioPipe!.WriteAsync(bytes, cancel.Token); Interlocked.Add(ref writtenFrames, AudioEngine.Frames); }
+                else { Buffer.BlockCopy(block, 0, bytes, 0, bytes.Length); await audioPipe!.WriteAsync(bytes, cancel.Token); Interlocked.Add(ref writtenFrames, AudioBlock.Frames); }
                 if (Environment.TickCount64 - lastDiskCheck > 1000)
                 {
                     lastDiskCheck = Environment.TickCount64;

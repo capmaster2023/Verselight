@@ -390,12 +390,11 @@ public sealed partial class Regie
     }
 
     // ------------------------------------------------------------ barre de commande (Ctrl K)
-    static readonly Regex R_MINUTEUR = new(@"^(?:minuteur|minut|chrono|timer|minute)\s*(\d{1,3})?\s*(?:min|mn|m)?$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     static readonly Regex R_CHANT = new(@"^(?:chant|cantique|c|n|no|n°|#)\s*(\d{1,5})$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     /// <summary>
     /// Ce que propose la barre de commande : « jean 3 16 » (Bible), « chant 16 » ou « 16 » (numéro dans le recueil choisi d'abord),
-    /// des mots du titre ou des paroles, « minuteur 35 », « noir », « retirer ».
+    /// des mots du titre ou des paroles, « noir », « retirer ».
     /// </summary>
     public List<ResultatCommande> Commande(string? saisie, string? recueil = null)
     {
@@ -404,12 +403,6 @@ public sealed partial class Regie
         if (q.Length == 0) return res;
         var n = Texte.Norm(q);
 
-        if (R_MINUTEUR.Match(n) is { Success: true } mm)
-        {
-            int min = mm.Groups[1].Success ? int.Parse(mm.Groups[1].Value) : 45;
-            res.Add(new ResultatCommande("ACTION", $"Minuteur de prédication : {min} min", "Démarre le minuteur", Minutes: Math.Clamp(min, 1, 300), Action: "minuteur"));
-            return res;
-        }
         if (n is "noir" or "ecran noir") res.Add(new ResultatCommande("ACTION", "Écran noir", "Cache le texte sans le perdre", Action: "noir"));
         if (n is "retirer" or "effacer" or "vider") res.Add(new ResultatCommande("ACTION", "Retirer de l'écran", "Échap", Action: "retirer"));
 

@@ -20,7 +20,8 @@ public sealed class ChurchRecordingService : IDisposable
     public bool Busy => State is ChurchRecordingState.Preparing or ChurchRecordingState.Finalizing;
     public TimeSpan Duration => TimeSpan.FromSeconds((session?.AcceptedFrames ?? 0) / 48000d);
     public event Action? Changed;
-    public ChurchRecordingService(ChurchAudioService audio) => this.audio = audio;
+    readonly Action<float[]> consommateur;
+    public ChurchRecordingService(ChurchAudioService audio) { this.audio = audio; consommateur = block => Volatile.Read(ref session)?.Accept(block); }
     void Status(ChurchRecordingState state, string message) { State = state; Message = message; Changed?.Invoke(); }
     public async Task ToggleAsync(RecordingProfile profile)
     {
@@ -31,9 +32,9 @@ public sealed class ChurchRecordingService : IDisposable
             Status(ChurchRecordingState.Preparing, "Vérification du profil…");
             // Validate the candidate before stopping the old recording.
             var selected = AudioConfiguration.Copy(profile); RecordingFiles.Validate(selected);
-            if (!audio.Running) throw new IOException("Activez le moteur audio avant d’enregistrer.");
-            foreach (var id in selected.AllowedSources)
-                if (!audio.InputReady(id)) throw new IOException("Source audio absente : " + (audio.Config.Sources.FirstOrDefault(s => s.Id == id)?.Name ?? id));
+            if (!audio.Running) throw new IOException("Le moteur audio OBS n’est pas démarré.");
+            if (!audio.TracksActive) throw new IOException("Les pistes d’OBS sont indisponibles sur cet ordinateur (carte graphique) : enregistrement impossible.");
+            if (!audio.Config.Sources.Any(s => (s.Tracks & (1 << (selected.Track - 1))) != 0)) throw new IOException($"Aucune source n’est envoyée dans la piste {selected.Track}.");
             Directory.CreateDirectory(selected.Directory);
             var probe = Path.Combine(selected.Directory, ".mychurch-write-" + Guid.NewGuid().ToString("N")); using (File.Create(probe)) { } File.Delete(probe);
             if (RecordingFiles.FreeSpace(selected.Directory) < RecordingFiles.ReserveBytes) throw new IOException("Au moins 512 Mio libres sont nécessaires.");
@@ -51,19 +52,20 @@ public sealed class ChurchRecordingService : IDisposable
                 try
                 {
                     await prepared.PrepareAsync();
-                    audio.SynchronizeProfileMedia(selected); nextCompositor?.Start();
-                    audio.SetRecordingRestriction(selected); // Input/output preparation succeeded; activate temporary overlay now.
+                    nextCompositor?.Start();
                     compositor = nextCompositor; nextCompositor = null; active = selected; Volatile.Write(ref session, prepared);
-                    Status(ChurchRecordingState.Recording, "Enregistrement · " + encoder + (!selected.AudioOnly && encoder != selected.Encoder ? " (repli : encodeur demandé indisponible)" : ""));
+                    // la piste choisie d'OBS alimente le fichier, bloc par bloc, depuis le fil audio d'OBS
+                    audio.AddTrackConsumer(selected.Track - 1, consommateur);
+                    Status(ChurchRecordingState.Recording, $"Enregistrement · piste {selected.Track} · " + encoder + (!selected.AudioOnly && encoder != selected.Encoder ? " (repli : encodeur demandé indisponible)" : ""));
                 }
-                catch { prepared.Dispose(); audio.SetRecordingRestriction(null); active = null; throw; }
+                catch { prepared.Dispose(); active = null; throw; }
             }
             finally { nextCompositor?.Dispose(); }
         }
         catch (Exception e)
         {
             if (session != null && active != null) Status(ChurchRecordingState.Recording, "Profil refusé, enregistrement précédent maintenu : " + e.Message);
-            else { audio.SetRecordingRestriction(null); Status(ChurchRecordingState.Error, "Aucun enregistrement actif : " + e.Message); }
+            else { Status(ChurchRecordingState.Error, "Aucun enregistrement actif : " + e.Message); }
             Journal.Erreur("enregistrement", e);
         }
         finally { operation.Release(); }
@@ -99,9 +101,7 @@ public sealed class ChurchRecordingService : IDisposable
         await output; string text = await errors;
         if (process.ExitCode != 0) throw new IOException(text.Length > 2000 ? text[^2000..] : text);
     }
-    public void AcceptAudio(ReadOnlySpan<float> audio) => Volatile.Read(ref session)?.Accept(audio);
     public void Fail(string message) => Volatile.Read(ref session)?.Fail(message);
-    public void ReportRenderGap() => Volatile.Read(ref session)?.Fail("Le moteur a perdu plus de 100 ms : arrêt pour préserver la synchronisation audio/vidéo.");
     public async Task PollAsync()
     {
         if (session?.Error == null && compositor?.Error == null) return;
@@ -109,24 +109,20 @@ public sealed class ChurchRecordingService : IDisposable
         try { if (compositor?.Error is { } error) session?.Fail(error); await StopCore(); }
         finally { operation.Release(); }
     }
-    public void UpdateSelection(RecordingProfile profile)
-    {
-        if (active == null || active.Id != profile.Id) return;
-        active.AllowedSources = new(profile.AllowedSources); active.SendDb = new(profile.SendDb); active.ApplyToRoom = profile.ApplyToRoom;
-        audio.SetRecordingRestriction(active); Changed?.Invoke();
-    }
     async Task StopCore()
     {
+        if (active != null) audio.RemoveTrackConsumer(active.Track - 1, consommateur);
         var current = Interlocked.Exchange(ref session, null);
         if (current == null) return;
         Status(ChurchRecordingState.Finalizing, "Finalisation…");
         try { await current.StopAsync(); Status(ChurchRecordingState.Ready, "Terminé : " + current.Path); }
         catch (Exception e) { Status(ChurchRecordingState.Error, "Fichier partiel conservé : " + e.Message); Journal.Erreur("finalisation", e); }
-        finally { current.Dispose(); compositor?.Dispose(); compositor = null; active = null; audio.SetRecordingRestriction(null); }
+        finally { current.Dispose(); compositor?.Dispose(); compositor = null; active = null; }
     }
     public async Task StopAsync() { await operation.WaitAsync(); try { await StopCore(); } finally { operation.Release(); } }
     public void Dispose()
     {
+        if (active != null) audio.RemoveTrackConsumer(active.Track - 1, consommateur);
         var current = Interlocked.Exchange(ref session, null);
         if (current != null) { try { current.StopAsync().GetAwaiter().GetResult(); } catch (Exception e) { Journal.Erreur("finalisation à la fermeture", e); } current.Dispose(); }
         compositor?.Dispose(); active = null;

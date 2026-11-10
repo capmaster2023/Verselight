@@ -31,7 +31,7 @@ public sealed class LigneAgenda : INotifyPropertyChanged
 /// <summary>
 /// Onglets « Culte » et « Display » (design « Aube ») : déroulé du culte préparé à l'avance (comme l'agenda de VideoPsalm),
 /// élément en cours au centre (lecture en 2 langues), résumé du culte à partager, compte à rebours d'accueil,
-/// habillage de l'écran, minuteur de prédication, écran de scène.
+/// habillage de l'écran, écran de scène.
 /// </summary>
 public partial class MainWindow
 {
@@ -42,11 +42,8 @@ public partial class MainWindow
     bool noir, chargementAgenda;
     EtatEcran? etatNoir;
     string cleDiapos = "";
-    DateTime? chronoDepart;
-    TimeSpan chronoCumul;
     SceneWindow? scene;
     readonly DispatcherTimer minuterieCmd = new() { Interval = TimeSpan.FromMilliseconds(90) };
-    readonly DispatcherTimer chrono = new() { Interval = TimeSpan.FromMilliseconds(500) };
     readonly DispatcherTimer ticCompte = new() { Interval = TimeSpan.FromMilliseconds(500) };
 
     static Geometry Icone_(string d) { var g = Geometry.Parse(d); g.Freeze(); return g; }
@@ -97,24 +94,14 @@ public partial class MainWindow
         Cmd.GotKeyboardFocus += (_, _) => { RechercheCulte.BorderBrush = Pinceau("OrVif"); if (Cmd.Text.Length > 0) CmdResultatsMaj(); };
         Cmd.LostKeyboardFocus += (_, _) => RechercheCulte.BorderBrush = Pinceau("Nuit3");
 
-        // ---------- habillage, minuteur, compte à rebours, écran de scène
+        // ---------- habillage, compte à rebours, écran de scène
         ConstruireFonds();
-        MinuteurBtn.Click += (_, _) =>
-        {
-            if (chronoDepart == null) { chronoDepart = DateTime.Now; chrono.Start(); }
-            else { chronoCumul += DateTime.Now - chronoDepart.Value; chronoDepart = null; chrono.Stop(); }
-            MinuteurMaj();
-        };
-        MinuteurZero.Click += (_, _) => { chronoCumul = TimeSpan.Zero; if (chronoDepart != null) chronoDepart = DateTime.Now; MinuteurMaj(); };
-        MinuteurDuree.SelectionChanged += (_, _) => MinuteurMaj();
-        chrono.Tick += (_, _) => MinuteurMaj();
-        if (MinuteurBarre.Parent is FrameworkElement piste) piste.SizeChanged += (_, _) => MinuteurMaj();
         ticCompte.Tick += (_, _) => R.TicCompte();
         ticCompte.Start();
         SceneBtn.Click += (_, _) =>
         {
             if (scene != null) { scene.Activate(); return; }
-            scene = new SceneWindow(MinuteurPourScene) { Owner = null };
+            scene = new SceneWindow { Owner = null };
             scene.Closed += (_, _) => scene = null;
             scene.Show();
         };
@@ -144,7 +131,6 @@ public partial class MainWindow
             AnnonceTitre.Text = AnnonceTexte.Text = "";
         };
 
-        MinuteurMaj();
         AnnoncesMaj();
         AgendaMaj();
     }
@@ -619,15 +605,6 @@ public partial class MainWindow
     {
         switch (r.Action)
         {
-            case "minuteur":
-                ChoisirDuree(r.Minutes);
-                chronoCumul = TimeSpan.Zero;
-                chronoDepart = DateTime.Now;
-                chrono.Start();
-                MinuteurMaj();
-                Toast($"Minuteur de prédication : {r.Minutes} min.");
-                FinCommande();
-                return;
             case "noir":
                 BasculerNoir();
                 FinCommande();
@@ -722,44 +699,6 @@ public partial class MainWindow
             b.BorderBrush = Pinceau(ok ? "Blanc" : "Nuit3");
             b.BorderThickness = new Thickness(ok ? 2 : 1);
         }
-    }
-
-    // ------------------------------------------------------------ minuteur de prédication
-    int DureeMinutes => MinuteurDuree.SelectedItem is ComboBoxItem i && int.TryParse(i.Tag as string, out var m) ? m : 45;
-
-    void ChoisirDuree(int min)
-    {
-        var item = MinuteurDuree.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == min.ToString());
-        if (item == null)
-        {
-            item = new ComboBoxItem { Tag = min.ToString(), Content = $"{min} min" };
-            MinuteurDuree.Items.Add(item);
-        }
-        MinuteurDuree.SelectedItem = item;
-    }
-
-    TimeSpan Ecoule() => chronoCumul + (chronoDepart is DateTime d ? DateTime.Now - d : TimeSpan.Zero);
-
-    static string Mmss(TimeSpan t) => $"{(int)t.TotalMinutes:00}:{t.Seconds:00}";
-
-    /// <summary>Le temps qui reste (« +02:15 » une fois dépassé).</summary>
-    (string Texte, bool Depasse) MinuteurPourScene()
-    {
-        var reste = TimeSpan.FromMinutes(DureeMinutes) - Ecoule();
-        return reste < TimeSpan.Zero ? ("+" + Mmss(-reste), true) : (Mmss(reste), false);
-    }
-
-    void MinuteurMaj()
-    {
-        var t = Ecoule();
-        var (texte, depasse) = MinuteurPourScene();
-        MinuteurTemps.Text = texte;
-        MinuteurTemps.Foreground = Pinceau(depasse ? "Direct" : "Blanc");
-        double f = Math.Min(1, t.TotalSeconds / Math.Max(1, DureeMinutes * 60));
-        double w = (MinuteurBarre.Parent as FrameworkElement)?.ActualWidth ?? 0;
-        MinuteurBarre.Width = Math.Max(0, w * f);
-        MinuteurBarre.Background = Pinceau(depasse ? "Rouge" : "OrVif");
-        MinuteurBtn.Content = chronoDepart != null ? "Pause" : t > TimeSpan.Zero ? "Reprendre" : "Démarrer";
     }
 
     // ------------------------------------------------------------ displays
