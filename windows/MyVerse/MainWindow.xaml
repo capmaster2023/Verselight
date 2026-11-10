@@ -298,7 +298,7 @@
                                         <TextBlock x:Name="DuoLibelle" FontSize="13" FontWeight="Bold" Foreground="{StaticResource Blanc}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                     </DockPanel>
                                 </Border>
-                                <Button x:Name="DuoEpingler" Style="{StaticResource BtnOr}" Content="Épingler ce qui est à l'écran" Height="44" Padding="0" ToolTip="Touche P · ce qui est à l'écran part dans le coin, l'écran se libère pour autre chose" />
+                                <Button x:Name="DuoEpingler" Style="{StaticResource BtnOr}" Content="Épingler le contenu en direct" Height="44" Padding="0" ToolTip="Touche P · ce qui est à l'écran part dans le coin, l'écran se libère pour autre chose" />
                                 <Button x:Name="DuoRetirer" Style="{StaticResource Btn}" Content="Retirer le duo" Height="44" Padding="0" Margin="0,8,0,0" IsEnabled="False" ToolTip="Touche P · retire seulement le contenu épinglé" />
                                 <DockPanel Margin="0,12,0,0">
                                     <ComboBox x:Name="DuoPlace" DockPanel.Dock="Right" Width="150" ToolTip="Place du contenu épinglé">

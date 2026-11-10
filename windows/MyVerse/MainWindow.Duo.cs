@@ -90,7 +90,7 @@ public partial class MainWindow
         DuoLibelle.Text = d?.Libelle ?? "";
         DuoEtat.Text = d == null ? "rien d'épinglé" : noir ? "caché (écran noir)" : "à l'écran";
         DuoEtat.Foreground = Pinceau(d != null && !noir ? "Direct" : "Brume");
-        DuoEpingler.Content = d == null ? "Épingler ce qui est à l'écran" : "Épingler à la place ce qui est à l'écran";
+        DuoEpingler.Content = d == null ? "Épingler le contenu en direct" : "Remplacer le contenu épinglé";
         DuoEpingler.IsEnabled = !R.Etat.Vide;
         DuoRetirer.IsEnabled = d != null;
     }

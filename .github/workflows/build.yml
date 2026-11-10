@@ -148,11 +148,22 @@ jobs:
           Set-Content "$dir\resources.neu" "ancien"
           Set-Content "$dir\extensions\bridge\verselight-bridge.exe" "ancien"
           Set-Content "$dir\neutralinojs.log" "ancien"
+          # Une application vidéo garde la DLL chargée pendant toute la mise à jour.
+          Copy-Item out/MyChurch/MyVirtualCam.dll "$dir/MyVirtualCam.dll"
+          Copy-Item out/MyChurch/MyVirtualCam32.dll "$dir/MyVirtualCam32.dll"
+          Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class CameraChargee { [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)] public static extern IntPtr LoadLibraryW(string path); [DllImport("kernel32.dll")] public static extern bool FreeLibrary(IntPtr module); }'
+          $module = [CameraChargee]::LoadLibraryW("$dir/MyVirtualCam.dll")
+          if ($module -eq [IntPtr]::Zero) { throw "La DLL de test n'a pas pu être chargée" }
           $setup = (Get-ChildItem MyChurch-Setup-*.exe | Select-Object -First 1).FullName
-          $p = Start-Process $setup -ArgumentList "/S" -PassThru
-          $null = $p.Handle
-          if (-not $p.WaitForExit(240000)) { "installateur bloqué" | Tee-Object -FilePath ci/installateur.txt -Append; exit 1 }
-          "installateur : code $($p.ExitCode)" | Tee-Object -FilePath ci/installateur.txt -Append
+          try {
+            $p = Start-Process $setup -ArgumentList "/S" -PassThru
+            $null = $p.Handle
+            if (-not $p.WaitForExit(240000)) { $p.Kill(); throw "Installateur bloqué pendant la mise à jour de la DLL chargée" }
+            "installateur : code $($p.ExitCode)" | Tee-Object -FilePath ci/installateur.txt -Append
+            $remplacee = Test-Path "$dir/MyVirtualCam.dll"
+            "MyVirtualCam remplacée pendant son utilisation : $remplacee" | Tee-Object -FilePath ci/installateur.txt -Append
+            if ($p.ExitCode -ne 0 -or -not $remplacee) { throw "Échec de la mise à jour de MyVirtualCam" }
+          } finally { [CameraChargee]::FreeLibrary($module) | Out-Null }
           Start-Sleep 4
           $ouvert = Get-Process MyChurch -ErrorAction SilentlyContinue
           "MyVerse rouvert après la mise à jour : $([bool]$ouvert)" | Tee-Object -FilePath ci/installateur.txt -Append
