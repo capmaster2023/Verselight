@@ -51,6 +51,7 @@ public sealed class PositionFenetre
 
 public sealed class Reglages
 {
+    [JsonPropertyName("audio")] public MyVerse.Audio.AudioConfiguration Audio { get; set; } = new();
     [JsonPropertyName("duoPlace")] public string DuoPlace { get; set; } = "hd";
     [JsonPropertyName("duoPart")] public double DuoPart { get; set; } = 0.35;
     [JsonPropertyName("version")] public int Version { get; set; } = 4;
@@ -149,6 +150,7 @@ public sealed class Donnees
     void Corriger()
     {
         var r = Reglages;
+        r.Audio ??= new MyVerse.Audio.AudioConfiguration();
         r.Bibles ??= new ReglagesBibles();
         r.Bibles.Importees ??= new List<BibleImportee>();
         r.Obs ??= new ReglagesObs();

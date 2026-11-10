@@ -230,6 +230,7 @@
                                 <TextBlock x:Name="ProjectionTexte" Text="Projection" FontSize="13" Foreground="{StaticResource Brume}" />
                             </StackPanel>
                         </Button>
+                        <Button x:Name="AudioBtn" Content="Audio" Style="{StaticResource Btn}" Height="44" Padding="12,0" Margin="6,0,0,0" ToolTip="Mixeur audio et enregistrement" />
                         <Button x:Name="OutilsBtn" Style="{StaticResource Btn}" Width="44" Height="44" Padding="0" Margin="6,0,0,0" ToolTip="Outils : mise à jour, transfert, journal d'erreurs">
                             <Path Data="M3,5 H11 M15,5 H17 M3,10 H5 M9,10 H17 M3,15 H13 M17,15 H17 M13,3 V7 M7,8 V12 M15,13 V17" Stroke="{StaticResource Blanc}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="20" Height="20" Stretch="None" />
                         </Button>

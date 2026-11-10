@@ -24,6 +24,7 @@ public partial class App : Application
     /// <summary>Capture du contenu épinglé (Duo), en même temps que celle de l'écran principal.</summary>
     public static SourcesDisplay SourcesDuo { get; private set; } = null!;
     public static MyVirtualCam? CameraVirtuelle { get; private set; }
+    public static Audio.ChurchAudioService Audio { get; private set; } = null!;
     public static Telephone Telephone { get; private set; } = null!;
     /// <summary>Dossier du test automatique (« MyChurch.exe --autotest dossier »), sinon null.</summary>
     public static string? AutoTest { get; private set; }
@@ -122,6 +123,7 @@ public partial class App : Application
         SourcesDuo = new SourcesDisplay("display-duo.jpg");
         if (AutoTest == null || Environment.GetEnvironmentVariable("MYCHURCH_TEST_CAM") == "1")
             try { CameraVirtuelle = new MyVirtualCam(); } catch (Exception ex) { Journal.Erreur("MyVirtualCam démarrage", ex); }
+        Audio = new Audio.ChurchAudioService(Donnees.Reglages.Audio);
         var w = new MainWindow();
         MainWindow = w;
         w.Show();
@@ -154,6 +156,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         Journal.Info("fermeture de MyVerse");
+        Audio?.Dispose();
         Sources?.Dispose();
         SourcesDuo?.Dispose();
         CameraVirtuelle?.Dispose();

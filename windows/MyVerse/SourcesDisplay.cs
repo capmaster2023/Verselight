@@ -62,23 +62,31 @@ public sealed class SourcesDisplay : IDisposable
                 }
                 else if (nouvelle.Type == "camera")
                 {
-                    var device = Peripheriques().FirstOrDefault(d => d.Id == nouvelle.Peripherique)
-                        ?? throw new IOException("Périphérique débranché. Ajoutez à nouveau la source après l'avoir branché.");
-                    using var camera = new VideoCapture(device.Index, VideoCaptureAPIs.DSHOW);
-                    if (!camera.IsOpened()) throw new IOException("Périphérique indisponible. Vérifiez les permissions caméra Windows et les autres logiciels qui l'utilisent.");
-                    camera.Set(VideoCaptureProperties.FrameWidth, 1280);
-                    camera.Set(VideoCaptureProperties.FrameHeight, 720);
-                    camera.Set(VideoCaptureProperties.Fps, 30);
-                    using var frame = new Mat();
-                    using var bgra = new Mat();
+                    using var lease = Audio.CameraFrames.Acquire(nouvelle.Peripherique);
+                    BitmapSource? previous = null;
                     while (!token.IsCancellationRequested)
                     {
-                        if (!camera.Read(frame) || frame.Empty()) throw new IOException("Le périphérique ne fournit plus de vidéo.");
-                        Cv2.CvtColor(frame, bgra, ColorConversionCodes.BGR2BGRA);
-                        var b = BitmapSource.Create(bgra.Width, bgra.Height, 96, 96, PixelFormats.Bgra32, null, bgra.Data, (int)(bgra.Step() * bgra.Height), (int)bgra.Step());
-                        b.Freeze();
-                        await Publier(b, g, token.Token);
+                        if (lease.Error is { } error) throw new IOException(error);
+                        if (lease.Image is { } b && !ReferenceEquals(b, previous)) { await Publier(b, g, token.Token); previous = b; }
                         await Task.Delay(15, token.Token);
+                    }
+                }
+                else if (nouvelle.Type == "video")
+                {
+                    using var video = new VideoCapture(nouvelle.Chemin);
+                    if (!video.IsOpened()) throw new IOException("Vidéo illisible.");
+                    using var frame = new Mat(); using var bgra = new Mat();
+                    double fps = video.Fps; if (!double.IsFinite(fps) || fps <= 0) fps = 30;
+                    var clock = Stopwatch.StartNew();
+                    while (!token.IsCancellationRequested)
+                    {
+                        double wanted = clock.Elapsed.TotalSeconds * fps;
+                        if (video.PosFrames > wanted) { await Task.Delay(5, token.Token); continue; }
+                        if (wanted - video.PosFrames > 3) video.PosFrames = (int)Math.Floor(wanted);
+                        if (!video.Read(frame) || frame.Empty()) break;
+                        Cv2.CvtColor(frame, bgra, ColorConversionCodes.BGR2BGRA);
+                        var b = BitmapSource.Create(bgra.Width, bgra.Height, 96, 96, PixelFormats.Bgra32, null, bgra.Data, (int)(bgra.Step() * bgra.Height), (int)bgra.Step()); b.Freeze();
+                        await Publier(b, g, token.Token);
                     }
                 }
                 else if (nouvelle.Type == "fenetre")

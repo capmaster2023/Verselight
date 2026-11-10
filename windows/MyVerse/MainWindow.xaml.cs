@@ -113,6 +113,14 @@ public partial class MainWindow : Window
         minuterieNum.Tick += (_, _) => AllerAuNumero(false);
         TelBtn.Click += (_, _) => new TelephoneWindow { Owner = this }.ShowDialog();
         ProjectionBtn.Click += (_, _) => MenuProjection();
+        Audio.AudioWindow? audioWindow = null;
+        AudioBtn.Click += (_, _) =>
+        {
+            if (audioWindow != null) { audioWindow.Activate(); return; }
+            audioWindow = new Audio.AudioWindow { Owner = this };
+            audioWindow.Closed += (_, _) => audioWindow = null;
+            audioWindow.Show();
+        };
         OutilsBtn.Click += (_, _) => OuvrirOutils(true);
         VersionBtn.Click += (_, _) => OuvrirOutils(true);
         MajBtn.Click += (_, _) => OuvrirOutils(false);
@@ -199,7 +207,17 @@ public partial class MainWindow : Window
             e.Handled = true;
         };
         SizeChanged += (_, _) => Placement();
-        Closing += (_, _) => Fermeture();
+        bool closingAfterRecording = false;
+        Closing += async (_, e) =>
+        {
+            if (!closingAfterRecording && (App.Audio.Recorder.Active || App.Audio.Recorder.Busy))
+            {
+                e.Cancel = true; IsEnabled = false;
+                await App.Audio.Recorder.StopAsync();
+                closingAfterRecording = true; Close(); return;
+            }
+            Fermeture();
+        };
         SourceInitialized += (_, _) => Natif.TitreSombre(this, false);
         Loaded += (_, _) => Demarre();
 

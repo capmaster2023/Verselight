@@ -35,6 +35,7 @@ public partial class MainWindow
         var menu = new ContextMenu();
         menu.Items.Add(Article("Nouveau texte", AjouterTexteDisplay));
         menu.Items.Add(Article("Images", AjouterImage));
+        menu.Items.Add(Article("Vidéos avec audio intégré", AjouterVideo));
         menu.Items.Add(Article("Périphérique de capture vidéo", AjouterCamera));
         menu.Items.Add(Article("Capture de fenêtre", AjouterFenetre));
         // les dossiers de l'onglet Duo : un clic les met dans la bibliothèque et dans la grille
@@ -104,6 +105,18 @@ public partial class MainWindow
             catch (Exception ex) { Toast("Image inaccessible : " + ex.Message); }
         }
     }
+    void AjouterVideo()
+    {
+        var dialog = new OpenFileDialog { Title = "Ajouter une vidéo à Display", Filter = "Vidéos|*.mp4;*.mkv;*.wmv;*.avi;*.mov", Multiselect = false };
+        if (dialog.ShowDialog(this) != true) return;
+        ChoisirDisplay(R.NouveauDisplay(Path.GetFileNameWithoutExtension(dialog.FileName), new SourceDisplay { Type = "video", Chemin = dialog.FileName }));
+        if (!App.Audio.Config.Sources.Any(s => s.Kind == MyVerse.Audio.AudioInputKind.Media && s.FollowProjection))
+        {
+            App.Audio.Config.Sources.Add(new MyVerse.Audio.AudioSource { Name = "Média Display", Kind = MyVerse.Audio.AudioInputKind.Media, Stereo = true, FollowProjection = true });
+            App.Audio.Apply();
+        }
+        Toast("Vidéo ajoutée. Activez le moteur audio et choisissez une sortie Salle dans Audio pour l’entendre.");
+    }
     void AjouterCamera()
     {
         try
@@ -145,7 +158,7 @@ public partial class MainWindow
         var menu = MenuAjouterSource();
         var commandes = menu.Items.OfType<MenuItem>().ToList();
         Ouvrir(menu, DisplayAjouter, PlacementMode.Bottom);
-        bool ok = menu.IsOpen && commandes.Count == 5 + R.Duos.Count && commandes[0].Header?.ToString() == "Nouveau texte" && commandes[^1].Header?.ToString() == "Caméra virtuelle MyVirtualCam";
+        bool ok = menu.IsOpen && commandes.Count == 6 + R.Duos.Count && commandes[0].Header?.ToString() == "Nouveau texte" && commandes[^1].Header?.ToString() == "Caméra virtuelle MyVirtualCam";
         menu.IsOpen = false;
         return ok;
     }

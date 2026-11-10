@@ -890,5 +890,10 @@ if (Actif())
     Ok(rg2.Etat.Duo == null && rg2.Etat.Vide, "au démarrage : pas de Duo");
 }
 
+Groupe("Audio");
+if (Actif()) MyVerse.Tests.AudioTests.Run(Ok);
+Groupe("Enregistrement");
+if (Actif()) MyVerse.Tests.RecordingIntegrationTests.RunAsync(Ok).GetAwaiter().GetResult();
+
 Console.WriteLine($"\n{total - echecs}/{total} vérifications réussies" + (echecs > 0 ? $" — {echecs} ÉCHEC(S)" : " — tout est bon"));
 return echecs == 0 ? 0 : 1;
