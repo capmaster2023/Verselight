@@ -132,6 +132,7 @@ public partial class MainWindow
     void MesuresChangees(DossierDuo d)
     {
         R.EnregistrerDuo(d, false);
+        GrillePlusTard();
         majDossier = true;
         foreach (var a in duoSynchro) a();
         majDossier = false;
@@ -205,7 +206,7 @@ public partial class MainWindow
         return p;
     }
 
-    /// <summary>Choisir ce que montre un élément : une source Display, un chant ou un verset.</summary>
+    /// <summary>Choisir ce que montre un élément : un chant (dans le recueil choisi), un verset ou une source Display.</summary>
     void MenuPart(DossierDuo d, PartDuo p, UIElement cible)
     {
         void Mettre(string type, string id, int[]? rf, string titre)
@@ -215,14 +216,20 @@ public partial class MainWindow
             EditeurDuo();
         }
         var m = new ContextMenu();
-        m.Items.Add(Article("Chant ou verset…", () =>
+        m.Items.Add(Article("Chant…", () =>
         {
-            if (Dialogue.Demander(this, "Chant ou verset (exemples : chant 45, jean 3 16, ou des mots du titre) :", "", "Choisir") is not { } t || t.Trim().Length == 0) return;
-            var rec = App.Donnees.Reglages.Recueil;
-            var r = R.Commande(t, rec.Length > 0 ? rec : null).FirstOrDefault(x => x.Action == null && (x.ChantId != null || x.Ref != null));
-            if (r == null) { Toast("Rien trouvé. Essayez « chant 45 » ou « jean 3 16 »."); return; }
-            if (r.ChantId != null) Mettre("chant", r.ChantId, null, R.Trouver(r.ChantId)?.Title ?? r.Titre);
-            else if (r.Ref is Ref rf) Mettre("bible", "", new[] { rf.B, rf.C, Math.Max(1, rf.V1), Math.Max(1, rf.V2 > 0 ? rf.V2 : rf.V1) }, r.Titre);
+            // le recueil d'abord (il y en a souvent plusieurs), puis le numéro ou des mots du titre
+            string? actuel = p.Type == "chant" ? R.Trouver(p.Id)?.Author : App.Donnees.Reglages.Recueil is { Length: > 0 } rc ? rc : null;
+            var w = new ChoixChantWindow(actuel) { Owner = this };
+            if (w.ShowDialog() == true && w.Choisi is { } c)
+                Mettre("chant", c.Id, null, c.Title + (c.Author.Length > 0 ? " (" + c.Author + ")" : ""));
+        }, true));
+        m.Items.Add(Article("Verset…", () =>
+        {
+            if (Dialogue.Demander(this, "Passage de la Bible (exemples : jean 3 16, ps 23, rom 8 28-30) :", "", "Choisir") is not { } t || t.Trim().Length == 0) return;
+            var r = R.Commande(t, null).FirstOrDefault(x => x.Action == null && x.Ref != null);
+            if (r?.Ref is not Ref rf) { Toast("Passage introuvable. Essayez « jean 3 16 »."); return; }
+            Mettre("bible", "", new[] { rf.B, rf.C, Math.Max(1, rf.V1), Math.Max(1, rf.V2 > 0 ? rf.V2 : rf.V1) }, r.Titre);
         }, true));
         m.Items.Add(new Separator());
         var sources = R.Annonces.Where(a => a.Source?.Type != "duo").ToList();

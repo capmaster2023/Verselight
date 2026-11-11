@@ -14,6 +14,7 @@ namespace MyVerse.Ui;
 public partial class MainWindow
 {
     readonly List<(Border Tuile, string Id, int I, Image? Vue, TextBlock Direct)> tuiles = new();
+    readonly System.Windows.Threading.DispatcherTimer minuterieGrille = new() { Interval = TimeSpan.FromMilliseconds(350) };
 
     static readonly Brush FondTuile = Fige(new SolidColorBrush(Color.FromRgb(0x17, 0x1A, 0x1F)));
     static readonly Brush FondTuileSource = Fige(new SolidColorBrush(Color.FromRgb(0x27, 0x2D, 0x36)));
@@ -23,6 +24,8 @@ public partial class MainWindow
     void InitGrille()
     {
         App.Sources.Change += GrilleDirect;
+        minuterieGrille.Tick += (_, _) => { minuterieGrille.Stop(); GrilleMaj(); };
+        R.DuosChange += GrillePlusTard;
         ListeAnnonces.PreviewMouseRightButtonUp += (_, e) =>
         {
             if (e.OriginalSource is DependencyObject o && ItemsControl.ContainerFromElement(ListeAnnonces, o) is ListBoxItem { DataContext: Annonce a })
@@ -108,27 +111,32 @@ public partial class MainWindow
                 Margin = new Thickness(10), Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly,
                 Child = new TextBlock { Text = texte, Width = 300, FontSize = 22, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap },
             });
+        else if (type == "duo")
+        {
+            // le dossier Duo tel qu'il sort sur l'écran principal : ses deux éléments, chacun à sa place et à sa taille
+            if (R.EtatAnnonce(a) is { } etat)
+            {
+                var rendu = new Rendu { Transitions = false, Width = 1920, Height = 1080, IsHitTestVisible = false };
+                rendu.Afficher(etat);
+                if (etat is { Mode: "media", Media: { Type: "image" } m1 }) rendu.ImageDisplay(ImageFichier(m1.Chemin, 640));
+                if (etat.Duo?.Etat is { Mode: "media", Media: { Type: "image" } m2 }) rendu.ImageDuo(ImageFichier(m2.Chemin, 640));
+                vue.Children.Add(new Viewbox { Stretch = Stretch.Uniform, Child = rendu });
+            }
+            else vue.Children.Add(new TextBlock
+            {
+                Text = "Duo incomplet : choisissez ses 2 éléments (onglet Duo)", FontSize = 13.5, Margin = new Thickness(12), TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center,
+                Foreground = TexteTuile, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+            });
+        }
         else
         {
             vue.Children.Add(new TextBlock
             {
-                Text = type == "camera" ? "Caméra" : type == "fenetre" ? "Fenêtre" : type == "duo" ? "Duo · 2 éléments" : type == "video" ? "Vidéo" : "Image", FontSize = 15,
+                Text = type == "camera" ? "Caméra" : type == "fenetre" ? "Fenêtre" : type == "video" ? "Vidéo" : "Image", FontSize = 15,
                 Foreground = TexteTuile, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
             });
             image = new Image { Stretch = Stretch.Uniform };
-            if (type == "image" && a.Source?.Chemin is { Length: > 0 } chemin)
-                try
-                {
-                    var b = new BitmapImage();
-                    b.BeginInit();
-                    b.CacheOption = BitmapCacheOption.OnLoad;
-                    b.DecodePixelWidth = 360;
-                    b.UriSource = new Uri(chemin);
-                    b.EndInit();
-                    b.Freeze();
-                    image.Source = b;
-                }
-                catch (Exception) { }
+            if (type == "image" && a.Source?.Chemin is { Length: > 0 } chemin) image.Source = ImageFichier(chemin, 360);
             vue.Children.Add(image);
         }
         var direct = new TextBlock { Text = "EN DIRECT", FontSize = 10.5, FontWeight = FontWeights.Bold, Foreground = Pinceau("Direct"), VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed, Margin = new Thickness(6, 0, 0, 0) };
@@ -155,6 +163,32 @@ public partial class MainWindow
         tuile.MouseRightButtonUp += (_, e) => { MenuDisplay(a, tuile, true); e.Handled = true; };
         tuiles.Add((tuile, a.Id, i, type is "camera" or "fenetre" ? image : null, direct));
         return tuile;
+    }
+
+    /// <summary>Une image de la bibliothèque, réduite pour une vignette (null si elle ne se lit pas).</summary>
+    static BitmapSource? ImageFichier(string chemin, int largeur)
+    {
+        if (chemin.Length == 0) return null;
+        try
+        {
+            var b = new BitmapImage();
+            b.BeginInit();
+            b.CacheOption = BitmapCacheOption.OnLoad;
+            b.DecodePixelWidth = largeur;
+            b.UriSource = new Uri(chemin);
+            b.EndInit();
+            b.Freeze();
+            return b;
+        }
+        catch (Exception) { return null; }
+    }
+
+    /// <summary>Un dossier Duo a changé (éléments, mesures) : ses vignettes de la grille suivent, un instant plus tard.</summary>
+    void GrillePlusTard()
+    {
+        if (!R.Annonces.Any(a => a.Grille && a.Source?.Type == "duo")) return;
+        minuterieGrille.Stop();
+        minuterieGrille.Start();
     }
 
     /// <summary>La tuile à l'écran : cadre rouge, « EN DIRECT », et l'image vivante d'une caméra ou d'une fenêtre.</summary>
