@@ -52,6 +52,50 @@ public sealed partial class Regie
         _ => null,
     };
 
+    /// <summary>
+    /// Une diapositive (du déroulé, d'un chant, d'un verset, d'une source Display) telle qu'elle sortirait à l'écran, sans l'afficher :
+    /// vignettes de la page Culte et aperçu « Suivant » (MyChurch 3.2). <paramref name="e"/> : l'élément du déroulé, s'il est connu.
+    /// </summary>
+    public EtatEcran? EtatCible(Cible? c, ElementAgenda? e = null)
+    {
+        switch (c)
+        {
+            case CibleChant cc:
+                return EtatSection(cc.Id, cc.I);
+            case CibleVerset cv:
+                if (cv.Parts > 1 && Morceaux(cv.B, cv.C, cv.V1) is { } m)
+                    return Neutre() with
+                    {
+                        Mode = "verset",
+                        Lignes = new[] { m[Math.Clamp(cv.Part, 0, m.Count - 1)] },
+                        Ref = Livres.Libelle(cv.B, cv.C, cv.V1, cv.V1) + $" ({Bibles.Etiquette()})",
+                    };
+                return EtatVerset(cv.B, cv.C, cv.V1, cv.V2);
+            case CibleTexte ct:
+                if ((e?.Id == ct.Element ? e : ElementDuDeroule(ct.Element)) is { } et)
+                {
+                    var blocs = BlocsTexte(et.Texte);
+                    return ct.I >= 0 && ct.I < blocs.Count ? Neutre() with { Mode = "chant", Lignes = blocs[ct.I].Split('\n').Where(l => l.Trim().Length > 0).ToArray() } : null;
+                }
+                return donnees.Annonces.FirstOrDefault(a => a.Id == ct.Element) is { } an ? EtatAnnonce(an, ct.I) : null;
+            case CibleCompte co:
+                return (e?.Id == co.Element ? e : ElementDuDeroule(co.Element)) is { } ec
+                    ? Neutre() with { Mode = "chant", Lignes = new[] { MessageCompte(ec), $"{Math.Clamp(ec.Minutes ?? 5, 1, 120):00}:00" } }
+                    : null;
+            case CibleDisplay cd:
+                if ((e?.Id == cd.Id ? e : ElementDuDeroule(cd.Id)) is { } ed)
+                {
+                    if (ed.Source is not { } s) return null;
+                    if (s.Type == "duo") return donnees.Duos.FirstOrDefault(d => d.Id == s.Chemin) is { } dossier ? EtatDuo(dossier) : null;
+                    return Neutre() with { Mode = "media", Media = s, Ref = ed.Titre };
+                }
+                return donnees.Annonces.FirstOrDefault(a => a.Id == cd.Id) is { } ad ? EtatAnnonce(ad) : null;
+        }
+        return null;
+    }
+
+    ElementAgenda? ElementDuDeroule(string id) => Agenda.Elements.FirstOrDefault(x => x.Id == id);
+
     /// <summary>Le dossier Duo comme sur l'écran principal : l'élément 1 dessous, l'élément 2 par-dessus, à leurs mesures.</summary>
     public EtatEcran? EtatDuo(DossierDuo d)
     {

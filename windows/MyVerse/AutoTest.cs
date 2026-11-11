@@ -219,6 +219,17 @@ public static class AutoTest
         catch (Exception x) { return "erreur " + x.Message; }
     }
 
+    /// <summary>Le poids réel (100 à 900) de la police trouvée pour un poids demandé : vérifie les fichiers Manrope inclus.</summary>
+    static int Poids(string cle, FontWeight poids)
+    {
+        try
+        {
+            var f = (FontFamily)Application.Current.FindResource(cle);
+            return new Typeface(f, FontStyles.Normal, poids, FontStretches.Normal).TryGetGlyphTypeface(out var g) ? g.Weight.ToOpenTypeWeight() : 0;
+        }
+        catch (Exception) { return 0; }
+    }
+
     public static async void Lancer(MainWindow w, string sortie)
     {
         dossier = sortie;
@@ -228,9 +239,11 @@ public static class AutoTest
         {
             Note($"MyChurch {App.Version} · données : {App.Donnees.Dossier} · {App.Donnees.Chants.Count} chants");
             Note("police Serif : " + Police("Serif") + " · Sans : " + Police("Sans") + " · Titre : " + Police("Titre"));
-            Note("police de l'interface : " + Police("Ui") + " · titres : " + Police("Grotesk"));
-            Ok(Police("Ui").Contains("Inter"), "police Inter incluse (interface 3.0)");
-            Ok(Police("Grotesk").Contains("Space Grotesk"), "police Space Grotesk incluse (titres des Paramètres)");
+            Note("police de l'interface : " + Police("Ui") + " · titres : " + Police("Grotesk") + " · chiffres : " + Police("Mono"));
+            Ok(Police("Ui").Contains("Manrope") && Police("Grotesk").Contains("Manrope"), "police Manrope incluse (interface 3.2, design « Pupitre »)");
+            int p5 = Poids("Ui", FontWeights.Medium), p6 = Poids("Ui", FontWeights.SemiBold), p7 = Poids("Ui", FontWeights.Bold), p8 = Poids("Ui", FontWeights.ExtraBold);
+            Ok(p5 == 500 && p6 == 600 && p7 == 700 && p8 == 800, $"Manrope : les vrais poids 500, 600, 700, 800 ({p5}, {p6}, {p7}, {p8})");
+            Ok(Police("Mono").Contains("IBM Plex Mono"), "police IBM Plex Mono incluse (heures et chronos)");
             Ok(Police("Serif").Contains("Literata"), "police Literata incluse");
             Ok(Police("Sans").Contains("Atkinson"), "police Atkinson incluse");
             await Attendre(1500);
@@ -341,6 +354,10 @@ public static class AutoTest
             Ok(R.ElementCourant?.Type == "bible" && R.Etat.Ref.StartsWith("Jean 3:16"), "déroulé : Suivant passe à la lecture · " + R.Etat.Ref);
             App.Bibles.BasculerSeconde("kjv");
             await Attendre(900);
+            int nbVignettes = R.Agenda.Elements.Sum(e => R.Diapos(e).Count);
+            Ok(w.TestVignettes == nbVignettes && nbVignettes >= 5, $"page Culte : toutes les diapositives du culte en vignettes ({w.TestVignettes} / {nbVignettes})");
+            Ok(w.TestVignetteDirecte.StartsWith("Jean 3:16") && w.TestVignetteDirecte.EndsWith("À L'ÉCRAN"), "vignette à l'écran : " + w.TestVignetteDirecte);
+            Ok(w.TestVignetteSuivante == "Jean 3:17" && w.TestSuivantLabel == "Jean 3:17", $"vignette suivante et aperçu « Suivant » : {w.TestVignetteSuivante} / {w.TestSuivantLabel}");
             Capture(w, "19-culte.png");
             App.Bibles.BasculerSeconde("kjv");
             Ok(R.EstFait(compte) && w.TestResume.Contains("Accueil") && w.TestResume.Contains("Jean 3"), "résumé du culte : " + w.TestResume);
@@ -519,6 +536,20 @@ public static class AutoTest
             R.HeureAgenda(lect.Id, "10:30");
             R.AjouterTexteAgenda("Annonces", "Repas fraternel après le culte\n\nRéunion de prière mercredi à 19 h");
             R.AfficherElement(lect, 0);
+            w.TestPage("agenda");
+            await Attendre(600);
+            int k17 = R.Agenda.Elements.TakeWhile(e => e != lect).Sum(e => R.Diapos(e).Count) + 1;
+            Ok(w.TestCliquerVignette(k17) && R.Etat.Ref.StartsWith("Jean 3:17"), "clic sur une vignette : en direct (" + R.Etat.Ref + ")");
+            await Attendre(300);
+            Ok(w.TestVignetteDirecte.StartsWith("Jean 3:17"), "la vignette cliquée passe « À L'ÉCRAN »");
+            Ok(w.TestDeroule.StartsWith("Culte du dimanche / 15 novembre / 10:30") && w.TestDeroule.Contains("4 éléments") || c == null, "en-tête du déroulé : " + w.TestDeroule);
+            R.AfficherElement(lect, 0);
+            await Attendre(400);
+            Capture(w, "39-pupitre-culte.png");
+            w.TestBasculerTheme();
+            Ok(Palette.Actuelle.Sombre && w.TestTheme == "Clair", "bouton de la barre de gauche : thème sombre");
+            w.TestBasculerTheme();
+            Ok(!Palette.Actuelle.Sombre && w.TestTheme == "Sombre", "bouton de la barre de gauche : retour au clair");
             var anG = R.NouvelleAnnonce("Annonce de test", "Réunion de prière\nmercredi à 19 h");
             w.TestPage("annonces");
             w.TestPlusGrille(anG);
@@ -543,7 +574,7 @@ public static class AutoTest
             await Fenetre(w, () => new OutilsWindow(false), "47-sombre-fenetre.png");
             App.AppliquerApparence("clair");
             Ok(!Palette.Actuelle.Sombre && ((SolidColorBrush)MainWindow.Pinceau("Page")).Color == Palette.De("Page", false), "retour au thème clair");
-            foreach (var (page, nom) in new[] { ("agenda", "48-clair-culte.png"), ("annonces", "49-clair-display.png") })
+            foreach (var (page, nom) in new[] { ("agenda", "48-clair-culte.png"), ("annonces", "49-clair-display.png"), ("bible", "49b-clair-bible.png"), ("chants", "49c-clair-chants.png"), ("duo", "49d-clair-duo.png") })
             {
                 w.TestPage(page);
                 await Attendre(500);

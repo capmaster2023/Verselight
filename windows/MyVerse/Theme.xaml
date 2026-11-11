@@ -32,6 +32,11 @@
     <SolidColorBrush x:Key="Danger" Color="{Binding Danger, Source={x:Static local:Palette.Actuelle}}" />
     <SolidColorBrush x:Key="Vert" Color="{Binding Vert, Source={x:Static local:Palette.Actuelle}}" />
     <SolidColorBrush x:Key="VertLeger" Color="{Binding VertLeger, Source={x:Static local:Palette.Actuelle}}" />
+    <SolidColorBrush x:Key="TypeAccueil" Color="{Binding TypeAccueil, Source={x:Static local:Palette.Actuelle}}" />
+    <SolidColorBrush x:Key="TypeChant" Color="{Binding TypeChant, Source={x:Static local:Palette.Actuelle}}" />
+    <SolidColorBrush x:Key="TypeLecture" Color="{Binding TypeLecture, Source={x:Static local:Palette.Actuelle}}" />
+    <SolidColorBrush x:Key="TypeDisplay" Color="{Binding TypeDisplay, Source={x:Static local:Palette.Actuelle}}" />
+    <SolidColorBrush x:Key="TypeDuo" Color="{Binding TypeDuo, Source={x:Static local:Palette.Actuelle}}" />
     <SolidColorBrush x:Key="BleuFonce" Color="{Binding BleuFonce, Source={x:Static local:Palette.Actuelle}}" />
     <SolidColorBrush x:Key="Marque" Color="{Binding Marque, Source={x:Static local:Palette.Actuelle}}" />
     <SolidColorBrush x:Key="Surligne" Color="{Binding Surligne, Source={x:Static local:Palette.Actuelle}}" />
@@ -62,16 +67,18 @@
     <Geometry x:Key="IconePartager">M18,2.5 A2.5,2.5 0 1 1 17.99,2.5 Z M6,9.5 A2.5,2.5 0 1 1 5.99,9.5 Z M18,16.5 A2.5,2.5 0 1 1 17.99,16.5 Z M8.3,10.8 L15.7,6.4 M8.3,13.2 L15.7,17.6</Geometry>
     <Geometry x:Key="IconePlus">M12,5 V19 M5,12 H19</Geometry>
     <Geometry x:Key="IconeCoche">M5,12.5 L9.5,17 L19,7.5</Geometry>
+    <Geometry x:Key="IconeLune">M20,14.5 A8,8 0 0 1 9.5,4 A8,8 0 1 0 20,14.5 Z</Geometry>
+    <Geometry x:Key="IconeSoleil">M12,8 A4,4 0 1 1 11.99,8 Z M12,2 V4 M12,20 V22 M4.9,4.9 L6.3,6.3 M17.7,17.7 L19.1,19.1 M2,12 H4 M20,12 H22 M4.9,19.1 L6.3,17.7 M17.7,6.3 L19.1,4.9</Geometry>
 
-    <!-- ===================== polices (incluses dans MyChurch) : projection (Literata, Atkinson, Unbounded), interface (Inter, Space Grotesk) ===================== -->
+    <!-- ===================== polices (incluses dans MyChurch) : projection (Literata, Atkinson, Unbounded), interface (Manrope, design « Pupitre ») ===================== -->
     <FontFamily x:Key="Serif">./Polices/#Literata, Georgia</FontFamily>
     <FontFamily x:Key="Sans">./Polices/#Atkinson Hyperlegible Next, Segoe UI</FontFamily>
     <FontFamily x:Key="Titre">./Polices/#Unbounded, Segoe UI</FontFamily>
-    <FontFamily x:Key="Ui">./Polices/#Inter, Segoe UI</FontFamily>
-    <FontFamily x:Key="UiTitre">./Polices/#Inter, Segoe UI</FontFamily>
-    <FontFamily x:Key="Grotesk">./Polices/#Space Grotesk, Segoe UI</FontFamily>
-    <!-- heures, durées, étapes : chiffres à chasse fixe (polices de Windows) -->
-    <FontFamily x:Key="Mono">Cascadia Mono, Consolas, Courier New</FontFamily>
+    <FontFamily x:Key="Ui">./Polices/#Manrope, Segoe UI</FontFamily>
+    <FontFamily x:Key="UiTitre">./Polices/#Manrope, Segoe UI</FontFamily>
+    <FontFamily x:Key="Grotesk">./Polices/#Manrope, Segoe UI</FontFamily>
+    <!-- heures, durées, chronos : chiffres à chasse fixe (IBM Plex Mono, incluse) -->
+    <FontFamily x:Key="Mono">./Polices/#IBM Plex Mono, Cascadia Mono, Consolas</FontFamily>
 
     <!-- ===================== focus clavier : contour ambre ===================== -->
     <Style x:Key="FocusOr">
@@ -102,24 +109,24 @@
     <Style x:Key="CarteTitre" TargetType="TextBlock" BasedOn="{StaticResource TexteBase}">
         <Setter Property="FontSize" Value="11" />
         <Setter Property="FontWeight" Value="Bold" />
-        <Setter Property="Foreground" Value="{StaticResource Brume}" />
+        <Setter Property="Foreground" Value="{StaticResource Brume2}" />
         <Setter Property="Margin" Value="0,0,0,2" />
     </Style>
     <!-- titre de l'en-tête de page : « Culte du dimanche 15 novembre », « Display », « Réglages » -->
     <Style x:Key="TitrePage" TargetType="TextBlock" BasedOn="{StaticResource TexteBase}">
         <Setter Property="FontFamily" Value="{StaticResource Grotesk}" />
-        <Setter Property="FontWeight" Value="Bold" />
-        <Setter Property="FontSize" Value="21" />
+        <Setter Property="FontWeight" Value="ExtraBold" />
+        <Setter Property="FontSize" Value="22" />
     </Style>
     <!-- grand titre dans une page : « Grille », « Audio », « Jean 3 » -->
     <Style x:Key="GrandTitre" TargetType="TextBlock" BasedOn="{StaticResource TexteBase}">
         <Setter Property="FontFamily" Value="{StaticResource Grotesk}" />
-        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontWeight" Value="ExtraBold" />
         <Setter Property="FontSize" Value="28" />
     </Style>
     <Style x:Key="Titre2" TargetType="TextBlock" BasedOn="{StaticResource TexteBase}">
         <Setter Property="FontFamily" Value="{StaticResource Grotesk}" />
-        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontWeight" Value="ExtraBold" />
         <Setter Property="FontSize" Value="22" />
         <Setter Property="Foreground" Value="{StaticResource Blanc}" />
     </Style>
@@ -159,7 +166,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="Fond" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10" Padding="{TemplateBinding Padding}">
+                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="11" Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                           RecognizesAccessKey="False" />
                     </Border>
@@ -327,23 +334,25 @@
             </Setter.Value>
         </Setter>
     </Style>
-    <!-- barre de gauche : une page (icône dans Tag, nom dessous) -->
+    <!-- barre de gauche (design « Pupitre ») : une page, icône dans Tag, nom dessous ; la page affichée est une carte, icône ambre -->
     <Style x:Key="OngletRail" TargetType="RadioButton">
-        <Setter Property="Foreground" Value="{StaticResource Brume}" />
+        <Setter Property="Foreground" Value="{StaticResource Brume2}" />
         <Setter Property="FontFamily" Value="{StaticResource Ui}" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="11" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="Margin" Value="10,0,10,4" />
+        <Setter Property="Width" Value="62" />
+        <Setter Property="Margin" Value="0,0,0,6" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
         <Setter Property="FocusVisualStyle" Value="{StaticResource FocusOr}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
-                    <Border x:Name="Fond" Background="Transparent" CornerRadius="12" Padding="0,10,0,9">
+                    <Border x:Name="Fond" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="12" Padding="0,9,0,7">
                         <StackPanel HorizontalAlignment="Center">
-                            <Path x:Name="Icone" Data="{TemplateBinding Tag}" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.7"
-                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="22" Height="22" Stretch="Uniform" HorizontalAlignment="Center" />
-                            <ContentPresenter HorizontalAlignment="Center" Margin="0,5,0,0" RecognizesAccessKey="False" />
+                            <Path x:Name="Icone" Data="{TemplateBinding Tag}" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.8"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="21" Height="21" Stretch="Uniform" HorizontalAlignment="Center" />
+                            <ContentPresenter HorizontalAlignment="Center" Margin="0,4,0,0" RecognizesAccessKey="False" />
                         </StackPanel>
                     </Border>
                     <ControlTemplate.Triggers>
@@ -352,8 +361,42 @@
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="Fond" Property="Background" Value="{StaticResource RailActif}" />
+                            <Setter TargetName="Fond" Property="BorderBrush" Value="{StaticResource Nuit3}" />
                             <Setter Property="Foreground" Value="{StaticResource Blanc}" />
-                            <Setter TargetName="Icone" Property="Stroke" Value="{StaticResource Or}" />
+                            <Setter TargetName="Icone" Property="Stroke" Value="{StaticResource OrVif}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <!-- bouton de la barre de gauche (thème clair ou sombre), même dessin qu'une page -->
+    <Style x:Key="BtnRail" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource Brume2}" />
+        <Setter Property="FontFamily" Value="{StaticResource Ui}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Width" Value="62" />
+        <Setter Property="Margin" Value="0,0,0,6" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusOr}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Fond" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="12" Padding="0,9,0,7">
+                        <StackPanel HorizontalAlignment="Center">
+                            <Path Data="{TemplateBinding Tag}" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.8"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="21" Height="21" Stretch="Uniform" HorizontalAlignment="Center" />
+                            <ContentPresenter HorizontalAlignment="Center" Margin="0,4,0,0" RecognizesAccessKey="False" />
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource Blanc}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Fond" Property="Opacity" Value="0.8" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -990,6 +1033,23 @@
                             <Setter TargetName="Fond" Property="Background" Value="{StaticResource OrLeger}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- élément du déroulé (page Culte) : la carte est dessinée par le modèle ModeleAgenda -->
+    <Style x:Key="ElementDeroule" TargetType="ListBoxItem">
+        <Setter Property="Foreground" Value="{StaticResource Blanc}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <ContentPresenter />
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

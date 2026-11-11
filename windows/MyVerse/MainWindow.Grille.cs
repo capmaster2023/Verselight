@@ -208,7 +208,7 @@ public partial class MainWindow
             t.Direct.Visibility = ok ? Visibility.Visible : Visibility.Collapsed;
             if (t.Vue != null) t.Vue.Source = ok ? App.Sources.Image : null;
         }
-        GrilleInfo.Text = ecran != null ? "Écran : " + NomEcran() : "Aucun écran choisi (bouton Projection en haut)";
+        GrilleInfo.Text = ecran != null ? "Écran : " + NomEcran() : "Aucun écran choisi (Projection, en bas à droite)";
     }
 
     // ------------------------------------------------------------ pour le test automatique
@@ -230,13 +230,20 @@ public partial class MainWindow
         return m.Mode == "fenetre" ? "fenêtre" : $"{(m.Nom is { Length: > 0 } n ? n : "Écran")} {m.W} × {m.H}";
     }
 
+    /// <summary>« Écran 2 » (sans la taille), pour une fenêtre étroite.</summary>
+    string NomEcranCourt()
+    {
+        var m = App.Donnees.Reglages.Ecran;
+        return ecran == null || m == null ? "arrêtée" : m.Mode == "fenetre" ? "Fenêtre" : m.Nom is { Length: > 0 } n ? n : "Écran";
+    }
+
     void MajProjection()
     {
         if (ProjectionTexte == null) return;
-        ProjectionTexte.Text = ProjectionCompact ? "Projection" : ecran == null ? "Projection arrêtée" : "Projection · " + NomEcran();
+        ProjectionTexte.Text = ecran == null ? (ProjectionCompact ? "Projection" : "Projection arrêtée") : ProjectionCompact ? NomEcranCourt() : NomEcran();
         ProjectionBtn.ToolTip = "Choisir l'écran de projection · " + NomEcran();
         ProjectionPoint.Fill = Pinceau(ecran != null ? "Vert" : "Brume2");
-        if (GrilleInfo != null) GrilleInfo.Text = ecran != null ? "Écran : " + NomEcran() : "Aucun écran choisi (bouton Projection en haut)";
+        if (GrilleInfo != null) GrilleInfo.Text = ecran != null ? "Écran : " + NomEcran() : "Aucun écran choisi (Projection, en bas à droite)";
     }
 
     /// <summary>Comme « Projecteur plein écran » d'OBS : la liste des écrans, une fenêtre, ou arrêter.</summary>
@@ -261,6 +268,6 @@ public partial class MainWindow
         var arret = Article("Arrêter la projection", () => { ecran?.Close(); MajProjection(); });
         arret.IsEnabled = ecran != null;
         m.Items.Add(arret);
-        Ouvrir(m, ProjectionBtn, PlacementMode.Bottom);
+        Ouvrir(m, ProjectionBtn, PlacementMode.Top);
     }
 }

@@ -10,7 +10,9 @@ using System.Windows.Threading;
 namespace MyVerse.Ui;
 
 /// <summary>
-/// La régie « Studio » : Bibles et livres à gauche, texte au centre, l'écran à droite (comme la 3.x).
+/// La régie, design « Pupitre » (MyChurch 3.2) : barre des pages, colonne de la page (déroulé, Bibles, recueil, bibliothèque, dossiers),
+/// centre (vignettes du culte, versets, strophes, grille, dossier), colonne de contrôle à droite (petit écran en direct, suivant,
+/// boutons, audio) et barre du bas (enregistrements, sorties, écran, téléphones, heure).
 /// </summary>
 public partial class MainWindow : Window
 {
@@ -29,6 +31,7 @@ public partial class MainWindow : Window
     readonly DispatcherTimer minuterieQc = new() { Interval = TimeSpan.FromMilliseconds(120) };
     readonly DispatcherTimer minuterieNum = new() { Interval = TimeSpan.FromMilliseconds(300) };
     readonly DispatcherTimer minuterieToast = new() { Interval = TimeSpan.FromMilliseconds(3200) };
+    readonly DispatcherTimer minuterieHorloge = new() { Interval = TimeSpan.FromSeconds(1) };
     readonly List<Button> boutonsLivres = new();
     bool chargement = true;
     MiseAJour.Resultat? maj;
@@ -117,10 +120,19 @@ public partial class MainWindow : Window
         PanneauAudio = new Audio.AudioPanel();
         AudioHote.Child = PanneauAudio;
         AudioBref.Content = new Audio.AudioBref();
+        AudioListeHote.Content = new Audio.AudioListe();
         Reglages = new ReglagesPage();
         PanneauReglages.Child = Reglages;
         VersionBtn.Click += (_, _) => { MontrerOnglet("reglages"); Reglages.Aller("maj", true); };
         MajBtn.Click += (_, _) => { MontrerOnglet("reglages"); Reglages.Aller("maj", false); };
+        // clair ou sombre d'un clic (aussi dans Réglages › Apparence)
+        ThemeBtn.Click += (_, _) => App.AppliquerApparence(Palette.Actuelle.Sombre ? "clair" : "sombre");
+        Palette.Change += MajThemeBtn;
+        MajThemeBtn();
+        // l'heure de l'ordinateur, en bas à droite
+        minuterieHorloge.Tick += (_, _) => Horloge.Text = DateTime.Now.ToString("HH:mm:ss");
+        Horloge.Text = DateTime.Now.ToString("HH:mm:ss");
+        minuterieHorloge.Start();
 
         // ---------- Bible
         BiblesImporter.Click += (_, _) => ImporterBible();
@@ -170,6 +182,7 @@ public partial class MainWindow : Window
         Prec.Click += (_, _) => R.Bouger(-1);
         Suiv.Click += (_, _) => R.Bouger(1);
         Effacer.Click += (_, _) => R.Effacer();
+        NoirBtn.Click += (_, _) => BasculerNoir();
         Decouper.Click += (_, _) => { if (R.Prochaine() is { } s) OuvrirDecoupe(s.Cible); };
         Apercu.MouseLeftButtonDown += (_, e) =>
         {
@@ -181,7 +194,8 @@ public partial class MainWindow : Window
                 else Toast("Découper : affichez un seul verset à la fois.");
             }
         };
-        Apercu.SizeChanged += (_, _) => Apercu.Clip = new RectangleGeometry(new Rect(0, 0, Apercu.ActualWidth, Apercu.ActualHeight), 12, 12);
+        Apercu.SizeChanged += (_, _) => Apercu.Clip = new RectangleGeometry(new Rect(0, 0, Apercu.ActualWidth, Apercu.ActualHeight), 10, 10);
+        SuivantApercu.SizeChanged += (_, _) => SuivantApercu.Clip = new RectangleGeometry(new Rect(0, 0, SuivantApercu.ActualWidth, SuivantApercu.ActualHeight), 8, 8);
         var reg = App.Donnees.Reglages;
         Presentation.SelectedItem = Presentation.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == reg.Presentation) ?? Presentation.Items[0];
         Taille.Value = Math.Clamp(reg.Taille, Taille.Minimum, Taille.Maximum);
@@ -303,22 +317,20 @@ public partial class MainWindow : Window
         Natif.Devant(this);
     }
 
-    /// <summary>Largeurs des colonnes selon la fenêtre (maquette 3.1 en 1440 px : 330 / 450 sur Culte, 300-320 / 380 ailleurs).</summary>
+    /// <summary>Largeurs des colonnes selon la fenêtre (maquette « Pupitre » en 1440 px : 280 à gauche, 330 pour la colonne de contrôle).</summary>
     void Placement()
     {
         double w = ActualWidth > 0 ? ActualWidth : Width;
-        double gauche = Math.Clamp(w * 0.22, 270, 340), direct = Math.Clamp(w * 0.26, 330, 440);
-        ColonneAgenda.Width = new GridLength(Math.Clamp(w * 0.23, 280, 380));
-        ColonneElement.Width = new GridLength(Math.Clamp(w * 0.31, 340, 520));
-        ColonneCote.Width = new GridLength(Math.Clamp(w * 0.21, 260, 320));
-        foreach (var c in new[] { ColonneChants, ColonneAnnonces, ColonneDuos }) c.Width = new GridLength(gauche);
-        foreach (var c in new[] { ColonneDirectBible, ColonneDirectChants, ColonneDirectDisplay, ColonneDirectDuo }) c.Width = new GridLength(direct);
-        // petit écran : en-tête plus court, la recherche garde sa place
+        ColonneGauche.Width = new GridLength(Math.Clamp(w * 0.195, 250, 330));
+        ColonneDroite.Width = new GridLength(Math.Clamp(w * 0.23, 300, 380));
+        Recherches.Width = Math.Clamp(w * 0.22, 230, 400);
+        // petit écran : en-tête et barre du bas plus courts
         bool compact = w < 1360;
         VersionsLab.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-        SceneBtn.Visibility = w < 1200 ? Visibility.Collapsed : Visibility.Visible;
+        SceneBtn.Visibility = SceneSep.Visibility = w < 1200 ? Visibility.Collapsed : Visibility.Visible;
         ProjectionCompact = compact;
         MajProjection();
+        LargeurVignettes();
     }
     bool ProjectionCompact;
 
@@ -339,63 +351,55 @@ public partial class MainWindow : Window
     {
         onglet = o;
         R.OngletBible = o == "bible";
-        PanneauAgenda.Visibility = o == "agenda" ? Visibility.Visible : Visibility.Collapsed;
-        PanneauBible.Visibility = o == "bible" ? Visibility.Visible : Visibility.Collapsed;
-        PanneauChants.Visibility = o == "chants" ? Visibility.Visible : Visibility.Collapsed;
-        PanneauAnnonces.Visibility = o == "annonces" ? Visibility.Visible : Visibility.Collapsed;
-        PanneauDuo.Visibility = o == "duo" ? Visibility.Visible : Visibility.Collapsed;
-        PanneauReglages.Visibility = o == "reglages" ? Visibility.Visible : Visibility.Collapsed;
-        RechercheCulte.Visibility = o is "agenda" or "annonces" or "duo" ? Visibility.Visible : Visibility.Collapsed;
-        RechercheBible.Visibility = o == "bible" ? Visibility.Visible : Visibility.Collapsed;
-        RechercheChants.Visibility = o == "chants" ? Visibility.Visible : Visibility.Collapsed;
+        static Visibility V(bool b) => b ? Visibility.Visible : Visibility.Collapsed;
+        // chaque page : sa colonne de gauche, son centre et le titre de l'en-tête
+        PanneauAgenda.Visibility = CentreAgenda.Visibility = ElemTitre.Visibility = V(o == "agenda");
+        PanneauBible.Visibility = CentreBible.Visibility = TeteBible.Visibility = V(o == "bible");
+        PanneauChants.Visibility = DefilSections.Visibility = TeteChants.Visibility = V(o == "chants");
+        PanneauAnnonces.Visibility = DefilGrille.Visibility = TeteDisplay.Visibility = V(o == "annonces");
+        PanneauDuo.Visibility = CentreDuo.Visibility = TeteDuo.Visibility = V(o == "duo");
+        // Réglages : toute la largeur, sans la colonne de contrôle
+        PanneauReglages.Visibility = V(o == "reglages");
+        EnTete.Visibility = ColonneControle.Visibility = V(o != "reglages");
+        RechercheCulte.Visibility = V(o is "agenda" or "annonces" or "duo");
+        RechercheBible.Visibility = V(o == "bible");
+        RechercheChants.Visibility = V(o == "chants");
         if (o is not ("agenda" or "annonces" or "duo")) CmdPopup.IsOpen = false;
         (o switch { "agenda" => OngletAgenda, "bible" => OngletBible, "annonces" => OngletAnnonces, "duo" => OngletDuo, "reglages" => OngletReglages, _ => OngletChants }).IsChecked = true;
-        // l'écran en direct : au centre sur Culte, dans la colonne de droite ailleurs (pas sur Réglages)
-        var slot = o switch { "agenda" => SlotCulte, "bible" => SlotBible, "chants" => SlotChants, "annonces" => SlotDisplay, "duo" => SlotDuo, _ => null };
-        if (slot != null && slot.Content != Colonne)
-        {
-            switch (Colonne.Parent)
-            {
-                case Panel p: p.Children.Remove(Colonne); break;
-                case ContentControl cc: cc.Content = null; break;
-            }
-            slot.Content = Colonne;
-            Colonne.Visibility = Visibility.Visible;
-        }
-        Afficher.Visibility = o == "agenda" ? Visibility.Collapsed : Visibility.Visible;
-        AudioBref.Visibility = o == "annonces" ? Visibility.Collapsed : Visibility.Visible;
+        // sur Culte, un clic sur une vignette affiche : pas de bouton « Afficher la sélection » ; sur Display, le mélangeur est complet
+        Afficher.Visibility = V(o is not ("agenda" or "reglages"));
+        AudioListeHote.Visibility = V(o != "annonces");
         MajEntete();
+        if (o == "agenda") Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => { LargeurVignettes(); DefilerVers(elementChoisi ?? R.ElementCourant); }));
     }
 
-    /// <summary>Titre et sous-titre de l'en-tête de page (sur Culte : le nom du culte, son menu et l'étape en cours).</summary>
+    /// <summary>Le surtitre du centre (« TOUTES LES DIAPOSITIVES DU CULTE », « BIBLE · LSG »…), le titre du dossier Duo et l'en-tête du déroulé.</summary>
     void MajEntete()
     {
-        bool culte = onglet == "agenda";
-        TitrePage.Visibility = culte ? Visibility.Collapsed : Visibility.Visible;
-        AgendaTitre.Visibility = AgendaMenu.Visibility = culte ? Visibility.Visible : Visibility.Collapsed;
-        Recherches.Visibility = onglet == "reglages" ? Visibility.Hidden : Visibility.Visible;
-        TitrePage.Text = onglet switch { "bible" => "Bible", "chants" => "Chants", "annonces" => "Display", "duo" => "Duo", "reglages" => "Réglages", _ => "" };
-        SousTitre.Text = onglet switch
+        Surtitre.Libelle = onglet switch
         {
-            "agenda" => SousTitreCulte(),
-            "bible" => VB.Etiquette(),
-            "chants" => (Recueil.SelectedItem as ComboBoxItem)?.Content as string ?? "",
-            "annonces" => $"{R.Annonces.Count} source{(R.Annonces.Count > 1 ? "s" : "")} · {R.Annonces.Count(a => a.Grille)} dans la grille",
-            "duo" => $"{R.Duos.Count()} dossier{(R.Duos.Count() > 1 ? "s" : "")}",
-            "reglages" => "MyChurch " + App.Version,
+            "agenda" => "Toutes les diapositives du culte",
+            "bible" => "Bible · " + VB.Etiquette(),
+            "chants" => "Chants · " + ((Recueil.SelectedItem as ComboBoxItem)?.Content as string ?? "aucun recueil"),
+            "annonces" => $"Display · {R.Annonces.Count} source{(R.Annonces.Count > 1 ? "s" : "")} · {R.Annonces.Count(a => a.Grille)} dans la grille",
+            "duo" => $"Duo · {R.Duos.Count()} dossier{(R.Duos.Count() > 1 ? "s" : "")}",
             _ => "",
         };
+        TeteDuo.Text = duoChoisi is { } d ? (d.Nom.Trim().Length > 0 ? d.Nom : "Dossier sans nom") : "Dossiers Duo";
+        var (sur, titre) = DecouperNomCulte(R.Agenda.Nom);
+        AgendaSurtitre.Libelle = sur;
+        AgendaTitre.Text = titre;
+        AgendaTitre.ToolTip = R.Agenda.Nom;
+        AgendaInfo.Text = InfoDeroule();
     }
 
-    /// <summary>« 10:30 · étape 3 / 6 » : l'heure de l'élément en cours et sa place dans le déroulé.</summary>
-    string SousTitreCulte()
+    /// <summary>Le bouton clair / sombre de la barre de gauche montre le thème où il mène.</summary>
+    void MajThemeBtn()
     {
-        var l = R.Agenda.Elements;
-        if (l.Count == 0) return "déroulé vide";
-        var el = R.ElementCourant is { } c && l.Contains(c) ? c : elementChoisi;
-        int i = el != null ? l.IndexOf(el) + 1 : 0;
-        string heure = el?.Heure is { Length: > 0 } h ? h + " · " : "";
-        return i > 0 ? $"{heure}étape {i} / {l.Count}" : $"{l.Count} étape{(l.Count > 1 ? "s" : "")}";
+        bool s = Palette.Actuelle.Sombre;
+        ThemeBtn.Content = s ? "Clair" : "Sombre";
+        ThemeBtn.Tag = FindResource(s ? "IconeSoleil" : "IconeLune");
+        ThemeBtn.ToolTip = s ? "Passer en mode clair (aussi dans Réglages › Apparence)" : "Passer en mode sombre (aussi dans Réglages › Apparence)";
     }
 
     // ------------------------------------------------------------ raccourcis clavier
@@ -854,7 +858,8 @@ public partial class MainWindow : Window
     /// <summary>Cartes des strophes : autant de colonnes de 240 px au moins que la largeur le permet.</summary>
     void LargeurSections()
     {
-        double w = DefilSections.ActualWidth - 4;
+        // la zone moins ses marges (24 + 12) et la place de la barre de défilement
+        double w = DefilSections.ActualWidth - 36 - 12;
         if (w <= 0) return;
         int cols = Math.Max(1, (int)((w + 10) / 250));
         double l = Math.Floor((w + 10) / cols) - 10;
@@ -897,6 +902,8 @@ public partial class MainWindow : Window
     {
         var d = new DecoupeWindow(c) { Owner = this };
         if (d.ShowDialog() == true && d.Message.Length > 0) Toast(d.Message);
+        // un verset ou une strophe découpé : ses vignettes suivent
+        VignettesMaj();
     }
 
     // ------------------------------------------------------------ ce qui est à l'écran
@@ -915,13 +922,15 @@ public partial class MainWindow : Window
         ImagesDuo();
         App.SortieObs.Ecrire(e);
         bool rien = e.Vide && e.Duo == null;
-        Apercu.BorderBrush = Pinceau(rien ? "Nuit3" : "OrVif");
+        Apercu.BorderBrush = Pinceau(rien ? "Nuit3" : "Direct");
         Apercu.Background = rien || e.Theme == "transparent" ? Pinceau("Damier") : Brushes.Black;
+        // écran noir : le bouton « Noir » s'inverse
+        if (noir) { NoirBtn.Background = Pinceau("Blanc"); NoirBtn.Foreground = Pinceau("Page"); NoirBtn.BorderBrush = Pinceau("Blanc"); }
+        else { NoirBtn.ClearValue(BackgroundProperty); NoirBtn.ClearValue(ForegroundProperty); NoirBtn.ClearValue(BorderBrushProperty); }
         MajDuo();
         MajPastille();
+        MajSuivant();
         var s = R.Prochaine();
-        SuivantLab.Text = s?.Label ?? "—";
-        SuivantTexte.Text = s != null && s.Texte.Length > 0 ? " — " + s.Texte.Replace("\r", "").Replace("\n", " ") : "";
         Decouper.IsEnabled = s != null && s.Cible is CibleChant or CibleVerset;
         // le verset à l'écran est dans un autre chapitre (Suivant, téléphone) : la Bible le suit
         // (pas pendant qu'une liste de résultats de recherche est affichée)
@@ -946,7 +955,7 @@ public partial class MainWindow : Window
         var m = App.Donnees.Reglages.Ecran;
         EcranInfo.Text = PastilleTexte.Text;
         EcranInfo.Foreground = Pinceau(ouvert && !noir ? "Vert" : "Brume");
-        EcranInfo.ToolTip = ecran != null && m != null ? $"{m.Nom} · {m.W} × {m.H}" : "Aucun écran de projection : bouton Projection en haut";
+        EcranInfo.ToolTip = ecran != null && m != null ? $"{m.Nom} · {m.W} × {m.H}" : "Aucun écran de projection : Projection, en bas à droite";
         MajProjection();
     }
 
@@ -1015,6 +1024,8 @@ public partial class MainWindow : Window
     public void OuvrirParametres() { MontrerOnglet("reglages"); Reglages.Aller("audio", false); }
     /// <summary>Le mélangeur audio de Display.</summary>
     public Audio.AudioPanel? PanneauAudio { get; private set; }
+    /// <summary>« + Micros » de la colonne de contrôle : cocher les entrées de la carte son (une bande par entrée).</summary>
+    public void AjouterMicros() => PanneauAudio?.AjouterMicros();
     /// <summary>Montre le mélangeur : onglet Display, panneau Audio déplié.</summary>
     public void MontrerAudio()
     {
@@ -1028,6 +1039,9 @@ public partial class MainWindow : Window
     public void TestOnglet(bool bible) => MontrerOnglet(bible);
     /// <summary>Test : affiche une page (« agenda », « bible », « chants », « annonces », « duo », « reglages »).</summary>
     public void TestPage(string o) => MontrerOnglet(o);
+    public string TestTheme => ThemeBtn.Content as string ?? "";
+    public void TestBasculerTheme() => ThemeBtn.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+    public string TestDeroule => AgendaSurtitre.Libelle + " / " + AgendaTitre.Text + " / " + AgendaInfo.Text;
     /// <summary>Test : le « + » (ou ✓) d'une source de la bibliothèque Display.</summary>
     public void TestPlusGrille(Annonce a) => GrilleAnnonceListe_Click(new Button { DataContext = a }, new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
     public Chant? TestPremierChant() => ListeChants.Items.Count > 0 ? ListeChants.Items[0] as Chant : null;

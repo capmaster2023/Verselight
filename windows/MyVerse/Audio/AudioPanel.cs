@@ -919,7 +919,7 @@ public sealed class AudioPanel : Border
     }
 
     /// <summary>« Microphone (Focusrite USB) » → « Focusrite USB » : un nom court pour la bande (l'utilisateur peut le renommer).</summary>
-    static string NomCourt(string nom)
+    internal static string NomCourt(string nom)
     {
         int a = nom.IndexOf('('), b = nom.LastIndexOf(')');
         return a >= 0 && b > a + 1 ? nom[(a + 1)..b].Trim() : nom.Trim();
@@ -947,7 +947,8 @@ public sealed class AudioPanel : Border
     /// « Micros (une bande par entrée) » : chaque micro de Windows avec ses entrées à cocher. Une carte son à 4 entrées donne 4 cases :
     /// chaque entrée cochée devient sa propre bande, comme une source dans OBS. « Toutes ensemble » garde l'ancienne bande stéréo.
     /// </summary>
-    void AjouterMicros()
+    /// <summary>« Micros (une bande par entrée) » : aussi appelé par « + Micros » de la colonne de contrôle.</summary>
+    public void AjouterMicros()
     {
         var liste = Peripheriques(AudioInputKind.Microphone);
         var w = new FenetreDialogue { Title = "Ajouter des micros", Width = 640, SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize };

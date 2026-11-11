@@ -1,11 +1,14 @@
-MYCHURCH 3.1.0
+MYCHURCH 3.2.0
 
-INTERFACE
-Les pages sont dans la barre de gauche : Culte, Bible, Chants, Display, Duo, et Réglages en bas. L'écran en direct est au centre sur la page Culte, à droite ailleurs.
-Thème clair par défaut. Réglages > Apparence > Sombre pour une salle obscure (immédiat, toutes les fenêtres).
+INTERFACE (DESIGN « PUPITRE »)
+Les pages sont dans la barre de gauche : Culte, Bible, Chants, Display, Duo ; en bas Sombre / Clair et Réglages.
+Page Culte : le déroulé en cartes à gauche, toutes les diapositives du culte en vignettes au centre (rouge = à l'écran, ambre = suivant ; un clic affiche).
+À droite, sur toutes les pages : un petit écran EN DIRECT, la diapositive SUIVANT, Précédent / Suivant, Noir / Retirer de l'écran, puis l'audio en bref (vumètre et M = sourdine pour chaque micro, + Micros).
+En bas : les enregistrements (un clic démarre ou arrête), les sorties MyVirtualSound (A · Zoom), l'écran de projection, les téléphones, l'écran de scène et l'heure.
+Thème clair par défaut. Le bouton Sombre de la barre de gauche (ou Réglages > Apparence) passe en sombre, tout de suite et dans toutes les fenêtres.
 
 PROJECTION AUTONOME
-Dans Projection, choisissez votre écran ou Nouvelle fenêtre. Cliquez sur une vignette pour envoyer son contenu directement à cette sortie.
+Dans Projection (en bas à droite), choisissez votre écran ou Nouvelle fenêtre. Cliquez sur une vignette pour envoyer son contenu directement à cette sortie.
 
 DISPLAY
 Le menu + Ajouter une source propose Nouveau texte, Images, Vidéos, Périphérique de capture vidéo, Capture de fenêtre et MyVirtualCam. Dans la bibliothèque, + ajoute une source à la grille (le bouton devient ✓ ; un clic sur ✓ la retire). Modifier est dans le clic droit. Un clic sur une vignette affiche son contenu; le clic droit propose les autres actions.

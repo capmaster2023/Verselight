@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -8,8 +7,9 @@ using MyVerse.Audio;
 namespace MyVerse.Ui.Audio;
 
 /// <summary>
-/// Sous l'écran en direct (page Culte et colonne de droite) : les enregistrements avec leur bouton ● / ■, leur durée et leur taille,
-/// puis les sorties MyVirtualSound avec leur interrupteur, comme sur la maquette 3.1. Le mélangeur complet reste dans Display.
+/// Barre du bas (design « Pupitre », MyChurch 3.2) : les enregistrements (● / ■, nom, chrono) et les sorties MyVirtualSound
+/// (« A · Zoom actif ») en pastilles. Un clic démarre ou arrête l'enregistrement, active ou coupe la sortie.
+/// Leurs réglages sont dans Réglages › Audio, et le mélangeur complet dans Display.
 /// </summary>
 public sealed class AudioBref : StackPanel
 {
@@ -17,22 +17,15 @@ public sealed class AudioBref : StackPanel
     static AudioConfiguration C => App.Audio.Config;
     static Brush P(string cle) => MainWindow.Pinceau(cle);
     static Style S(string cle) => MainWindow.Style_(cle);
-    static readonly CultureInfo Fr = CultureInfo.GetCultureInfo("fr-CA");
 
-    readonly StackPanel enregistrements = new(), sorties = new();
-    readonly DockPanel teteEnr, teteSorties;
-    readonly TextBlock compteEnr = new(), compteSorties = new();
     readonly DispatcherTimer minuterie = new() { Interval = TimeSpan.FromMilliseconds(500) };
+    readonly List<Action> chronos = new();
     string signature = "";
 
     public AudioBref()
     {
-        teteEnr = Tete("Enregistrements", compteEnr);
-        teteSorties = Tete("MyVirtualSound", compteSorties);
-        Children.Add(teteEnr);
-        Children.Add(enregistrements);
-        Children.Add(teteSorties);
-        Children.Add(sorties);
+        Orientation = Orientation.Horizontal;
+        VerticalAlignment = VerticalAlignment.Center;
         A.Changed += () => Dispatcher.BeginInvoke(new Action(Maj));
         A.Recorder.Changed += () => Dispatcher.BeginInvoke(new Action(Maj));
         minuterie.Tick += (_, _) => { if (IsVisible) Maj(); };
@@ -41,61 +34,67 @@ public sealed class AudioBref : StackPanel
         Maj();
     }
 
-    static DockPanel Tete(string titre, TextBlock compte)
-    {
-        var d = new DockPanel { Margin = new Thickness(0, 16, 0, 10) };
-        compte.FontFamily = (FontFamily)Application.Current.FindResource("Mono");
-        compte.FontSize = 12;
-        compte.Foreground = P("Brume2");
-        DockPanel.SetDock(compte, Dock.Right);
-        d.Children.Add(compte);
-        d.Children.Add(new Capitales { Libelle = titre, Margin = new Thickness(0) });
-        return d;
-    }
-
-    static string Taille(long octets) => octets >= 1L << 30
-        ? (octets / (double)(1L << 30)).ToString("0.0", Fr) + " Go"
-        : Math.Max(0, octets / (double)(1 << 20)).ToString("0", Fr) + " Mo";
-
-    /// <summary>Reconstruit les cartes si la liste a changé, sinon met seulement à jour les textes.</summary>
+    /// <summary>Reconstruit les pastilles si la liste ou leur état a changé, sinon avance seulement les chronos.</summary>
     void Maj()
     {
         var r = A.Recorder;
-        string sig = string.Join("|", C.Profiles.Select(p => p.Id + p.Name + r.Active(p.Id) + r.Busy(p.Id))) + "#" + string.Join("|", C.VirtualSounds.Select(v => v.Id + v.Name + v.Enabled + A.Sorties.Actif(v.Id)));
-        compteEnr.Text = $"{C.Profiles.Count} / {AudioConfiguration.MaxEnregistrements}";
-        compteSorties.Text = $"{C.VirtualSounds.Count} / {AudioConfiguration.MaxSortiesVirtuelles}";
-        teteEnr.Visibility = C.Profiles.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        teteSorties.Visibility = C.VirtualSounds.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        string sig = string.Join("|", C.Profiles.Select(p => p.Id + p.Name + r.Active(p.Id) + r.Busy(p.Id)))
+                   + "#" + string.Join("|", C.VirtualSounds.Select(v => v.Id + v.Name + v.Enabled + A.Sorties.Actif(v.Id)));
         if (sig != signature)
         {
             signature = sig;
-            enregistrements.Children.Clear();
-            for (int i = 0; i < C.Profiles.Count; i++) enregistrements.Children.Add(CarteEnregistrement(C.Profiles[i], i));
-            sorties.Children.Clear();
-            for (int i = 0; i < C.VirtualSounds.Count; i++) sorties.Children.Add(CarteSortie(C.VirtualSounds[i], i));
+            Children.Clear();
+            chronos.Clear();
+            for (int i = 0; i < C.Profiles.Count; i++) Children.Add(PuceEnregistrement(C.Profiles[i]));
+            for (int i = 0; i < C.VirtualSounds.Count; i++) Children.Add(PuceSortie(C.VirtualSounds[i], i));
+            if (Children.Count == 0)
+            {
+                var lien = new Button
+                {
+                    Style = S("BtnPlat"), Content = "Enregistrements et sortie Zoom : Réglages › Audio", FontSize = 13, Foreground = P("Brume"), Padding = new Thickness(8, 6, 8, 6),
+                    ToolTip = "Créer un enregistrement du culte ou une sortie MyVirtualSound",
+                };
+                lien.Click += (_, _) => (Application.Current.MainWindow as MainWindow)?.OuvrirParametres();
+                Children.Add(lien);
+            }
         }
-        foreach (var t in enregistrements.Children.OfType<Border>()) if (t.Tag is Action maj) maj();
+        foreach (var maj in chronos) maj();
     }
 
-    static Border Marque(string m) => new()
+    static StackPanel Contenu(UIElement icone, string nom, TextBlock detail)
     {
-        Background = P("Nuit2"), BorderBrush = P("Nuit3"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6), MinWidth = 20, Padding = new Thickness(5, 0, 5, 0),
-        Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center,
-        Child = new TextBlock { Text = m, FontSize = 11, FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Center },
+        var p = new StackPanel { Orientation = Orientation.Horizontal };
+        p.Children.Add(icone);
+        p.Children.Add(new TextBlock { Text = nom, FontSize = 13, FontWeight = FontWeights.Bold, MaxWidth = 190, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center });
+        detail.FontFamily = (FontFamily)Application.Current.FindResource("Mono");
+        detail.FontSize = 12;
+        detail.Margin = new Thickness(8, 1, 0, 0);
+        detail.VerticalAlignment = VerticalAlignment.Center;
+        p.Children.Add(detail);
+        return p;
+    }
+
+    static Button Puce(object contenu) => new()
+    {
+        Style = S("Btn"), Height = 34, Padding = new Thickness(8, 0, 12, 0), Margin = new Thickness(0, 0, 8, 0), Content = contenu, Background = P("Page"),
     };
 
-    Border CarteEnregistrement(RecordingProfile p, int i)
+    /// <summary>« ● Culte complet 00:31:11 » : un clic démarre ou arrête l'enregistrement.</summary>
+    Button PuceEnregistrement(RecordingProfile p)
     {
         var r = A.Recorder;
         bool actif = r.Active(p.Id);
-        var symbole = new Border { Width = actif ? 12 : 13, Height = actif ? 12 : 13, CornerRadius = new CornerRadius(actif ? 2 : 7), Background = actif ? Brushes.White : P("Direct") };
-        var bouton = new Button
-        {
-            Style = S("Btn"), Width = 42, Height = 42, Padding = new Thickness(0), Content = symbole, IsEnabled = !r.Busy(p.Id),
-            Background = actif ? P("Direct") : P("Nuit2"), BorderBrush = actif ? P("Direct") : P("Nuit3"),
-            ToolTip = actif ? $"Arrêter « {p.Name} »" : $"Démarrer « {p.Name} »",
-        };
-        bouton.Click += (_, _) =>
+        var rond = new Grid { Width = 18, Height = 18, Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
+        rond.Children.Add(new System.Windows.Shapes.Ellipse { Stroke = P("Direct"), StrokeThickness = 2 });
+        rond.Children.Add(actif
+            ? new System.Windows.Shapes.Rectangle { Width = 7, Height = 7, RadiusX = 1, RadiusY = 1, Fill = P("Direct") }
+            : new System.Windows.Shapes.Ellipse { Width = 8, Height = 8, Fill = P("Direct") });
+        var chrono = new TextBlock();
+        var b = Puce(Contenu(rond, p.Name, chrono));
+        b.IsEnabled = !r.Busy(p.Id);
+        b.ToolTip = (actif ? $"Arrêter « {p.Name} »" : $"Démarrer « {p.Name} »") + " · " + AudioPanel.Resume(p);
+        if (actif) { b.BorderBrush = P("Direct"); b.Foreground = P("Direct"); }
+        b.Click += (_, _) =>
         {
             if (!A.Recorder.Active(p.Id) && p.SourceIds.Count == 0 && p.DisplayIds.Count == 0)
             {
@@ -104,55 +103,29 @@ public sealed class AudioBref : StackPanel
             }
             _ = A.Recorder.ToggleAsync(p);
         };
-        var nom = new DockPanel();
-        nom.Children.Add(Marque((i + 1).ToString()));
-        nom.Children.Add(new TextBlock { Text = p.Name, FontSize = 15, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center });
-        var etat = new TextBlock { FontFamily = (FontFamily)Application.Current.FindResource("Mono"), FontSize = 12.5, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 3, 0, 0) };
-        var milieu = new StackPanel { Margin = new Thickness(12, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-        milieu.Children.Add(nom);
-        milieu.Children.Add(etat);
-        var g = new DockPanel();
-        DockPanel.SetDock(bouton, Dock.Left);
-        g.Children.Add(bouton);
-        g.Children.Add(milieu);
-        var carte = new Border
-        {
-            Child = g, CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1), Padding = new Thickness(11, 10, 12, 10), Margin = new Thickness(0, 0, 0, 8),
-            Background = P("Encre"), BorderBrush = P(actif ? "RougeBord" : "Nuit3"),
-        };
-        carte.Tag = new Action(() =>
+        chronos.Add(() =>
         {
             bool a = r.Active(p.Id);
-            etat.Text = a ? r.Duration(p.Id).ToString(@"hh\:mm\:ss") + " · " + Taille(r.Bytes(p.Id)) + (p.DisplayIds.Count > 0 ? " · vidéo" : " · " + p.Format.ToUpperInvariant())
-                : r.Busy(p.Id) ? r.Message(p.Id) : AudioPanel.Resume(p);
-            etat.Foreground = P(a ? "RougeTexte" : "Brume");
+            chrono.Text = a ? r.Duration(p.Id).ToString(@"hh\:mm\:ss") : r.Busy(p.Id) ? "…" : "prêt";
+            chrono.Foreground = P(a ? "Direct" : "Brume2");
         });
-        return carte;
+        return b;
     }
 
-    Border CarteSortie(VirtualSoundSettings v, int i)
+    /// <summary>« A · Zoom actif » : un clic active ou coupe la sortie MyVirtualSound.</summary>
+    Button PuceSortie(VirtualSoundSettings v, int i)
     {
-        var inter = new CheckBox { Style = S("Interrupteur"), IsChecked = v.Enabled, VerticalAlignment = VerticalAlignment.Center, ToolTip = "Activer ou couper cette sortie" };
-        inter.Click += (_, _) => { v.Enabled = inter.IsChecked == true; A.Apply(); };
-        var nom = new DockPanel();
-        nom.Children.Add(Marque(AudioPanel.MarqueSortie(i)));
-        nom.Children.Add(new TextBlock { Text = v.Name, FontSize = 15, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center });
-        var etat = new TextBlock
+        bool actif = v.Enabled && A.Sorties.Actif(v.Id);
+        var etat = new TextBlock { Text = !v.Enabled ? "coupée" : actif ? "active" : "erreur", Foreground = P(!v.Enabled ? "Brume2" : actif ? "Or" : "RougeTexte") };
+        var marque = new Border
         {
-            Text = v.Enabled ? A.Sorties.Status(v.Id) : "Désactivée", FontFamily = (FontFamily)Application.Current.FindResource("Mono"), FontSize = 12.5,
-            Foreground = P(v.Enabled && !A.Sorties.Actif(v.Id) ? "RougeTexte" : "Brume"), TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 3, 0, 0),
+            Background = P(actif ? "OrVif" : "Nuit2"), CornerRadius = new CornerRadius(5), Padding = new Thickness(5, 0, 5, 0), Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock { Text = AudioPanel.MarqueSortie(i), FontSize = 11, FontWeight = FontWeights.ExtraBold, Foreground = P(actif ? "SurOr" : "Brume") },
         };
-        var milieu = new StackPanel { Margin = new Thickness(12, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-        milieu.Children.Add(nom);
-        milieu.Children.Add(etat);
-        var g = new DockPanel();
-        DockPanel.SetDock(inter, Dock.Left);
-        g.Children.Add(inter);
-        g.Children.Add(milieu);
-        return new Border
-        {
-            Child = g, CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1), Padding = new Thickness(12, 10, 12, 10), Margin = new Thickness(0, 0, 0, 8),
-            Background = P("Encre"), BorderBrush = P(A.Sorties.Actif(v.Id) ? "OrVif" : "Nuit3"),
-        };
+        var b = Puce(Contenu(marque, v.Name, etat));
+        b.ToolTip = (v.Enabled ? "Couper" : "Activer") + $" la sortie « {v.Name} » (MyVirtualSound)" + (v.Enabled ? " · " + A.Sorties.Status(v.Id) : "");
+        if (actif) b.BorderBrush = P("OrVif");
+        b.Click += (_, _) => { v.Enabled = !v.Enabled; A.Apply(); };
+        return b;
     }
 }

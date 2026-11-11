@@ -1,12 +1,16 @@
-# MyChurch 3.1.0
+# MyChurch 3.2.0
 
 Logiciel Windows autonome de projection pour l'église, avec télécommande Android. Bible, chants et sources Display partent directement sur l'écran choisi dans **Projection**. Depuis la 3.0, le son passe par le moteur audio d'OBS Studio (libobs).
 
 MyChurch est un logiciel libre sous licence **GNU GPL version 2 ou ultérieure** (voir [Licence et code source](#licence-et-code-source)).
 
-## Interface (3.1)
+## Interface (3.2, design « Pupitre »)
 
-Une barre de pages à gauche (**Culte**, **Bible**, **Chants**, **Display**, **Duo**, et **Réglages** en bas), un en-tête par page avec la recherche (Ctrl K), et l'écran en direct : au centre sur la page Culte, dans la colonne de droite ailleurs. Le thème est **clair** par défaut ; **Réglages › Apparence** passe en **sombre**, tout de suite et dans toutes les fenêtres.
+- **Barre de gauche** : **Culte**, **Bible**, **Chants**, **Display**, **Duo**, puis en bas **Sombre / Clair** et **Réglages**.
+- **Page Culte** : le déroulé en cartes à gauche (un trait de couleur par type, « ● DIRECT » sur l'élément à l'écran) et, au centre, **toutes les diapositives du culte en vignettes**, dessinées comme à l'écran et groupées par élément. La vignette à l'écran est encadrée de rouge (« À L'ÉCRAN »), la suivante d'ambre (« SUIVANT »). Un clic affiche une vignette.
+- **Colonne de contrôle à droite, sur toutes les pages** : un petit écran **EN DIRECT**, la diapositive **SUIVANT** en plus petit, **◀ / Suivant ▶**, **Noir / Retirer de l'écran**, puis l'**audio en bref** (une ligne par micro avec son vumètre et sa sourdine **M**, et **+ Micros**). Duo et habillage sont dessous.
+- **Barre du bas** : les enregistrements (un clic : ● démarrer, ■ arrêter, avec le chrono), les sorties MyVirtualSound (« A · Zoom »), l'écran de projection, les téléphones, l'écran de scène et l'heure.
+- Thème **clair** par défaut (crème), **sombre** au choix d'un clic. Police Manrope.
 
 ## Duo : deux contenus à l'écran
 
@@ -47,7 +51,7 @@ Le mixage audio local de la 1.2 bêta et le minuteur de prédication ont été r
 
 ## Projection et caméra virtuelle
 
-Le bouton **Projection** propose les moniteurs détectés, leurs dimensions et une sortie en fenêtre. MyChurch projette directement : aucun logiciel externe ni connexion WebSocket n'est nécessaire.
+Le bouton **Projection** (en bas à droite) propose les moniteurs détectés, leurs dimensions et une sortie en fenêtre. MyChurch projette directement : aucun logiciel externe ni connexion WebSocket n'est nécessaire.
 
 **MyVirtualCam** reçoit automatiquement la sortie en 720p30, Duo compris. Elle s'enregistre une fois avec l'autorisation Windows et reste disponible, avec une image noire, quand MyChurch est fermé. Elle vise les applications compatibles DirectShow et ne transporte pas d'audio.
 
@@ -55,10 +59,10 @@ La capture de fenêtre nécessite une fenêtre ouverte et non réduite. Certains
 
 ## Installation et mises à jour
 
-[Téléchargements de la 3.1.0](https://github.com/capmaster2023/Verselight/releases/tag/v3.1.0) :
+[Téléchargements de la 3.2.0](https://github.com/capmaster2023/Verselight/releases/tag/v3.2.0) :
 
-- `MyChurch-Setup-3.1.0.exe` : installateur Windows.
-- `MyChurch-3.1.0-Windows.zip` : version portable.
+- `MyChurch-Setup-3.2.0.exe` : installateur Windows.
+- `MyChurch-3.2.0-Windows.zip` : version portable.
 - `MyChurch.apk` : télécommande Android.
 
 Aucun jeton GitHub n'est intégré dans l'application.

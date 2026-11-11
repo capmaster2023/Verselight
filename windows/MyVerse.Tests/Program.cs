@@ -707,6 +707,23 @@ if (Actif())
     var eT = rg.AjouterTexteAgenda("Annonces", "Bienvenue\n\nRepas après le culte");
     Egal(rg.Agenda.Elements.Count, 3, "chant, Bible et texte dans l'agenda");
     Egal($"{rg.Diapos(eC).Count}/{rg.Diapos(eB).Count}/{rg.Diapos(eT).Count}", "2/2/2", "diapositives de chaque élément");
+    // 3.2 : vignettes de la page Culte et aperçu « Suivant » : chaque diapositive dessinée sans rien afficher
+    {
+        int avantChanges = 0;
+        rg.Change += () => avantChanges++;
+        var vC = rg.EtatCible(rg.Diapos(eC)[1].Cible, eC);
+        var vB = rg.EtatCible(rg.Diapos(eB)[0].Cible, eB);
+        var vT = rg.EtatCible(rg.Diapos(eT)[1].Cible);
+        var eK = rg.AjouterCompteAgenda(7);
+        var vK = rg.EtatCible(rg.Diapos(eK)[0].Cible);
+        Ok(vC is { Mode: "chant" } && string.Join("|", vC.Lignes) == "Ligne C", "vignette : la 2e strophe du chant");
+        Ok(vB is { Mode: "verset" } && vB.Ref.StartsWith("Jean 3:16") && vB.Lignes[0].Length > 20, "vignette : le verset avec sa référence");
+        Ok(vT is { Mode: "chant" } && vT.Lignes[0] == "Repas après le culte", "vignette : le 2e paragraphe du texte");
+        Ok(vK is { Mode: "chant" } && vK.Lignes.Count == 2 && vK.Lignes[1] == "07:00", "vignette : le compte à rebours à sa durée");
+        Ok(rg.EtatCible(null) == null && rg.EtatCible(new CibleChant("absent", 0)) == null, "vignette d'une cible absente : rien");
+        Ok(rg.Etat.Vide && rg.Cible == null && avantChanges == 0, "vignettes : rien ne s'affiche, aucun changement d'écran");
+        rg.RetirerAgenda(eK.Id);
+    }
     Egal(rg.Description(eB).Type, "BIBLE", "type affiché");
     rg.AfficherElement(eC, 0);
     Ok(rg.ElementCourant == eC && rg.Etat.Mode == "chant", "élément de l'agenda à l'écran");

@@ -4,7 +4,7 @@ using System.Windows.Media;
 namespace MyVerse.Ui;
 
 /// <summary>
-/// Les couleurs de l'interface (MyChurch 3.1) : thème clair par défaut, thème sombre au choix (Réglages › Apparence).
+/// Les couleurs de l'interface (MyChurch 3.2, design « Pupitre ») : thème clair par défaut, thème sombre au choix (Réglages › Apparence ou barre de gauche).
 /// Chaque pinceau de Theme.xaml est lié à une couleur d'ici : changer de thème met à jour d'un coup toute l'interface,
 /// fenêtres ouvertes et éléments construits en C# compris (ils utilisent les mêmes pinceaux).
 /// Les noms viennent des versions précédentes : « Blanc » est le texte, « Encre » et « Nuit » le fond des cartes, « Or » l'accent.
@@ -14,50 +14,56 @@ public sealed class Palette : INotifyPropertyChanged
     /// <summary>Clé → (clair, sombre). Déclaré avant <see cref="Actuelle"/> : les champs statiques s'initialisent dans l'ordre.</summary>
     static readonly Dictionary<string, (string Clair, string Sombre)> Couleurs = new()
     {
-        // fonds
-        ["Page"] = ("#F3F4F6", "#111317"),
-        ["Rail"] = ("#FFFFFF", "#0B0C0F"),
-        ["RailActif"] = ("#F1F2F4", "#1D2026"),
-        ["Encre"] = ("#FFFFFF", "#1A1D22"),
-        ["Nuit"] = ("#FFFFFF", "#1A1D22"),
-        ["Nuit2"] = ("#F2F3F5", "#23272E"),
-        ["Nuit3"] = ("#E1E4E9", "#2C3038"),
-        ["Trait"] = ("#E7E9ED", "#2A2E35"),
-        ["Trait2"] = ("#C7CCD4", "#3D434C"),
+        // fonds (design « Pupitre » : crème chaud en clair, brun très foncé en sombre)
+        ["Page"] = ("#FAF8F4", "#14120F"),
+        ["Rail"] = ("#F2EEE7", "#100E0B"),
+        ["RailActif"] = ("#FFFFFF", "#1E1B16"),
+        ["Encre"] = ("#FFFFFF", "#1E1B16"),
+        ["Nuit"] = ("#FFFFFF", "#1E1B16"),
+        ["Nuit2"] = ("#F4F0E9", "#27231D"),
+        ["Nuit3"] = ("#E8E2D8", "#332D25"),
+        ["Trait"] = ("#EEE8DF", "#2A251F"),
+        ["Trait2"] = ("#D6CDBF", "#4A4237"),
         // textes
-        ["Blanc"] = ("#16181D", "#F2F3F5"),
-        ["Encre2"] = ("#3A404A", "#C8CCD2"),
-        ["Brume"] = ("#5F6672", "#9AA0AA"),
-        ["Brume2"] = ("#8A909A", "#6E747E"),
+        ["Blanc"] = ("#1F1A14", "#F3EEE6"),
+        ["Encre2"] = ("#5B5247", "#C9BFB1"),
+        ["Brume"] = ("#73695C", "#A99F92"),
+        ["Brume2"] = ("#8C8275", "#8F8576"),
         // accent ambre
-        ["Or"] = ("#C77A06", "#F5A524"),
-        ["Or2"] = ("#A86200", "#FFC15A"),
-        ["OrVif"] = ("#F5A524", "#F5A524"),
-        ["OrLeger"] = ("#FFF4E0", "#2A2316"),
+        ["Or"] = ("#B86E00", "#F5A524"),
+        ["Or2"] = ("#9A5B00", "#FFC15A"),
+        ["OrVif"] = ("#E8920C", "#F5A524"),
+        ["OrLeger"] = ("#FFF3DF", "#2B2215"),
         ["SurOr"] = ("#1E1404", "#1E1404"),
-        ["OrDegrade"] = ("#F5A524", "#F5A524"),
-        ["OrDegradeClair"] = ("#E99812", "#FFB53F"),
+        ["OrDegrade"] = ("#E8920C", "#F5A524"),
+        ["OrDegradeClair"] = ("#F2A12A", "#FFB53F"),
         // en direct, sourdine, erreurs
-        ["Rouge"] = ("#DC2626", "#F04848"),
-        ["Direct"] = ("#D92D20", "#F25555"),
-        ["RougeLeger"] = ("#FFF6F5", "#241517"),
-        ["RougeBord"] = ("#F2B8B2", "#5B262A"),
-        ["RougeTexte"] = ("#B42318", "#FF7070"),
-        ["Danger"] = ("#B42318", "#FF7070"),
+        ["Rouge"] = ("#D92D20", "#F04438"),
+        ["Direct"] = ("#D92D20", "#F04438"),
+        ["RougeLeger"] = ("#FFF5F3", "#2A1715"),
+        ["RougeBord"] = ("#F3C2BC", "#5B2722"),
+        ["RougeTexte"] = ("#B42318", "#FF7A6E"),
+        ["Danger"] = ("#B42318", "#FF7A6E"),
         // projection et moteur actifs
         ["Vert"] = ("#16A34A", "#3DD68C"),
         ["VertLeger"] = ("#E9F7EF", "#13261C"),
+        // types d'éléments du déroulé (trait des cartes, titres des groupes de vignettes)
+        ["TypeAccueil"] = ("#64748B", "#94A3B8"),
+        ["TypeChant"] = ("#2563EB", "#60A5FA"),
+        ["TypeLecture"] = ("#D97706", "#F59E0B"),
+        ["TypeDisplay"] = ("#DB2777", "#F472B6"),
+        ["TypeDuo"] = ("#0D9488", "#2DD4BF"),
         // divers
         ["BleuFonce"] = ("#152C91", "#9DB0FF"),
         ["Marque"] = ("#FFE9C2", "#3A2E14"),
         ["Surligne"] = ("#FFE3A3", "#4A3A12"),
-        ["TuileFond"] = ("#14161B", "#0D0F13"),
-        ["TuileSource"] = ("#262B33", "#23272E"),
-        ["TuileTexte"] = ("#C9CED6", "#9AA0AA"),
-        ["VuFond"] = ("#E4E7EC", "#262A31"),
+        ["TuileFond"] = ("#17130E", "#0E0C09"),
+        ["TuileSource"] = ("#2A241C", "#26211A"),
+        ["TuileTexte"] = ("#D9CFC0", "#A99F92"),
+        ["VuFond"] = ("#ECE6DC", "#2B261F"),
         ["VuCrete"] = ("#F7D9D6", "#3F2427"),
-        ["DamierA"] = ("#F3F4F6", "#1C1F24"),
-        ["DamierB"] = ("#E5E7EB", "#24282E"),
+        ["DamierA"] = ("#F4F0E9", "#1C1914"),
+        ["DamierB"] = ("#E8E2D8", "#26221C"),
     };
 
     public static Palette Actuelle { get; } = new();
@@ -126,6 +132,11 @@ public sealed class Palette : INotifyPropertyChanged
     public Color Danger => C(nameof(Danger));
     public Color Vert => C(nameof(Vert));
     public Color VertLeger => C(nameof(VertLeger));
+    public Color TypeAccueil => C(nameof(TypeAccueil));
+    public Color TypeChant => C(nameof(TypeChant));
+    public Color TypeLecture => C(nameof(TypeLecture));
+    public Color TypeDisplay => C(nameof(TypeDisplay));
+    public Color TypeDuo => C(nameof(TypeDuo));
     public Color BleuFonce => C(nameof(BleuFonce));
     public Color Marque => C(nameof(Marque));
     public Color Surligne => C(nameof(Surligne));

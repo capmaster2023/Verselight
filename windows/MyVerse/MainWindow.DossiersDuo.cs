@@ -43,6 +43,7 @@ public partial class MainWindow
         majDossier = false;
         DuosVide.Visibility = l.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (parti) EditeurDuo();
+        MajEntete();
     }
 
     void AfficherDuoChoisi()
@@ -69,6 +70,7 @@ public partial class MainWindow
         duoPlan = null;
         DuoEditeur.Visibility = d != null ? Visibility.Visible : Visibility.Collapsed;
         DuoChoisirAide.Visibility = d != null ? Visibility.Collapsed : Visibility.Visible;
+        MajEntete();
         if (d == null) return;
 
         DuoPile.Children.Add(Etiquette("NOM DU DOSSIER"));

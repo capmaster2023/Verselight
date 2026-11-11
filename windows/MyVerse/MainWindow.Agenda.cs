@@ -10,28 +10,28 @@ using System.Windows.Threading;
 
 namespace MyVerse.Ui;
 
-/// <summary>Une ligne du déroulé : heure, icône du type, titre ; « EN COURS » et « fait » suivent l'écran.</summary>
+/// <summary>Une carte du déroulé (design « Pupitre ») : titre, « heure · type · détail », trait de la couleur du type ; « ● DIRECT » et « passé » suivent l'écran.</summary>
 public sealed class LigneAgenda : INotifyPropertyChanged
 {
     public required ElementAgenda Element { get; init; }
     public string Titre { get; init; } = "";
+    /// <summary>« Lecture · Jean 3:16-17 » : le type et le détail (l'heure s'ajoute devant dans <see cref="Ligne2"/>).</summary>
     public string Sous { get; init; } = "";
-    public Geometry? IconeType { get; init; }
+    public Brush? Couleur { get; init; }
     string heure = "";
     bool enCours, fait;
-    public string Heure { get => heure; set { if (heure == value) return; heure = value; Prevenir(nameof(Heure)); } }
-    public bool EnCours { get => enCours; set { if (enCours == value) return; enCours = value; Prevenir(nameof(EnCours)); Prevenir(nameof(Icone)); } }
-    public bool Fait { get => fait; set { if (fait == value) return; fait = value; Prevenir(nameof(Fait)); Prevenir(nameof(Icone)); } }
-    /// <summary>Une coche quand l'élément est passé (et n'est plus à l'écran).</summary>
-    public Geometry? Icone => fait && !enCours ? MainWindow.IconeFait : IconeType;
+    public string Heure { get => heure; set { if (heure == value) return; heure = value; Prevenir(nameof(Heure)); Prevenir(nameof(Ligne2)); } }
+    public string Ligne2 => heure.Length > 0 ? heure + " · " + Sous : Sous;
+    public bool EnCours { get => enCours; set { if (enCours == value) return; enCours = value; Prevenir(nameof(EnCours)); } }
+    public bool Fait { get => fait; set { if (fait == value) return; fait = value; Prevenir(nameof(Fait)); } }
     void Prevenir(string p) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(p));
     public event PropertyChangedEventHandler? PropertyChanged;
 }
 
 /// <summary>
-/// Onglets « Culte » et « Display » (design « Aube ») : déroulé du culte préparé à l'avance (comme l'agenda de VideoPsalm),
-/// élément en cours au centre (lecture en 2 langues), résumé du culte à partager, compte à rebours d'accueil,
-/// habillage de l'écran, écran de scène.
+/// Page Culte (design « Pupitre », MyChurch 3.2) : le déroulé du culte en cartes à gauche (comme l'agenda de VideoPsalm),
+/// toutes ses diapositives en vignettes au centre (MainWindow.Vignettes.cs), résumé à partager, compte à rebours d'accueil,
+/// habillage de l'écran, écran de scène ; et la bibliothèque Display.
 /// </summary>
 public partial class MainWindow
 {
@@ -41,17 +41,9 @@ public partial class MainWindow
     int cmdIndex;
     bool noir, chargementAgenda;
     EtatEcran? etatNoir;
-    string cleDiapos = "";
     SceneWindow? scene;
     readonly DispatcherTimer minuterieCmd = new() { Interval = TimeSpan.FromMilliseconds(90) };
     readonly DispatcherTimer ticCompte = new() { Interval = TimeSpan.FromMilliseconds(500) };
-
-    static Geometry Icone_(string d) { var g = Geometry.Parse(d); g.Freeze(); return g; }
-    public static readonly Geometry IconeFait = Icone_("M5,12.5 L9.5,17 L19,7.5");
-    static readonly Geometry IconeChant = Icone_("M9,18 V5 L21,3 V16 M3,18 A3,3 0 1 0 9,18 A3,3 0 1 0 3,18 M15,16 A3,3 0 1 0 21,16 A3,3 0 1 0 15,16");
-    static readonly Geometry IconeBible = Icone_("M4,19.5 V5 A2,2 0 0 1 6,3 H20 V17 H6 A2,2 0 0 0 4,19 A2,2 0 0 0 6,21 H20 M9,7 H16");
-    static readonly Geometry IconeAnnonce = Icone_("M3,10.5 V13.5 A1,1 0 0 0 4,14.5 H6 L12,19 V5 L6,9.5 H4 A1,1 0 0 0 3,10.5 Z M16,9 A4,4 0 0 1 16,15 M19,6 A8,8 0 0 1 19,18");
-    static readonly Geometry IconeCompte = Icone_("M3,12 A9,9 0 1 0 21,12 A9,9 0 1 0 3,12 M12,7 V12 L15,14");
 
     static readonly (string Tag, string Nom)[] FondsListe =
         { ("aube", "Aube"), ("lin", "Lin"), ("ciel", "Ciel"), ("nuit", "Nuit"), ("noir", "Noir"), ("vert", "Vert"), ("transparent", "Transparent") };
@@ -61,12 +53,10 @@ public partial class MainWindow
         // ---------- déroulé du culte
         AgendaMenu.Click += (_, _) => MenuAgendas();
         AgendaAjouter.Click += (_, _) => MenuAjouter();
-        AgendaPartager.Click += (_, _) => PartagerWhatsApp(R.DeroulePartage());
-        ResumePartager.Click += (_, _) => PartagerWhatsApp(R.ResumePartage());
         ListeAgenda.SelectionChanged += (_, _) =>
         {
             if (chargementAgenda) return;
-            if (ListeAgenda.SelectedItem is LigneAgenda l && l.Element != elementChoisi) { elementChoisi = l.Element; AfficherDiapos(true); }
+            if (ListeAgenda.SelectedItem is LigneAgenda l && l.Element != elementChoisi) ChoisirElement(l.Element);
         };
         ListeAgenda.MouseDoubleClick += (_, _) => { if (ListeAgenda.SelectedItem is LigneAgenda l) R.AfficherElement(l.Element, 0); };
         ListeAgenda.PreviewMouseRightButtonUp += (_, _) => { if (ListeAgenda.SelectedItem is LigneAgenda l) MenuElement(l.Element); };
@@ -76,11 +66,8 @@ public partial class MainWindow
             if (e.Key == Key.Delete) { RetirerElement(el); e.Handled = true; }
             else if (e.Key == Key.System && e.SystemKey is Key.Up or Key.Down) { R.DeplacerAgenda(el.Id, e.SystemKey == Key.Up ? -1 : 1); e.Handled = true; }
         };
-        ElemAfficher.Click += (_, _) => { if (elementChoisi != null) R.AfficherElement(elementChoisi, 0); };
-        ElemModifier.Click += (_, _) => ModifierElement();
-        DefilDiapos.SizeChanged += (_, _) => LargeurDiapos();
-        AgendaPiste.SizeChanged += (_, _) => MajProgres();
         R.AgendaChange += AgendaMaj;
+        InitVignettes();
 
         // ---------- recherche du culte (Ctrl K)
         Cmd.TextChanged += (_, _) =>
@@ -138,12 +125,9 @@ public partial class MainWindow
     // ------------------------------------------------------------ déroulé du culte
     void AgendaMaj()
     {
-        var ag = R.Agenda;
-        AgendaTitre.Text = ag.Nom;
-        AgendaTitre.ToolTip = ag.Nom;
-        if (elementChoisi != null && !ag.Elements.Contains(elementChoisi)) elementChoisi = null;
+        if (elementChoisi != null && !R.Agenda.Elements.Contains(elementChoisi)) elementChoisi = null;
         ListeAgendaMaj();
-        AfficherDiapos(true);
+        VignettesMaj();
     }
 
     void ListeAgendaMaj()
@@ -153,9 +137,7 @@ public partial class MainWindow
             var (_, sous) = R.Description(e);
             var l = new LigneAgenda
             {
-                Element = e, Sous = TypeLib(e) + " · " + sous,
-                Titre = e.Type == "chant" && R.Trouver(e.ChantId) is { } c ? c.Title : e.Titre,
-                IconeType = e.Type switch { "chant" => IconeChant, "bible" => IconeBible, "compte" => IconeCompte, _ => IconeAnnonce },
+                Element = e, Sous = TypeLib(e) + " · " + sous, Titre = TitreElement(e), Couleur = Pinceau(CleType(e)),
             };
             MajLigne(l);
             return l;
@@ -165,7 +147,7 @@ public partial class MainWindow
         ListeAgenda.SelectedItem = lignes.FirstOrDefault(l => l.Element == elementChoisi);
         chargementAgenda = false;
         AgendaVide.Visibility = lignes.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        MajProgres();
+        MajEntete();
     }
 
     void MajLigne(LigneAgenda l)
@@ -178,18 +160,8 @@ public partial class MainWindow
 
     static string TypeLib(ElementAgenda e) => e.Type switch { "chant" => "Chant", "bible" => "Lecture", "compte" => "Accueil", _ => "Display" };
 
-    void MajProgres()
-    {
-        var l = R.Agenda.Elements;
-        int i = R.ElementCourant != null ? l.IndexOf(R.ElementCourant) : -1;
-        int faits = l.Count(R.EstFait);
-        int n = Math.Max(i + 1, faits);
-        AgendaProgres.Text = l.Count == 0 ? "" : $"{n} / {l.Count}";
-        AgendaBarre.Width = l.Count > 0 ? Math.Max(0, AgendaPiste.ActualWidth * n / l.Count) : 0;
-        MajEntete();
-    }
-
-    void ChoisirElement(ElementAgenda? e)
+    /// <summary>Choisit un élément du déroulé (carte ambre) ; avec <paramref name="defiler"/>, les vignettes défilent jusqu'à lui.</summary>
+    void ChoisirElement(ElementAgenda? e, bool defiler = true)
     {
         elementChoisi = e;
         if (ListeAgenda.ItemsSource is List<LigneAgenda> l)
@@ -199,123 +171,21 @@ public partial class MainWindow
             chargementAgenda = false;
             if (ListeAgenda.SelectedItem != null) ListeAgenda.ScrollIntoView(ListeAgenda.SelectedItem);
         }
-        AfficherDiapos(true);
+        MajTitreElement();
+        if (defiler) Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => DefilerVers(e)));
     }
 
-    /// <summary>L'élément choisi, au centre : en-tête (étape, titre, versions) et ses diapositives en cartes.</summary>
-    void AfficherDiapos(bool versHaut)
-    {
-        var e = elementChoisi;
-        int? pos = e != null && R.ElementCourant == e ? R.PositionAgenda(e) : null;
-        cleDiapos = (e?.Id ?? "") + "|" + (pos?.ToString() ?? "") + "|" + VB.Etiquette();
-        Diapos.Children.Clear();
-        ElemVersions.Children.Clear();
-        ElemBoutons.Visibility = e != null ? Visibility.Visible : Visibility.Collapsed;
-        ElemModifier.Visibility = e != null && e.Type is "texte" or "chant" or "compte" ? Visibility.Visible : Visibility.Collapsed;
-        if (e == null)
-        {
-            ElemType.Text = Capitales.Espacer(R.Agenda.Elements.Count > 0 ? "Déroulé du culte" : "Pour commencer");
-            ElemTitre.Text = R.Agenda.Elements.Count > 0 ? "Choisissez un élément à gauche" : "Préparez le culte";
-            if (R.Agenda.Elements.Count == 0)
-                Diapos.Children.Add(new TextBlock
-                {
-                    Style = Style_("Muet"), FontSize = 15, LineHeight = 26, Margin = new Thickness(2, 4, 0, 0),
-                    Text = "1. « + Ajouter » sous le déroulé : un chant, un passage, un display ou le compte à rebours d'accueil.\n" +
-                           "2. Ou cherchez en haut (Ctrl K) : « chant 12 », « jean 3 16 »… puis Tab. Les boutons + de Bible, Chants et Display ajoutent aussi.\n" +
-                           "3. Pendant le culte : Entrée affiche, → passe à la diapositive suivante, puis à l'élément suivant.",
-                });
-            return;
-        }
-        int etape = R.Agenda.Elements.IndexOf(e) + 1;
-        ElemType.Text = Capitales.Espacer($"Étape {etape} · {TypeLib(e)}");
-        ElemTitre.Text = e.Type == "chant" && R.Trouver(e.ChantId) is { } c ? c.Title : e.Titre;
-        if (e.Type == "bible")
-        {
-            var parts = VB.Etiquette().Split(" · ");
-            ElemVersions.Children.Add(Puce(parts[0], true));
-            if (parts.Length > 1) ElemVersions.Children.Add(Puce("+ " + parts[1] + " en dessous", false));
-        }
-        var d = R.Diapos(e);
-        for (int i = 0; i < d.Count; i++) Diapos.Children.Add(Carte(e, d[i], i, pos == i, pos + 1 == i));
-        if (d.Count == 0)
-            Diapos.Children.Add(new TextBlock { Text = e.Type == "chant" ? "Ce chant n'existe plus dans MyChurch." : "Rien à afficher dans cette Bible.", Style = Style_("Muet"), FontSize = 15, Margin = new Thickness(4) });
-        if (versHaut) DefilDiapos.ScrollToTop();
-        LargeurDiapos();
-        if (pos is int p && p < Diapos.Children.Count && Diapos.Children[p] is FrameworkElement fe)
-            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => fe.BringIntoView()));
-    }
-
-    Border Puce(string texte, bool pleine) => new()
-    {
-        CornerRadius = new CornerRadius(16), Padding = new Thickness(12, 5, 12, 5), Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center,
-        Background = pleine ? Pinceau("Blanc") : Pinceau("Encre"), BorderBrush = Pinceau("Trait2"), BorderThickness = new Thickness(pleine ? 0 : 1),
-        Child = new TextBlock { Text = texte, FontSize = 12, FontWeight = FontWeights.Bold, Foreground = pleine ? Pinceau("Encre") : Pinceau("Blanc") },
-    };
-
-    /// <summary>
-    /// Une diapositive de l'élément choisi (maquette 3.1) : en haut « ● À L'ÉCRAN » (rouge), « SUIVANT » (ambre) ou son nom,
-    /// et son numéro ; dessous le texte (verset, avec la 2e version en plus petit), la strophe, le texte Display ou le compte à rebours.
-    /// </summary>
-    Border Carte(ElementAgenda e, DiapoAgenda d, int i, bool direct, bool suivante)
-    {
-        var pile = new StackPanel();
-        var tete = new DockPanel { Margin = new Thickness(0, 0, 0, 10) };
-        string numero = e.Type == "bible" && d.Cible is CibleVerset cn ? cn.V1.ToString() : (i + 1).ToString();
-        var num = new TextBlock { Text = numero, FontFamily = (FontFamily)FindResource("Mono"), FontSize = 12, FontWeight = FontWeights.SemiBold, Foreground = Pinceau("Brume2"), VerticalAlignment = VerticalAlignment.Center };
-        if (i < 9 && !direct) num.ToolTip = $"Touche {i + 1}";
-        DockPanel.SetDock(num, Dock.Right);
-        tete.Children.Add(num);
-        string etat = direct ? "● À l'écran" : suivante ? "Suivant" : e.Type == "compte" ? "Compte à rebours" : e.Type == "bible" ? "" : d.Label;
-        tete.Children.Add(new Capitales { Libelle = etat, Foreground = Pinceau(direct ? "Direct" : suivante ? "Or" : "Brume"), Margin = new Thickness(0), TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center });
-        pile.Children.Add(tete);
-        if (e.Type == "bible" && d.Cible is CibleVerset cv)
-        {
-            pile.Children.Add(new TextBlock { Text = d.Texte, FontSize = 16, LineHeight = 24, TextWrapping = TextWrapping.Wrap, Foreground = Pinceau("Blanc") });
-            var t2 = cv.Parts <= 1 && VB.Seconde != null ? VB.Texte2(cv.B, cv.C, cv.V1, cv.V1) : "";
-            if (t2.Length > 0) pile.Children.Add(new TextBlock { Text = t2, FontSize = 13, LineHeight = 19, TextWrapping = TextWrapping.Wrap, Foreground = Pinceau("Brume"), Margin = new Thickness(0, 10, 0, 0) });
-            if (cv.Parts > 1) pile.Children.Add(new TextBlock { Text = d.Label, FontSize = 12, Foreground = Pinceau("Brume"), Margin = new Thickness(0, 6, 0, 0) });
-        }
-        else if (e.Type == "compte")
-        {
-            var l = d.Texte.Split('\n');
-            pile.Children.Add(new TextBlock { Text = l[0], FontSize = 14, Foreground = Pinceau("Encre2") });
-            pile.Children.Add(new TextBlock { Text = direct && R.Etat.Lignes.Count > 1 ? R.Etat.Lignes[1] : l.Length > 1 ? l[1] : "", FontFamily = (FontFamily)FindResource("Grotesk"), FontSize = 40, FontWeight = FontWeights.Bold });
-        }
-        else pile.Children.Add(new TextBlock { Text = d.Texte, FontSize = 15, LineHeight = 22, TextWrapping = TextWrapping.Wrap, Foreground = Pinceau("Blanc"), MaxHeight = 260, TextTrimming = TextTrimming.CharacterEllipsis });
-        var carte = new Border
-        {
-            Background = Pinceau("Encre"), BorderBrush = Pinceau(direct ? "Direct" : "Nuit3"), BorderThickness = new Thickness(direct ? 1.5 : 1),
-            CornerRadius = new CornerRadius(16), Padding = new Thickness(16, 14, 16, 16), Margin = new Thickness(0, 0, 12, 12), Cursor = Cursors.Hand, Child = pile, Tag = i,
-            ToolTip = "Clic : afficher",
-        };
-        carte.MouseLeftButtonDown += (_, _) => R.AfficherElement(e, i);
-        return carte;
-    }
-
-    /// <summary>Les diapositives en colonnes d'au moins 190 px (deux versets côte à côte, comme la maquette) ; le compte à rebours sur toute la largeur.</summary>
-    void LargeurDiapos()
-    {
-        double w = DefilDiapos.ActualWidth - 8;
-        if (w <= 0) return;
-        int cols = elementChoisi?.Type == "compte" ? 1 : Math.Max(1, (int)((w + 12) / 202));
-        double l = Math.Floor((w + 12) / cols) - 12;
-        foreach (var c in Diapos.Children.OfType<Border>()) c.Width = l;
-    }
-
-    /// <summary>L'écran a changé : « EN COURS », éléments faits, la carte à l'écran et le résumé suivent.</summary>
+    /// <summary>L'écran a changé : « ● DIRECT », éléments passés, vignettes « À L'ÉCRAN » et « SUIVANT ».</summary>
     void MajAgendaEcran()
     {
         GrilleDirect();
-        if (R.ElementCourant is { } el && el != elementChoisi && R.Agenda.Elements.Contains(el)) ChoisirElement(el);
+        if (R.ElementCourant is { } el && el != elementChoisi && R.Agenda.Elements.Contains(el)) ChoisirElement(el, false);
         if (ListeAgenda.ItemsSource is List<LigneAgenda> l)
             foreach (var x in l) MajLigne(x);
-        MajProgres();
-        var e = elementChoisi;
-        int? pos = e != null && R.ElementCourant == e ? R.PositionAgenda(e) : null;
-        var cle = (e?.Id ?? "") + "|" + (pos?.ToString() ?? "") + "|" + VB.Etiquette();
-        if (cle != cleDiapos || e?.Type == "compte") AfficherDiapos(false);
-        var res = R.Resume();
-        ResumeTexte.Text = res.Length > 0 ? "Déjà affiché : " + res : "Rien n'a encore été affiché.";
+        // l'habillage (fond, taille, présentation) a changé : les vignettes sont redessinées
+        if (Habillage(R.Etat) != habillageVignettes) VignettesMaj();
+        else VignettesEtat(true);
+        MajEntete();
     }
 
     void AfficherAgendaCourant()
@@ -343,7 +213,6 @@ public partial class MainWindow
         {
             case "chant":
                 Editer(R.Trouver(e.ChantId));
-                AfficherDiapos(false);
                 break;
             case "texte":
                 if (Dialogue.DemanderTexte(this, "Modifier le texte", e.Titre, e.Texte ?? "") is { } t) R.ModifierTexteAgenda(e.Id, t.Titre, t.Texte);
@@ -400,6 +269,10 @@ public partial class MainWindow
         {
             if (Dialogue.Demander(this, "Nouveau nom :", actuel.Nom, "Renommer") is { } nom && nom.Trim().Length > 0) R.RenommerAgenda(actuel.Id, nom);
         }));
+        m.Items.Add(new Separator());
+        m.Items.Add(Article("Envoyer le déroulé sur WhatsApp", () => PartagerWhatsApp(R.DeroulePartage())));
+        m.Items.Add(Article("Envoyer le résumé du culte sur WhatsApp", () => PartagerWhatsApp(R.ResumePartage())));
+        m.Items.Add(new Separator());
         m.Items.Add(Article("Supprimer ce culte", () =>
         {
             if (!Dialogue.Confirmer(this, $"Supprimer « {actuel.Nom} » ({actuel.Elements.Count} élément(s)) ?\n\nLes chants, les Bibles et les displays ne sont pas touchés.", "Supprimer")) return;
@@ -714,7 +587,7 @@ public partial class MainWindow
     public List<ResultatCommande> TestCommande(string q) { Cmd.Text = q; minuterieCmd.Stop(); CommandeMaj(); return cmdRes; }
     public void TestNoir() => BasculerNoir();
     public bool TestEstNoir => noir;
-    public string TestResume => ResumeTexte.Text;
+    public string TestResume => R.Resume();
     public void TestChoisirAnnonce(Annonce a) { annonceChoisie = a; AnnonceTitre.Text = a.Titre; AnnonceTexte.Text = a.Texte; AnnoncesMaj(); }
     public Window? TestScene() { SceneBtn.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent)); return scene; }
 
