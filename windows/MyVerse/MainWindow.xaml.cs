@@ -1029,7 +1029,7 @@ public partial class MainWindow : Window
     /// <summary>Test : affiche une page (« agenda », « bible », « chants », « annonces », « duo », « reglages »).</summary>
     public void TestPage(string o) => MontrerOnglet(o);
     /// <summary>Test : le « + » (ou ✓) d'une source de la bibliothèque Display.</summary>
-    public void TestPlusGrille(Annonce a) => GrilleAnnonceListe_Click(new Button { DataContext = a }, new RoutedEventArgs());
+    public void TestPlusGrille(Annonce a) => GrilleAnnonceListe_Click(new Button { DataContext = a }, new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
     public Chant? TestPremierChant() => ListeChants.Items.Count > 0 ? ListeChants.Items[0] as Chant : null;
     public List<Chant> TestNumero(string n) { NumChant.Text = n; AllerAuNumero(false); return ListeChants.Items.Cast<Chant>().ToList(); }
 }

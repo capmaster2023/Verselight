@@ -1217,13 +1217,23 @@ internal sealed class EchelleDb : FrameworkElement
 {
     static readonly CultureInfo Fr = CultureInfo.GetCultureInfo("fr-CA");
 
+    public EchelleDb()
+    {
+        // redessinée quand le thème change (les couleurs sont figées dans le dessin)
+        Action redessiner = InvalidateVisual;
+        Loaded += (_, _) => { Palette.Change -= redessiner; Palette.Change += redessiner; };
+        Unloaded += (_, _) => Palette.Change -= redessiner;
+    }
+
     protected override void OnRender(DrawingContext dc)
     {
         double h = ActualHeight, w = ActualWidth;
         if (h <= 0 || w <= 0) return;
         int pas = h / 12 >= 13 ? 5 : 10;
-        var encre = MainWindow.Pinceau("Brume");
-        var trait = new Pen(MainWindow.Pinceau("Brume2"), 1);
+        // couleurs du thème du moment : un pinceau lié à la palette ne peut pas être figé
+        var encre = new SolidColorBrush(Palette.Actuelle.Brume);
+        encre.Freeze();
+        var trait = new Pen(new SolidColorBrush(Palette.Actuelle.Brume2), 1);
         trait.Freeze();
         var police = new Typeface(TryFindResource("Ui") as FontFamily ?? new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
         double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
