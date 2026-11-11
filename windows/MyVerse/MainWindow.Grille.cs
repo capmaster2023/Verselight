@@ -121,6 +121,7 @@ public partial class MainWindow
                 if (etat is { Mode: "media", Media: { Type: "image" } m1 }) rendu.ImageDisplay(ImageFichier(m1.Chemin, 640));
                 if (etat.Duo?.Etat is { Mode: "media", Media: { Type: "image" } m2 }) rendu.ImageDuo(ImageFichier(m2.Chemin, 640));
                 vue.Children.Add(new Viewbox { Stretch = Stretch.Uniform, Child = rendu });
+                vue.Tag = "duo-rendu";
             }
             else vue.Children.Add(new TextBlock
             {
@@ -211,6 +212,8 @@ public partial class MainWindow
 
     // ------------------------------------------------------------ pour le test automatique
     public int TestTuiles => tuiles.Count;
+    /// <summary>Une tuile de dossier Duo dessinée comme l'écran principal (et non un simple texte).</summary>
+    public bool TestTuileDuoDessinee => tuiles.Any(t => t.Tuile.Child is DockPanel d && d.Children.OfType<Border>().Any(b => b.Child is Grid { Tag: "duo-rendu" }));
     public bool TestCliquerTuile(int k)
     {
         if (k < 0 || k >= tuiles.Count) return false;

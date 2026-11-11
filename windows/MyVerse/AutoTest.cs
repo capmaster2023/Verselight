@@ -444,6 +444,12 @@ public static class AutoTest
             R.AfficherAnnonce(tuileDuo);
             await Attendre(400);
             Ok(R.Etat.Duo is { Place: "libre" } && R.Etat.Mode == "verset", "Display : la tuile du dossier Duo l'envoie en direct");
+            // 3.0.1 : la vignette du dossier montre ses deux éléments comme sur l'écran principal
+            w.TestOngletAnnonces();
+            await Attendre(700);
+            Ok(w.TestTuileDuoDessinee, "grille Display : la vignette du dossier Duo dessine ses deux éléments (comme à l'écran)");
+            Capture(w, "31b-grille-duo.png");
+            await Fenetre(w, () => new ChoixChantWindow(null), "31c-choix-chant.png");
             R.SupprimerDuo(dossier.Id);
             Ok(R.Etat.Vide && R.Annonces.All(x => x.Source?.Type != "duo"), "dossier supprimé : sa tuile Display aussi");
             w.TestOngletAnnonces();

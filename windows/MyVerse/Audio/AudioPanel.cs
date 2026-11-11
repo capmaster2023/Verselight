@@ -518,7 +518,7 @@ public sealed class AudioPanel : Border
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        c.Symbole = new TextBlock { FontSize = 15, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        c.Symbole = new TextBlock { FontSize = 17, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         c.Bouton = new Button { Style = S("Btn"), Width = 40, Height = 40, Padding = new Thickness(0), Content = c.Symbole, VerticalAlignment = VerticalAlignment.Center };
         c.Bouton.Click += (_, _) => Basculer(p);
         g.Children.Add(c.Bouton);
@@ -632,7 +632,8 @@ public sealed class AudioPanel : Border
         string message = r.Message(p.Id);
         c.Nom.Text = p.Name;
         c.Nom.ToolTip = p.Name;
-        c.Bouton!.Style = S(actif ? "BtnRouge" : "Btn");
+        // en cours : bouton rouge plein avec ■ blanc ; arrêté : ● rouge sur fond blanc
+        Allume(c.Bouton!, actif, "Direct");
         c.Symbole!.Text = actif ? "■" : "●";
         c.Symbole.Foreground = actif ? P("Encre") : P("Direct");
         c.Bouton.IsEnabled = !occupe;
