@@ -328,7 +328,7 @@
         </Setter>
     </Style>
     <!-- barre de gauche : une page (icône dans Tag, nom dessous) -->
-    <Style x:Key="Rail" TargetType="RadioButton">
+    <Style x:Key="OngletRail" TargetType="RadioButton">
         <Setter Property="Foreground" Value="{StaticResource Brume}" />
         <Setter Property="FontFamily" Value="{StaticResource Ui}" />
         <Setter Property="FontSize" Value="12" />

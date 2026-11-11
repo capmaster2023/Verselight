@@ -136,13 +136,13 @@
                     <Border x:Name="VersionPastille" Margin="0,6,0,14" HorizontalAlignment="Center">
                         <Button x:Name="VersionBtn" Style="{StaticResource BtnPlat}" Padding="6,2" FontSize="11" Foreground="{StaticResource Brume2}" ToolTip="Vérifier les mises à jour" Content="v3" HorizontalContentAlignment="Center" />
                     </Border>
-                    <RadioButton x:Name="OngletAgenda" Style="{StaticResource Rail}" GroupName="Pages" Content="Culte" Tag="{StaticResource IconeCulte}" ToolTip="Le déroulé du culte (Ctrl K pour chercher)" />
-                    <RadioButton x:Name="OngletBible" Style="{StaticResource Rail}" GroupName="Pages" Content="Bible" Tag="{StaticResource IconeBible}" IsChecked="True" />
-                    <RadioButton x:Name="OngletChants" Style="{StaticResource Rail}" GroupName="Pages" Content="Chants" Tag="{StaticResource IconeChants}" />
-                    <RadioButton x:Name="OngletAnnonces" Style="{StaticResource Rail}" GroupName="Pages" Content="Display" Tag="{StaticResource IconeDisplay}" />
-                    <RadioButton x:Name="OngletDuo" Style="{StaticResource Rail}" GroupName="Pages" Content="Duo" Tag="{StaticResource IconeDuo}" />
+                    <RadioButton x:Name="OngletAgenda" Style="{StaticResource OngletRail}" GroupName="Pages" Content="Culte" Tag="{StaticResource IconeCulte}" ToolTip="Le déroulé du culte (Ctrl K pour chercher)" />
+                    <RadioButton x:Name="OngletBible" Style="{StaticResource OngletRail}" GroupName="Pages" Content="Bible" Tag="{StaticResource IconeBible}" IsChecked="True" />
+                    <RadioButton x:Name="OngletChants" Style="{StaticResource OngletRail}" GroupName="Pages" Content="Chants" Tag="{StaticResource IconeChants}" />
+                    <RadioButton x:Name="OngletAnnonces" Style="{StaticResource OngletRail}" GroupName="Pages" Content="Display" Tag="{StaticResource IconeDisplay}" />
+                    <RadioButton x:Name="OngletDuo" Style="{StaticResource OngletRail}" GroupName="Pages" Content="Duo" Tag="{StaticResource IconeDuo}" />
                 </StackPanel>
-                <RadioButton x:Name="OngletReglages" DockPanel.Dock="Bottom" Style="{StaticResource Rail}" GroupName="Pages" Content="Réglages" Tag="{StaticResource IconeReglages}" VerticalAlignment="Bottom"
+                <RadioButton x:Name="OngletReglages" DockPanel.Dock="Bottom" Style="{StaticResource OngletRail}" GroupName="Pages" Content="Réglages" Tag="{StaticResource IconeReglages}" VerticalAlignment="Bottom"
                              ToolTip="Apparence, audio, MyVirtualSound, enregistrements, projection, mise à jour, journal, licences" />
                 <Border />
             </DockPanel>

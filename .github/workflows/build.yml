@@ -185,6 +185,12 @@ jobs:
           if (-not $p.WaitForExit(300000)) { $p.Kill(); "MyVerse ne s'est pas fermé (plus de 5 minutes)" | Tee-Object -FilePath ci/autotest/autotest.txt -Append; exit 1 }
           Get-Content ci/autotest/autotest.txt -ErrorAction SilentlyContinue
           "code de sortie : $($p.ExitCode)"
+          if ($p.ExitCode -ne 0) {
+            # plantage : l'erreur .NET (journal Application de Windows) et le journal de MyChurch, pour ci-logs
+            try { Get-WinEvent -FilterHashtable @{ LogName = 'Application'; ProviderName = '.NET Runtime', 'Application Error' } -MaxEvents 4 -ErrorAction Stop | Format-List TimeCreated, ProviderName, Message | Out-File -Encoding utf8 ci/autotest/plantage.txt } catch { "journal Windows : $($_.Exception.Message)" | Out-File -Encoding utf8 ci/autotest/plantage.txt }
+            Copy-Item "$env:VERSELIGHT_DATA_DIR\journal-myverse.txt" ci/autotest/ -ErrorAction SilentlyContinue
+            Get-Content ci/autotest/plantage.txt -ErrorAction SilentlyContinue | Select-Object -First 60
+          }
           exit $p.ExitCode
 
       - name: Source navigateur OBS (image réellement visible)
