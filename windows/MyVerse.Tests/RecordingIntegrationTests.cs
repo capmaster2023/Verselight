@@ -53,7 +53,7 @@ public static class RecordingIntegrationTests
         }
         return (fin.Success ? double.Parse(fin.Groups[1].Value, CultureInfo.InvariantCulture) : null, image);
     }
-    /// <summary>Une vraie session vidéo (tubes nommés Windows) avec un décalage de synchro, puis la mesure du clap.</summary>
+    /// <summary>Une vraie session vidéo (tubes nommés, prises Unix sous Linux) avec un décalage de synchro, puis la mesure du clap.</summary>
     static async Task<(double? Son, double? Image)> SessionClapAsync(string ffmpeg, string directory, Frames frame, int delayMs)
     {
         var profile = new RecordingProfile { Name = "synchro" + delayMs, Format = "mkv", AudioOnly = false, Directory = directory, Width = 320, Height = 180, Fps = 30, Encoder = "mjpeg", AudioDelayMs = delayMs };
@@ -73,6 +73,28 @@ public static class RecordingIntegrationTests
         }
         return await ClapAsync(ffmpeg, path);
     }
+    /// <summary>Une vraie session x264 (encodeur avec retard : il garde des images avant de sortir la première).
+    /// La vidéo doit suivre le son reçu, sinon ffmpeg et MyChurch s'attendent l'un l'autre et le fichier reste vide.</summary>
+    static async Task<string> SessionX264Async(string ffmpeg, string directory, Frames frame)
+    {
+        var profile = new RecordingProfile { Name = "x264", Format = "mkv", AudioOnly = false, Directory = directory, Width = 640, Height = 360, Fps = 30, Encoder = "libx264" };
+        string path = RecordingFiles.ReservePath(directory, profile.Name, "mkv");
+        var block = new float[AudioBlock.Samples];
+        using var session = new RecordingSession(profile, path, ffmpeg, "libx264", frame);
+        await session.PrepareAsync();
+        var debut = Stopwatch.StartNew();
+        for (int n = 0; n < 300; n++)
+        {
+            frame.Set(n % 60 < 30 ? (byte)40 : (byte)200);
+            FillAudio(block, n);
+            if (!session.Accept(block)) throw new IOException(session.Error ?? "bloc refusé");
+            // au rythme réel : un bloc de 10 ms toutes les 10 ms
+            int attente = (int)(n * 10 - debut.ElapsedMilliseconds);
+            if (attente > 0) await Task.Delay(attente);
+        }
+        await session.StopAsync();
+        return path;
+    }
     static void FillAudio(float[] block, int n)
     {
         for (int i = 0; i < block.Length; i += 2)
@@ -91,9 +113,9 @@ public static class RecordingIntegrationTests
         {
             var profile = new RecordingProfile { Name = "integration-" + format, Format = format, AudioOnly = format != "mkv", Directory = directory, Width = 320, Height = 180, Fps = 30, Encoder = "mjpeg" };
             string path = RecordingFiles.ReservePath(directory, profile.Name, format);
-            if (format == "wav" || OperatingSystem.IsWindows())
+            // vraie session : tubes nommés sous Windows, prises Unix ailleurs ; ffmpeg lit en direct, comme dans MyChurch
+            using (var session = new RecordingSession(profile, path, executable ?? "", "mjpeg", format == "mkv" ? frame : null))
             {
-                using var session = new RecordingSession(profile, path, executable ?? "", "mjpeg", format == "mkv" ? frame : null);
                 await session.PrepareAsync();
                 for (int n = 0; n < 150; n++)
                 {
@@ -106,28 +128,6 @@ public static class RecordingIntegrationTests
                 ok(session.Error == null && new FileInfo(path).Length > 1000, "Session réelle : " + format.ToUpperInvariant() + " finalisé après 150 blocs", null);
                 ok(session.AcceptedFrames == 72000, "Session : 72 000 trames acceptées (" + format + ")", null);
                 ok(!session.Accept(block), "Session arrêtée refuse les nouveaux blocs (" + format + ")", null);
-            }
-            else
-            {
-                // This Linux environment forbids Unix sockets. Validate the exact encoder arguments
-                // using real input files; Windows named-pipe transport is explicitly not claimed tested.
-                string rawAudio = path + ".f32", rawVideo = path + ".bgra";
-                using (var audioFile = File.Create(rawAudio))
-                using (var videoFile = format == "mkv" ? File.Create(rawVideo) : null)
-                {
-                    var bytes = new byte[block.Length * 4]; var pixels = new byte[profile.Width * profile.Height * 4];
-                    for (int n = 0; n < 150; n++)
-                    {
-                        FillAudio(block, n); Buffer.BlockCopy(block, 0, bytes, 0, bytes.Length); audioFile.Write(bytes);
-                        if (videoFile != null && n % 10 == 0)
-                        {
-                            for (int k = 0; k < 3; k++) { int tick = n + k * 10 / 3; frame.Set(tick >= 50 && tick < 60 ? (byte)240 : (byte)25); frame.CopyFrame(pixels); videoFile.Write(pixels); }
-                        }
-                    }
-                }
-                await ProcessAsync(executable!, RecordingSession.FfmpegArguments(profile, rawAudio, format == "mkv" ? rawVideo : null, "mjpeg", path));
-                ok(new FileInfo(path).Length > 1000, "FFmpeg réel sur fichiers : " + format + " (transport Windows non exécuté)", null);
-                File.Delete(rawAudio); if (File.Exists(rawVideo)) File.Delete(rawVideo);
             }
             if (executable != null)
             {
@@ -145,18 +145,31 @@ public static class RecordingIntegrationTests
                     // synchro : le son fort et l'image claire arrivent ensemble (blocs 50 à 59)
                     var (son, image) = await ClapAsync(executable, path);
                     ok(son != null && image != null && Math.Abs(son.Value - image.Value) < 0.05, "Synchro image/son mesurée dans le MKV", $"son {son:0.000} s · image {image:0.000} s");
-                    if (OperatingSystem.IsWindows())
+                    foreach (int delai in new[] { 200, -200 })
                     {
-                        foreach (int delai in new[] { 200, -200 })
-                        {
-                            var (s2, i2) = await SessionClapAsync(executable, directory, frame, delai);
-                            ok(s2 != null && i2 != null && Math.Abs(s2.Value - i2.Value - delai / 1000.0) < 0.05,
-                                delai > 0 ? "Décalage de synchro : son retardé de 200 ms" : "Décalage de synchro : image retardée de 200 ms", $"son {s2:0.000} s · image {i2:0.000} s");
-                        }
+                        var (s2, i2) = await SessionClapAsync(executable, directory, frame, delai);
+                        ok(s2 != null && i2 != null && Math.Abs(s2.Value - i2.Value - delai / 1000.0) < 0.05,
+                            delai > 0 ? "Décalage de synchro : son retardé de 200 ms" : "Décalage de synchro : image retardée de 200 ms", $"son {s2:0.000} s · image {i2:0.000} s");
                     }
                 }
                 await ProcessAsync(executable, new[] { "-v", "error", "-i", path, "-f", "null", "-" });
                 ok(true, "Décodage complet FFmpeg sans erreur (" + format + ")", null);
+            }
+        }
+        if (executable != null)
+        {
+            // l'encodeur des vraies vidéos (x264, comme les encodeurs des cartes graphiques) retient des images au début
+            string chemin = "";
+            try { chemin = await SessionX264Async(executable, directory, frame); }
+            catch (Exception e) { ok(false, "Session x264 : vidéo réelle avec un encodeur qui retient des images", e.Message); }
+            if (chemin.Length > 0)
+            {
+                string json = await ProcessAsync(Path.Combine(Path.GetDirectoryName(executable)!, OperatingSystem.IsWindows() ? "ffprobe.exe" : "ffprobe"), new[] { "-v", "error", "-show_streams", "-show_format", "-of", "json", chemin });
+                using var doc = JsonDocument.Parse(json);
+                var flux = doc.RootElement.GetProperty("streams").EnumerateArray().ToList();
+                double duree = double.Parse(doc.RootElement.GetProperty("format").GetProperty("duration").GetString()!, CultureInfo.InvariantCulture);
+                ok(flux.Any(x => x.GetProperty("codec_name").GetString() == "h264") && flux.Any(x => x.GetProperty("codec_type").GetString() == "audio") && Math.Abs(duree - 3) < .2,
+                    "Session x264 : vidéo H.264 + son de 3 s, finalisée sans blocage", $"{new FileInfo(chemin).Length} octets, {duree:0.00} s");
             }
         }
         if (executable == null) Console.WriteLine("  FFmpeg non configuré : tests FLAC/MKV facultatifs ignorés (MYCHURCH_FFMPEG).");

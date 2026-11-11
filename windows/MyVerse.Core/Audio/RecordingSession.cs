@@ -10,7 +10,8 @@ public interface IRecordingFrameProvider { void CopyFrame(byte[] destination); }
 /// Encoding, pipes, disk and finalization are handled by dedicated workers.</summary>
 public sealed class RecordingSession : IDisposable
 {
-    const int Slots = 200;
+    // 5 s de son en attente : le temps qu'un encodeur avec retard (x264, carte graphique) sorte ses premières images
+    const int Slots = 500;
     readonly float[][] blocks = Enumerable.Range(0, Slots).Select(_ => new float[AudioBlock.Samples]).ToArray();
     readonly object gate = new();
     readonly SemaphoreSlim available = new(0);
@@ -26,10 +27,13 @@ public sealed class RecordingSession : IDisposable
     Task? worker, videoWorker, stderrWorker;
     readonly StringBuilder stderr = new();
     readonly TaskCompletionSource ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
-    long writtenFrames;
+    /// <summary>Trames de son reçues (pas forcément encore écrites pour ffmpeg) : c'est l'horloge de la vidéo.</summary>
+    long accepted;
+    /// <summary>Silence d'amorçage (une image) avant le premier bloc reçu.</summary>
+    readonly int primeFrames;
     volatile string? error;
     public string? Error => error;
-    public long AcceptedFrames { get; private set; }
+    public long AcceptedFrames => Interlocked.Read(ref accepted);
     public long Bytes => File.Exists(Path) ? new FileInfo(Path).Length : 0;
     public string Path { get; }
     public string Encoder { get; }
@@ -41,6 +45,7 @@ public sealed class RecordingSession : IDisposable
         {
             audioPipe = NamedPipe(); if (!profile.AudioOnly) videoPipe = NamedPipe();
         }
+        primeFrames = videoPipe == null ? 0 : 48000 / profile.Fps;
     }
     static readonly System.Runtime.CompilerServices.ConditionalWeakTable<NamedPipeServerStream, PipeName> names = new();
     sealed record PipeName(string Value);
@@ -49,11 +54,17 @@ public sealed class RecordingSession : IDisposable
         string name = "mychurch-" + Guid.NewGuid().ToString("N");
         var pipe = new NamedPipeServerStream(name, PipeDirection.Out, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 0, 65536); names.Add(pipe, new(name)); return pipe;
     }
-    static string PipePath(NamedPipeServerStream pipe) => @"\\.\pipe\" + names.GetValue(pipe, _ => throw new InvalidOperationException()).Value;
+    /// <summary>Le chemin que ffmpeg ouvre : un tube nommé sous Windows, la prise Unix de .NET ailleurs (essais sous Linux).</summary>
+    static string PipePath(NamedPipeServerStream pipe)
+    {
+        string nom = names.GetValue(pipe, _ => throw new InvalidOperationException()).Value;
+        return OperatingSystem.IsWindows() ? @"\\.\pipe\" + nom : "unix:" + System.IO.Path.Combine(System.IO.Path.GetTempPath(), "CoreFxPipe_" + nom);
+    }
     public static IReadOnlyList<string> FfmpegArguments(RecordingProfile profile, string audioInput, string? videoInput, string encoder, string output)
     {
-        var args = new List<string> { "-hide_banner", "-loglevel", "warning", "-nostdin", "-y", "-thread_queue_size", "256" };
-        if (videoInput != null) args.AddRange(new[] { "-f", "rawvideo", "-pixel_format", "bgra", "-video_size", $"{profile.Width}x{profile.Height}", "-framerate", profile.Fps.ToString(), "-probesize", "32", "-analyzeduration", "0", "-i", videoInput, "-thread_queue_size", "256" });
+        // pas de « -thread_queue_size » sur les entrées : les ffmpeg récents le refusent, et la vidéo suit le son reçu
+        var args = new List<string> { "-hide_banner", "-loglevel", "warning", "-nostdin", "-y" };
+        if (videoInput != null) args.AddRange(new[] { "-f", "rawvideo", "-pixel_format", "bgra", "-video_size", $"{profile.Width}x{profile.Height}", "-framerate", profile.Fps.ToString(), "-probesize", "32", "-analyzeduration", "0", "-i", videoInput });
         args.AddRange(new[] { "-f", "f32le", "-ar", "48000", "-ac", "2", "-probesize", "32", "-analyzeduration", "0", "-i", audioInput });
         if (videoInput != null)
         {
@@ -75,7 +86,7 @@ public sealed class RecordingSession : IDisposable
         {
             if (finished || error != null) return false;
             if (count == Slots) { error = "L’encodeur ne suit plus : tampon d’enregistrement plein. Le fichier est en cours de finalisation."; finished = true; available.Release(); return false; }
-            audio.CopyTo(blocks[(read + count) % Slots]); count++; AcceptedFrames += audio.Length / 2; available.Release(); return true;
+            audio.CopyTo(blocks[(read + count) % Slots]); count++; Interlocked.Add(ref accepted, audio.Length / 2); available.Release(); return true;
         }
     }
     public void Fail(string message) { error = message; Finish(); }
@@ -106,13 +117,11 @@ public sealed class RecordingSession : IDisposable
                 if (videoPipe != null) videoWorker = Task.Run(WriteVideoAsync);
                 await audioPipe.WaitForConnectionAsync(cancel.Token);
                 // A silent priming interval lets FFmpeg open both pipes before the allow-list is activated.
-                int primeFrames = videoPipe == null ? 0 : 48000 / profile.Fps;
                 if (primeFrames > 0) await audioPipe.WriteAsync(new byte[primeFrames * 8], cancel.Token);
                 // Synchro : le son est retardé de AudioDelayMs (caméra en retard). Ce silence n'avance pas la vidéo,
                 // qui reste cadencée par le son réellement reçu : tout le son glisse d'autant par rapport à l'image.
                 int delayFrames = videoPipe == null ? 0 : Math.Clamp(profile.AudioDelayMs, 0, 1000) * 48;
                 if (delayFrames > 0) await audioPipe.WriteAsync(new byte[delayFrames * 8], cancel.Token);
-                Interlocked.Exchange(ref writtenFrames, primeFrames);
                 ready.TrySetResult();
             }
             long lastDiskCheck = 0;
@@ -128,7 +137,7 @@ public sealed class RecordingSession : IDisposable
                 }
                 if (!got) continue;
                 if (wav != null) wav.Write(block);
-                else { Buffer.BlockCopy(block, 0, bytes, 0, bytes.Length); await audioPipe!.WriteAsync(bytes, cancel.Token); Interlocked.Add(ref writtenFrames, AudioBlock.Frames); }
+                else { Buffer.BlockCopy(block, 0, bytes, 0, bytes.Length); await audioPipe!.WriteAsync(bytes, cancel.Token); }
                 if (Environment.TickCount64 - lastDiskCheck > 1000)
                 {
                     lastDiskCheck = Environment.TickCount64;
@@ -172,12 +181,20 @@ public sealed class RecordingSession : IDisposable
         }
         // Prime the video input immediately so FFmpeg proceeds to open the audio pipe.
         await SendAsync();
+        // L'image suit le son REÇU, pas le son déjà lu par ffmpeg : ffmpeg peut retenir le son tant qu'un encodeur
+        // avec retard (x264, carte graphique) n'a pas sorti ses premières images ; si la vidéo attendait le son écrit,
+        // les deux s'attendraient l'un l'autre (fichier vide). Pas de dérive : une image tous les 48000 / ips trames reçues.
         while (!cancel.IsCancellationRequested)
         {
-            long wanted = (Interlocked.Read(ref writtenFrames) * profile.Fps + 47999) / 48000;
+            // lu avant le compte : une fois l'arrêt vu, plus aucun bloc ne s'ajoute, le compte est définitif
+            bool fini = Volatile.Read(ref finished) || audioDone;
+            long wanted = ((primeFrames + Interlocked.Read(ref accepted)) * profile.Fps + 47999) / 48000;
             if (wanted - sent > profile.Fps * 2) { Fail("L’encodeur vidéo ne suit plus le son. Arrêt pour préserver la synchronisation."); break; }
             if (sent < wanted) await SendAsync();
-            else { if (audioDone) break; await Task.Delay(2, cancel.Token); }
+            // plus aucun son ne sera reçu : la vidéo se termine tout de suite (l'encodeur vide ses images en attente),
+            // sans attendre que ffmpeg ait lu tout le son, qu'il retient tant que la vidéo n'a pas fini
+            else if (fini) break;
+            else await Task.Delay(2, cancel.Token);
         }
         videoPipe.Dispose();
     }
