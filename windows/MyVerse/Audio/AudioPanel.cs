@@ -34,7 +34,7 @@ public sealed class AudioPanel : Border
     {
         public AudioSource S = null!;
         public Border Cadre = null!;
-        public TextBlock Nom = null!, Genre = null!, Db = null!;
+        public TextBlock Nom = null!, Genre = null!, Perif = null!, Db = null!;
         public Vumetre G = null!, D = null!;
         public Slider Volume = null!;
         public Button Muet = null!, Casque = null!, Filtres = null!;
@@ -98,7 +98,7 @@ public sealed class AudioPanel : Border
         titre.Children.Add(puce);
         ajouter = new Button { Style = S("BtnOr"), Content = "+ Source audio", Height = 42, Padding = new Thickness(18, 0, 18, 0), ToolTip = "Ajouter un micro, le son d'une sortie, un fichier ou le son de la vidéo projetée" };
         ajouter.Click += (_, _) => MenuAjouter();
-        peripheriques = new Button { Style = S("Btn"), Content = "Périphériques", Height = 42, Padding = new Thickness(16, 0, 16, 0), Margin = new Thickness(8, 0, 0, 0), ToolTip = "Paramètres : micro et sortie par défaut, écoute au casque, VB-CABLE, ffmpeg" };
+        peripheriques = new Button { Style = S("Btn"), Content = "Périphériques", Height = 42, Padding = new Thickness(16, 0, 16, 0), Margin = new Thickness(8, 0, 0, 0), ToolTip = "Réglages : micro et sortie par défaut, écoute au casque, VB-CABLE, ffmpeg" };
         peripheriques.Click += (_, _) => { (Fenetre as MainWindow)?.OuvrirParametres(); Rafraichir(); };
         chevron = new Shapes.Path
         {
@@ -286,9 +286,11 @@ public sealed class AudioPanel : Border
         var pile = new StackPanel();
         b.Nom = new TextBlock { FontSize = 14.5, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis, TextAlignment = TextAlignment.Center };
         b.Genre = new TextBlock { FontSize = 11.5, Foreground = P("Brume"), TextTrimming = TextTrimming.CharacterEllipsis, TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 2, 0, 0) };
+        b.Perif = new TextBlock { FontSize = 10.5, Foreground = P("Brume2"), TextTrimming = TextTrimming.CharacterEllipsis, TextAlignment = TextAlignment.Center };
         b.Db = new TextBlock { FontSize = 13, FontWeight = FontWeights.SemiBold, TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 8, 0, 0), ToolTip = "Volume de la source" };
         pile.Children.Add(b.Nom);
         pile.Children.Add(b.Genre);
+        pile.Children.Add(b.Perif);
         pile.Children.Add(b.Db);
 
         // échelle de 0 à −60 dB, vumètres gauche et droite, puis le fader (comme dans OBS)
@@ -402,8 +404,18 @@ public sealed class AudioPanel : Border
         var s = b.S;
         b.Nom.Text = s.Name;
         b.Nom.ToolTip = s.Name;
-        b.Genre.Text = Genre(s);
-        b.Genre.ToolTip = Description(s);
+        b.Genre.Inlines.Clear();
+        if (s.Kind == AudioInputKind.Microphone && s.Channel > 0)
+        {
+            // « Micro · entrée 2 » : le numéro en ambre, comme la maquette
+            b.Genre.Inlines.Add(new System.Windows.Documents.Run("Micro · entrée "));
+            b.Genre.Inlines.Add(new System.Windows.Documents.Run(s.Channel.ToString()) { Foreground = P("Or"), FontWeight = FontWeights.Bold });
+        }
+        else b.Genre.Text = Genre(s);
+        b.Perif.Text = s.Kind == AudioInputKind.Media ? " " : s.DeviceId == "default" || s.DeviceName.Length == 0 ? "Windows par défaut" : NomCourt(s.DeviceName);
+        string probleme = s.Channel > 0 ? A.StatutEntrees(s.DeviceId) : "";
+        b.Genre.ToolTip = b.Perif.ToolTip = Description(s) + (probleme.Length > 0 ? "\n" + probleme : "");
+        b.Perif.Foreground = P(probleme.Length > 0 ? "RougeTexte" : "Brume2");
         b.Db.Text = TexteDb(s.VolumeDb);
         string? par = CoupeePar(s);
         if (s.Muted)
@@ -477,7 +489,8 @@ public sealed class AudioPanel : Border
         string peripherique = s.DeviceId == "default" || string.IsNullOrEmpty(s.DeviceName) ? "périphérique Windows par défaut" : s.DeviceName;
         string d = s.Kind switch
         {
-            AudioInputKind.Microphone => "Microphone · " + peripherique,
+            AudioInputKind.Microphone when s.Channel > 0 => $"Micro · entrée {s.Channel} seule de « {peripherique} »",
+            AudioInputKind.Microphone => "Microphone · " + peripherique + " (toutes les entrées ensemble)",
             AudioInputKind.Sortie => "Sortie audio · " + peripherique,
             _ when s.FollowProjection => "Vidéo projetée · " + (s.MediaPath.Length > 0 ? "lecture en cours" : "en attente d'une vidéo"),
             _ => "Média · " + (s.MediaPath.Length > 0 ? Path.GetFileName(s.MediaPath) : "aucun fichier") + (s.Loop ? " · en boucle" : ""),
@@ -882,7 +895,7 @@ public sealed class AudioPanel : Border
     void MenuAjouter()
     {
         var m = new ContextMenu();
-        m.Items.Add(Article("Microphone…", () => AjouterPeripherique(AudioInputKind.Microphone)));
+        m.Items.Add(Article("Micros (une bande par entrée)…", AjouterMicros));
         m.Items.Add(Article("Son d'une sortie audio…", () => AjouterPeripherique(AudioInputKind.Sortie)));
         m.Items.Add(Article("Fichier audio ou vidéo…", AjouterFichier));
         m.Items.Add(Article("Son de la vidéo projetée (Display)", AjouterProjection));
@@ -928,6 +941,101 @@ public sealed class AudioPanel : Border
         if (d == null) return;
         string nom = micro ? (d.Id == "default" ? "Micro" : NomCourt(d.Name)) : "Son de l'ordinateur";
         Ajouter(new AudioSource { Name = NomLibre(nom), Kind = kind, DeviceId = d.Id, DeviceName = d.Id == "default" ? "" : d.Name });
+    }
+
+    /// <summary>
+    /// « Micros (une bande par entrée) » : chaque micro de Windows avec ses entrées à cocher. Une carte son à 4 entrées donne 4 cases :
+    /// chaque entrée cochée devient sa propre bande, comme une source dans OBS. « Toutes ensemble » garde l'ancienne bande stéréo.
+    /// </summary>
+    void AjouterMicros()
+    {
+        var liste = Peripheriques(AudioInputKind.Microphone);
+        var w = new FenetreDialogue { Title = "Ajouter des micros", Width = 640, SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize };
+        if (Fenetre is { IsLoaded: true } f) w.Owner = f;
+        else w.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        var pile = new StackPanel { Margin = new Thickness(24, 20, 24, 20) };
+        pile.Children.Add(new TextBlock { Text = "Ajouter des micros", Style = S("Titre2") });
+        pile.Children.Add(new TextBlock
+        {
+            Text = "Cochez chaque entrée où un micro est branché. Chaque entrée devient sa propre bande dans le mélangeur, avec son volume, ses filtres et son écoute, comme une source dans OBS.",
+            Style = S("Muet"), FontSize = 14, LineHeight = 21, Margin = new Thickness(0, 6, 0, 4),
+        });
+        if (!A.EntreesSeparees)
+            pile.Children.Add(new TextBlock { Text = "Le moteur OBS n'est pas démarré : seules « toutes les entrées ensemble » sont possibles pour l'instant.", Foreground = P("RougeTexte"), FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0) });
+        var cases = new List<(CheckBox Case, AudioDevice Peripherique, int Entree)>();
+        var compte = new TextBlock { FontSize = 13.5, Foreground = P("Brume"), VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap };
+        void Compter()
+        {
+            int n = cases.Count(c => c.Case.IsChecked == true && c.Case.IsEnabled);
+            compte.Text = n == 0 ? "Les entrées grisées sont déjà dans le mélangeur." : $"{n} bande{(n > 1 ? "s" : "")} ser{(n > 1 ? "ont" : "a")} ajoutée{(n > 1 ? "s" : "")} au mélangeur.";
+        }
+        var defil = new StackPanel();
+        foreach (var d in liste)
+        {
+            int n = ChurchAudioService.Entrees(d.Id);
+            var carte = new StackPanel();
+            var tete = new DockPanel();
+            var nb = new TextBlock { Text = n == 0 ? "absent" : $"{n} entrée{(n > 1 ? "s" : "")}", FontSize = 12.5, Foreground = P("Brume"), VerticalAlignment = VerticalAlignment.Center };
+            DockPanel.SetDock(nb, Dock.Right);
+            tete.Children.Add(nb);
+            tete.Children.Add(new TextBlock { Text = d.Name, FontSize = 14.5, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 0, 10, 0) });
+            carte.Children.Add(tete);
+            var entrees = new WrapPanel { Margin = new Thickness(0, 10, 0, 0) };
+            for (int k = 1; k <= n && k <= AudioConfiguration.MaxEntrees; k++)
+            {
+                var deja = C.Sources.FirstOrDefault(x => x.Kind == AudioInputKind.Microphone && x.DeviceId == d.Id && x.Channel == k);
+                var c = new CheckBox
+                {
+                    Content = deja != null ? $"Entrée {k} · {deja.Name}" : $"Entrée {k}", IsChecked = deja != null, IsEnabled = deja == null && A.EntreesSeparees,
+                    Margin = new Thickness(0, 0, 18, 8), FontSize = 14,
+                };
+                c.Click += (_, _) => Compter();
+                cases.Add((c, d, k));
+                entrees.Children.Add(c);
+            }
+            if (entrees.Children.Count > 0) carte.Children.Add(entrees);
+            var dejaTout = C.Sources.FirstOrDefault(x => x.Kind == AudioInputKind.Microphone && x.DeviceId == d.Id && x.Channel == 0);
+            var tout = new CheckBox
+            {
+                Content = dejaTout != null ? $"Toutes ensemble · {dejaTout.Name}" : "Toutes ensemble (une seule bande stéréo)", IsChecked = dejaTout != null, IsEnabled = dejaTout == null,
+                FontSize = 13.5, Margin = new Thickness(0, entrees.Children.Count > 0 ? 2 : 10, 0, 0), Foreground = P("Encre2"),
+            };
+            tout.Click += (_, _) => Compter();
+            cases.Add((tout, d, 0));
+            carte.Children.Add(tout);
+            defil.Children.Add(new Border { Style = S("Carte"), Padding = new Thickness(16, 14, 16, 12), Margin = new Thickness(0, 12, 0, 0), Child = carte });
+        }
+        pile.Children.Add(new ScrollViewer { Content = defil, MaxHeight = 520, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(0, 0, 4, 0) });
+        var bas = new DockPanel { Margin = new Thickness(0, 18, 0, 0) };
+        var boutons = new StackPanel { Orientation = Orientation.Horizontal };
+        var non = new Button { Style = S("Btn"), Content = "Annuler", IsCancel = true, MinWidth = 110, Height = 42 };
+        var oui = new Button { Style = S("BtnOr"), Content = "Ajouter", IsDefault = true, MinWidth = 120, Height = 42, Margin = new Thickness(10, 0, 0, 0) };
+        bool ok = false;
+        non.Click += (_, _) => w.Close();
+        oui.Click += (_, _) => { ok = true; w.Close(); };
+        boutons.Children.Add(non);
+        boutons.Children.Add(oui);
+        DockPanel.SetDock(boutons, Dock.Right);
+        bas.Children.Add(boutons);
+        bas.Children.Add(compte);
+        pile.Children.Add(bas);
+        w.Content = pile;
+        Compter();
+        w.ShowDialog();
+        if (!ok) return;
+        var choix = cases.Where(c => c.Case.IsChecked == true && c.Case.IsEnabled).ToList();
+        if (choix.Count == 0) return;
+        foreach (var (_, d, k) in choix)
+        {
+            string nom = k > 0 ? NomLibre("Micro " + (C.Sources.Count(x => x.Kind == AudioInputKind.Microphone) + 1)) : NomLibre(d.Id == "default" ? "Micro" : NomCourt(d.Name));
+            C.Sources.Add(new AudioSource { Name = nom, Kind = AudioInputKind.Microphone, DeviceId = d.Id, DeviceName = d.Id == "default" ? "" : d.Name, Channel = k });
+        }
+        A.Apply();
+        Rafraichir();
+        Deplier();
+        Toast(choix.Count == 1
+            ? "Micro ajouté. Clic droit sur sa bande pour le renommer (« Pasteur », « Chorale »…)."
+            : $"{choix.Count} micros ajoutés, chacun sur sa bande. Clic droit pour les renommer (« Pasteur », « Chorale »…).");
     }
 
     static string? ChoisirFichier(Window? owner)
@@ -984,6 +1092,25 @@ public sealed class AudioPanel : Border
         {
             if (Dialogue.Demander(Fenetre, "Nom de la source :", s.Name, "Renommer") is { } n && n.Trim().Length > 0) { s.Name = n.Trim(); Appliquer(); }
         }));
+        if (s.Kind == AudioInputKind.Microphone)
+        {
+            // une carte son à plusieurs entrées : cette bande écoute une entrée seule, ou toutes ensemble
+            int n = ChurchAudioService.Entrees(s.DeviceId);
+            var entree = new MenuItem { Header = s.Channel > 0 ? $"Entrée {s.Channel}" : "Entrée : toutes ensemble" };
+            for (int k = 1; k <= Math.Max(n, s.Channel); k++)
+            {
+                int kk = k;
+                var it = new MenuItem { Header = $"Entrée {k}" + (k > n ? " (absente)" : ""), IsCheckable = true, IsChecked = s.Channel == k, IsEnabled = A.EntreesSeparees };
+                it.Click += (_, _) => { s.Channel = kk; Appliquer(); Toast($"« {s.Name} » écoute maintenant l'entrée {kk}."); };
+                entree.Items.Add(it);
+            }
+            if (entree.Items.Count > 0) entree.Items.Add(new Separator());
+            var toutes = new MenuItem { Header = "Toutes les entrées ensemble", IsCheckable = true, IsChecked = s.Channel == 0 };
+            toutes.Click += (_, _) => { s.Channel = 0; Appliquer(); };
+            entree.Items.Add(toutes);
+            if (!A.EntreesSeparees) entree.ToolTip = "Le moteur OBS doit être démarré pour écouter une entrée seule.";
+            m.Items.Add(entree);
+        }
         if (s.Kind != AudioInputKind.Media) m.Items.Add(Article("Changer de périphérique…", () => ChangerPeripherique(s)));
         else if (!s.FollowProjection) m.Items.Add(Article("Changer de fichier…", () =>
         {
@@ -1117,7 +1244,7 @@ internal sealed class EchelleDb : FrameworkElement
 /// </summary>
 internal sealed class Vumetre : Grid
 {
-    static Brush? couleursH, couleursV, fondH, fondV;
+    static Brush? couleursH, couleursV;
     readonly bool vertical;
     readonly Shapes.Rectangle barre;
     readonly Border crete;
@@ -1131,7 +1258,7 @@ internal sealed class Vumetre : Grid
         this.vertical = vertical;
         if (vertical) Width = epaisseur; else Height = epaisseur;
         SnapsToDevicePixels = true;
-        Children.Add(new Border { Background = vertical ? (fondV ??= Zones(true)) : (fondH ??= Zones(false)), CornerRadius = new CornerRadius(epaisseur / 2) });
+        Children.Add(Zones(vertical, epaisseur));
         barre = new Shapes.Rectangle { Fill = vertical ? (couleursV ??= Degrade(true)) : (couleursH ??= Degrade(false)), RadiusX = epaisseur / 2, RadiusY = epaisseur / 2, Clip = coupe };
         Children.Add(barre);
         crete = new Border
@@ -1186,14 +1313,31 @@ internal sealed class Vumetre : Grid
         return b;
     }
 
-    static Brush Zones(bool vertical)
+    /// <summary>Le fond du vumètre : gris, et rosé dans les derniers dB (près de 0), aux couleurs du thème.</summary>
+    static UIElement Zones(bool vertical, double epaisseur)
     {
-        var b = vertical ? new LinearGradientBrush { StartPoint = new Point(0, 1), EndPoint = new Point(0, 0) } : new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(1, 0) };
-        b.GradientStops.Add(new GradientStop(Color.FromRgb(0xE6, 0xE9, 0xEE), 0));
-        b.GradientStops.Add(new GradientStop(Color.FromRgb(0xE6, 0xE9, 0xEE), 0.86));
-        b.GradientStops.Add(new GradientStop(Color.FromRgb(0xF6, 0xDC, 0xD9), 0.88));
-        b.GradientStops.Add(new GradientStop(Color.FromRgb(0xF6, 0xDC, 0xD9), 1));
-        b.Freeze();
-        return b;
+        var g = new Grid { ClipToBounds = true };
+        var fond = new Border { CornerRadius = new CornerRadius(epaisseur / 2) };
+        fond.SetResourceReference(Border.BackgroundProperty, "VuFond");
+        var crete = new Border();
+        crete.SetResourceReference(Border.BackgroundProperty, "VuCrete");
+        if (vertical)
+        {
+            g.RowDefinitions.Add(new RowDefinition { Height = new GridLength(14, GridUnitType.Star) });
+            g.RowDefinitions.Add(new RowDefinition { Height = new GridLength(86, GridUnitType.Star) });
+            Grid.SetRowSpan(fond, 2);
+            crete.CornerRadius = new CornerRadius(epaisseur / 2, epaisseur / 2, 0, 0);
+        }
+        else
+        {
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(86, GridUnitType.Star) });
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(14, GridUnitType.Star) });
+            Grid.SetColumnSpan(fond, 2);
+            Grid.SetColumn(crete, 1);
+            crete.CornerRadius = new CornerRadius(0, epaisseur / 2, epaisseur / 2, 0);
+        }
+        g.Children.Add(fond);
+        g.Children.Add(crete);
+        return g;
     }
 }

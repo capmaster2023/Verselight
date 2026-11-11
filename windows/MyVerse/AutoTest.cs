@@ -91,6 +91,7 @@ public static class AutoTest
             for (int i = 0; i < 40 && !App.Audio.Running && !App.Audio.ObsAbsent && !App.Audio.Diagnostic.Contains("indisponible"); i++) await Attendre(250);
             Note("audio : " + App.Audio.Diagnostic);
             Ok(App.Audio.Running, "moteur audio OBS démarré dans MyChurch (" + App.Audio.Diagnostic + ")");
+            Ok(App.Audio.EntreesSeparees, "3.1 : OBS accepte les entrées séparées d'une carte son");
             Ok(File.Exists(Audio.ChurchAudioService.FfmpegInclus), "ffmpeg livré avec MyChurch (" + Audio.ChurchAudioService.FfmpegInclus + ")");
             string sinus = Path.Combine(App.Donnees.Dossier, "test-sinus.wav");
             EcrireSinus(sinus);
@@ -101,8 +102,11 @@ public static class AutoTest
             micro.Filters.Add(new MyVerse.Audio.AudioFilter { Kind = MyVerse.Audio.AudioFilterKind.Limiter, ThresholdDb = -6 });
             var ordi = new MyVerse.Audio.AudioSource { Name = "Son de l'ordinateur", Kind = MyVerse.Audio.AudioInputKind.Sortie, DeviceId = "default", VolumeDb = -12, Muted = true };
             var media = new MyVerse.Audio.AudioSource { Name = "Sinus de test", Kind = MyVerse.Audio.AudioInputKind.Media, MediaPath = sinus, Loop = true };
+            // 3.1 : deux entrées séparées de la même carte son, chacune sur sa bande
+            var chorale = new MyVerse.Audio.AudioSource { Name = "Chorale", Kind = MyVerse.Audio.AudioInputKind.Microphone, DeviceId = "default", Channel = 2 };
+            var piano = new MyVerse.Audio.AudioSource { Name = "Piano", Kind = MyVerse.Audio.AudioInputKind.Microphone, DeviceId = "default", Channel = 3, VolumeDb = -6 };
             cfg.Sources.Clear();
-            cfg.Sources.Add(micro); cfg.Sources.Add(ordi); cfg.Sources.Add(media);
+            cfg.Sources.Add(micro); cfg.Sources.Add(chorale); cfg.Sources.Add(piano); cfg.Sources.Add(ordi); cfg.Sources.Add(media);
             // créés comme par l'utilisateur : une sortie « Zoom » (le sinus), un enregistrement vidéo du culte, un WAV de la prédication
             var zoom = new MyVerse.Audio.VirtualSoundSettings { Name = "Zoom", Enabled = true, DeviceId = "default", SourceIds = { media.Id } };
             var culte = new MyVerse.Audio.RecordingProfile { Name = "Culte (test)", SourceIds = { micro.Id, media.Id }, DisplayIds = { MyVerse.Audio.RecordingProfile.Projection, texte.Id, image.Id }, Directory = Path.Combine(dossierTest, "culte") };
@@ -118,6 +122,7 @@ public static class AutoTest
                 var (g, d) = App.Audio.Level(media.Id);
                 Ok(g > -12 && g < -2, $"vumètre OBS dans MyChurch : sinus à −6 dBFS ({g:0.0} / {d:0.0} dBFS)");
                 Ok(App.Audio.InputReady(micro.Id) && App.Audio.InputReady(ordi.Id), "micro et son de l'ordinateur créés dans OBS");
+                Ok(App.Audio.EstEntree(chorale.Id) && App.Audio.EstEntree(piano.Id) && !App.Audio.EstEntree(micro.Id), "entrées 2 et 3 : chacune sa bande (entrée séparée) ; le micro « toutes ensemble » reste une capture");
                 Note("MyVirtualSound « Zoom » : " + App.Audio.Sorties.Status(zoom.Id));
                 Capture(w, "32-audio.png");
                 if (App.Audio.TracksActive)
@@ -505,6 +510,48 @@ public static class AutoTest
             R.Effacer();
             await Attendre(900);
             Capture(w, "11-vide.png");
+
+            // 3.1 : les pages en clair puis en sombre, la page Réglages, le + de la bibliothèque Display
+            var agC = R.NouvelAgenda("Culte du dimanche 15 novembre");
+            R.AjouterCompteAgenda(5);
+            if (c != null) R.AjouterChantAgenda(c.Id);
+            var lect = R.AjouterBibleAgenda(new Ref(42, 3, 16, 17));
+            R.HeureAgenda(lect.Id, "10:30");
+            R.AjouterTexteAgenda("Annonces", "Repas fraternel après le culte\n\nRéunion de prière mercredi à 19 h");
+            R.AfficherElement(lect, 0);
+            var anG = R.NouvelleAnnonce("Annonce de test", "Réunion de prière\nmercredi à 19 h");
+            w.TestPage("annonces");
+            w.TestPlusGrille(anG);
+            Ok(anG.Grille, "Display : le + ajoute la source à la grille");
+            w.TestPlusGrille(anG);
+            Ok(!anG.Grille, "Display : le ✓ la retire de la grille");
+            w.TestPlusGrille(anG);
+            w.TestPage("reglages");
+            await Attendre(600);
+            Capture(w, "40-reglages.png");
+            App.AppliquerApparence("sombre");
+            Ok(Palette.Actuelle.Sombre && App.Donnees.Reglages.Apparence == "sombre", "thème sombre appliqué et enregistré");
+            Ok(((SolidColorBrush)MainWindow.Pinceau("Page")).Color == Palette.De("Page", true), "les pinceaux suivent le thème sombre");
+            await Attendre(500);
+            Capture(w, "41-sombre-reglages.png");
+            foreach (var (page, nom) in new[] { ("agenda", "42-sombre-culte.png"), ("bible", "43-sombre-bible.png"), ("chants", "44-sombre-chants.png"), ("annonces", "45-sombre-display.png"), ("duo", "46-sombre-duo.png") })
+            {
+                w.TestPage(page);
+                await Attendre(500);
+                Capture(w, nom);
+            }
+            await Fenetre(w, () => new OutilsWindow(false), "47-sombre-fenetre.png");
+            App.AppliquerApparence("clair");
+            Ok(!Palette.Actuelle.Sombre && ((SolidColorBrush)MainWindow.Pinceau("Page")).Color == Palette.De("Page", false), "retour au thème clair");
+            foreach (var (page, nom) in new[] { ("agenda", "48-clair-culte.png"), ("annonces", "49-clair-display.png") })
+            {
+                w.TestPage(page);
+                await Attendre(500);
+                Capture(w, nom);
+            }
+            R.SupprimerAnnonce(anG.Id);
+            R.Effacer();
+            R.SupprimerAgenda(agC.Id);
 
             await Fenetre(w, () => new EditeurWindow(null), "12-editeur.png", d =>
                 ((EditeurWindow)d).TestColler("Mon chant collé\n\nC G Am F\nLigne une du chant\nLigne deux du chant\nLigne trois du chant\nLigne quatre du chant\nLigne cinq du chant\nLigne six du chant\nLigne sept\n\nRefrain :\nGloire à toi\nGloire à toi"));

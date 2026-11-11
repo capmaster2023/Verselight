@@ -9,6 +9,7 @@ namespace MyVerse.Ui.Audio;
 public sealed class ChurchAudioService : IDisposable
 {
     readonly ObsMixer mixer = new();
+    readonly CaptureEntrees entrees;
     readonly System.Windows.Threading.DispatcherTimer sauvegarde = new() { Interval = TimeSpan.FromMilliseconds(600) };
     readonly System.Windows.Threading.DispatcherTimer veille = new() { Interval = TimeSpan.FromMilliseconds(500) };
     string videoProjetee = "";
@@ -37,6 +38,7 @@ public sealed class ChurchAudioService : IDisposable
     {
         Config = config;
         Config.Normalize();
+        entrees = new CaptureEntrees(mixer.Pousser);
         Recorder = new(this);
         Sorties = new(this);
         sauvegarde.Tick += (_, _) => { sauvegarde.Stop(); try { App.Donnees.SauverReglages(); } catch (Exception e) { Journal.Erreur("réglages audio", e); } };
@@ -106,6 +108,9 @@ public sealed class ChurchAudioService : IDisposable
         try { mixer.Apply(coupees.Count == 0 ? Config : Config.AvecSourdines(coupees)); }
         catch (Exception e) { Diagnostic = "OBS : " + e.Message; Journal.Erreur("réglages audio OBS", e); }
         Sorties.Apply(Config.VirtualSounds);
+        // entrées séparées : MyChurch écoute la carte son et donne à chaque bande son canal
+        try { entrees.Apply(mixer.EntreesSeparees ? Config.Sources : Enumerable.Empty<AudioSource>()); }
+        catch (Exception e) { Journal.Erreur("entrées séparées", e); }
         Recorder.SuivrePistes();
         Changed?.Invoke();
     }
@@ -116,6 +121,14 @@ public sealed class ChurchAudioService : IDisposable
     public (float L, float R) Level(string id) => mixer.Level(id);
     public float TrackLevel(int piste) => mixer.TrackLevel(piste);
     public bool InputReady(string id) => mixer.Has(id);
+    /// <summary>Une bande peut écouter une seule entrée d'une carte son (moteur OBS démarré, type « entrée » accepté).</summary>
+    public bool EntreesSeparees => mixer.EntreesSeparees;
+    /// <summary>Cette bande est une entrée séparée dans OBS.</summary>
+    public bool EstEntree(string id) => mixer.EstEntree(id);
+    /// <summary>Nombre d'entrées d'un micro (0 s'il est absent).</summary>
+    public static int Entrees(string deviceId) => CaptureEntrees.Entrees(deviceId);
+    /// <summary>Problème d'écoute d'un périphérique (vide si tout va bien).</summary>
+    public string StatutEntrees(string deviceId) => entrees.Statut(deviceId);
     public void RestartMedia(AudioSource s) => mixer.RestartMedia(s.Id);
     internal void AddTrackConsumer(int piste, Action<float[]> c) => mixer.AddTrackConsumer(piste, c);
     internal void RemoveTrackConsumer(int piste, Action<float[]> c) => mixer.RemoveTrackConsumer(piste, c);
@@ -125,6 +138,7 @@ public sealed class ChurchAudioService : IDisposable
         sauvegarde.Stop(); veille.Stop();
         try { Sorties.Dispose(); } catch (Exception e) { Journal.Erreur("MyVirtualSound", e); }
         try { Recorder.Dispose(); } catch (Exception e) { Journal.Erreur("fin d'enregistrement", e); }
+        try { entrees.Dispose(); } catch (Exception e) { Journal.Erreur("entrées séparées", e); }
         try { mixer.Dispose(); } catch (Exception e) { Journal.Erreur("arrêt d'OBS", e); }
     }
 }

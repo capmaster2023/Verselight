@@ -96,7 +96,7 @@ public sealed class VirtualSound : IDisposable
                 {
                     // automatique : le câble virtuel installé (VB-CABLE, Virtual Audio Driver, Virtual Cables)
                     var cable = VbCable.Entree();
-                    if (cable == null) { Status = "Aucun câble audio virtuel : installez VB-CABLE dans Paramètres › MyVirtualSound, ou choisissez une sortie."; return; }
+                    if (cable == null) { Status = "Aucun câble audio virtuel : installez VB-CABLE dans Réglages › MyVirtualSound, ou choisissez une sortie."; return; }
                     peripherique = enumerateur.GetDevice(cable.Value.Id);
                 }
                 else peripherique = v.DeviceId == "default" ? enumerateur.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia) : enumerateur.GetDevice(v.DeviceId);

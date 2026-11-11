@@ -16,10 +16,10 @@ public partial class MainWindow
     readonly List<(Border Tuile, string Id, int I, Image? Vue, TextBlock Direct)> tuiles = new();
     readonly System.Windows.Threading.DispatcherTimer minuterieGrille = new() { Interval = TimeSpan.FromMilliseconds(350) };
 
-    static readonly Brush FondTuile = Fige(new SolidColorBrush(Color.FromRgb(0x17, 0x1A, 0x1F)));
-    static readonly Brush FondTuileSource = Fige(new SolidColorBrush(Color.FromRgb(0x27, 0x2D, 0x36)));
-    static readonly Brush TexteTuile = Fige(new SolidColorBrush(Color.FromRgb(0xC9, 0xCE, 0xD6)));
-    static Brush Fige(Brush b) { b.Freeze(); return b; }
+    // vignettes : fond de l'écran projeté (sombre dans les deux thèmes), couleurs de la palette
+    static Brush FondTuile => Pinceau("TuileFond");
+    static Brush FondTuileSource => Pinceau("TuileSource");
+    static Brush TexteTuile => Pinceau("TuileTexte");
 
     void InitGrille()
     {
@@ -40,9 +40,10 @@ public partial class MainWindow
     {
         e.Handled = true;
         if ((sender as FrameworkElement)?.DataContext is not Annonce a) return;
-        if (a.Grille) { Toast($"« {a.Titre} » est déjà dans la grille."); return; }
-        R.GrilleAnnonce(a.Id, true);
-        Toast($"« {a.Titre} » ajouté à la grille : un clic l'envoie en direct.");
+        // + : dans la grille ; ✓ : un clic l'en retire (la source reste dans la bibliothèque)
+        bool mettre = !a.Grille;
+        R.GrilleAnnonce(a.Id, mettre);
+        Toast(mettre ? $"« {a.Titre} » ajouté à la grille : un clic sur sa tuile l'envoie en direct." : $"« {a.Titre} » retiré de la grille (il reste dans la bibliothèque).");
     }
 
     void ModifierAnnonceListe_Click(object sender, RoutedEventArgs e)
@@ -153,10 +154,10 @@ public partial class MainWindow
         DockPanel.SetDock(bas, Dock.Bottom);
         pile.Children.Add(bas);
         // la vignette sombre remplit le haut de la tuile (coins arrondis en haut seulement), le nom est dessous sur fond blanc
-        pile.Children.Add(new Border { Height = 124, CornerRadius = new CornerRadius(10, 10, 0, 0), ClipToBounds = true, Child = vue });
+        pile.Children.Add(new Border { Height = 120, CornerRadius = new CornerRadius(10, 10, 0, 0), ClipToBounds = true, Child = vue });
         var tuile = new Border
         {
-            Width = 236, Margin = new Thickness(0, 0, 14, 14), Padding = new Thickness(0), CornerRadius = new CornerRadius(12), Cursor = Cursors.Hand,
+            Width = 214, Margin = new Thickness(0, 0, 14, 14), Padding = new Thickness(0), CornerRadius = new CornerRadius(12), Cursor = Cursors.Hand,
             Background = Pinceau("Encre"), BorderBrush = Pinceau("Nuit3"), BorderThickness = new Thickness(1.5), Child = pile,
             ToolTip = "Clic : en direct · clic droit : modifier, retirer",
         };

@@ -1,18 +1,20 @@
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 
 namespace MyVerse.Ui;
 
-/// <summary>Paramètres : audio (moteur OBS, MyVirtualSound, enregistrement), code source et licences, mise à jour (GitHub Releases), transfert et journal d'erreurs.</summary>
-public partial class OutilsWindow : FenetreDialogue
+/// <summary>Réglages : mise à jour (GitHub Releases), transfert vers un autre ordinateur et journal d'erreurs. Dans la page Réglages (3.1) et dans la fenêtre Paramètres.</summary>
+public partial class OutilsPanel : UserControl
 {
     MiseAJour.Resultat? maj;
+    Window? Fenetre => Window.GetWindow(this) ?? Application.Current.MainWindow;
+    void Toast(string t) => (Application.Current.MainWindow as MainWindow)?.Toast(t);
 
-    public OutilsWindow(bool chercher)
+    public OutilsPanel()
     {
         InitializeComponent();
-        AudioSections.Content = new Audio.AudioSettingsPanel();
         maj = (Application.Current.MainWindow as MainWindow)?.MiseAJourDisponible;
         MajEtat.Text = "Version installée : " + App.Version + (maj != null ? " · nouvelle version " + maj.Version + " disponible" : "");
         Installer.Visibility = maj != null ? Visibility.Visible : Visibility.Collapsed;
@@ -25,13 +27,13 @@ public partial class OutilsWindow : FenetreDialogue
         {
             RemplirJournal();
             try { Clipboard.SetText(JournalTexte.Text); } catch (Exception) { }
-            (Owner as MainWindow)?.Toast("Journal copié : collez-le dans votre message.");
+            Toast("Journal copié : collez-le dans votre message.");
         };
         Vider.Click += (_, _) =>
         {
             Journal.Vider();
             RemplirJournal();
-            (Owner as MainWindow)?.Toast("Journal vidé.");
+            Toast("Journal vidé.");
         };
         Dossier.Click += (_, _) =>
         {
@@ -42,9 +44,30 @@ public partial class OutilsWindow : FenetreDialogue
         ExporterChants.Click += (_, _) => Exporter(true, false);
         ExporterTout.Click += (_, _) => Exporter(true, true);
         ImporterFichier.Click += (_, _) => ImporterTransfert();
-        Fermer.Click += (_, _) => Close();
-        if (chercher) Loaded += async (_, _) => await Chercher();
+        IsVisibleChanged += (_, _) => { if (IsVisible) RemplirJournal(); };
     }
+
+    /// <summary>Sort les trois sections de ce panneau (page Réglages : chacune a sa place dans le sommaire). Leurs boutons gardent leurs actions.</summary>
+    public void Children_Retirer(out Border sectionMaj, out Border sectionTransfert, out Border sectionJournal)
+    {
+        if (Content is Panel p) p.Children.Clear();
+        (sectionMaj, sectionTransfert, sectionJournal) = (SectionMaj, SectionTransfert, SectionJournal);
+    }
+
+    /// <summary>La page Réglages s'affiche : journal à jour, et la mise à jour trouvée au démarrage (si elle est arrivée depuis).</summary>
+    public void MajJournal()
+    {
+        RemplirJournal();
+        if (maj == null && (Application.Current.MainWindow as MainWindow)?.MiseAJourDisponible is { } m)
+        {
+            maj = m;
+            MajEtat.Text = "Version installée : " + App.Version + " · nouvelle version " + m.Version + " disponible";
+            Installer.Visibility = Visibility.Visible;
+        }
+    }
+
+    /// <summary>Rechercher une mise à jour tout de suite (bouton de version, fenêtre Paramètres).</summary>
+    public async Task ChercherMaintenant() => await Chercher();
 
     void RemplirJournal()
     {
@@ -132,7 +155,7 @@ public partial class OutilsWindow : FenetreDialogue
         int nbBibles = App.Donnees.Reglages.Bibles.Importees.Count, nbChants = App.Donnees.Chants.Count;
         if ((!chants || nbChants == 0) && (!bibles || nbBibles == 0))
         {
-            Dialogue.Informer(this, bibles && !chants
+            Dialogue.Informer(Fenetre, bibles && !chants
                 ? "Aucune Bible importée à exporter : LSG et KJV sont déjà dans chaque MyChurch."
                 : "Aucun chant à exporter.");
             return;
@@ -146,16 +169,16 @@ public partial class OutilsWindow : FenetreDialogue
             Filter = $"Fichier MyChurch (*{Transfert.Extension})|*{Transfert.Extension}",
             InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
         };
-        if (dlg.ShowDialog(this) != true) return;
+        if ((Fenetre != null ? dlg.ShowDialog(Fenetre) : dlg.ShowDialog()) != true) return;
         try
         {
             var m = Patienter(() => Transfert.Exporter(dlg.FileName, App.Donnees, chants, bibles, App.Version));
-            Dialogue.Informer(this, $"Exporté : {Contenu(m)}.\n\nFichier : {dlg.FileName}\n\nSur l'autre ordinateur : Paramètres → Importer un fichier MyChurch.");
+            Dialogue.Informer(Fenetre, $"Exporté : {Contenu(m)}.\n\nFichier : {dlg.FileName}\n\nSur l'autre ordinateur : Réglages › Transfert › Importer un fichier MyChurch.");
         }
         catch (Exception x)
         {
             Journal.Erreur("export MyVerse", x);
-            Dialogue.Informer(this, "L'export n'a pas pu se faire : " + x.Message);
+            Dialogue.Informer(Fenetre, "L'export n'a pas pu se faire : " + x.Message);
         }
     }
 
@@ -166,18 +189,18 @@ public partial class OutilsWindow : FenetreDialogue
             Title = "Importer un fichier MyVerse",
             Filter = $"Fichier MyChurch (*{Transfert.Extension};*.zip)|*{Transfert.Extension};*.zip",
         };
-        if (dlg.ShowDialog(this) != true) return;
+        if ((Fenetre != null ? dlg.ShowDialog(Fenetre) : dlg.ShowDialog()) != true) return;
         Transfert.Manifeste m;
         try { m = Transfert.Lire(dlg.FileName); }
         catch (Exception x)
         {
             Journal.Erreur("import MyVerse", x);
-            Dialogue.Informer(this, "Ce fichier n'est pas un export MyChurch. Sur l'autre ordinateur : Paramètres → Exporter.");
+            Dialogue.Informer(Fenetre, "Ce fichier n'est pas un export MyChurch. Sur l'autre ordinateur : Réglages › Transfert › Exporter.");
             return;
         }
         var contenu = Contenu(m);
-        if (contenu.Length == 0) { Dialogue.Informer(this, "Ce fichier MyChurch est vide."); return; }
-        if (!Dialogue.Confirmer(this, $"Importer {contenu} ?" +
+        if (contenu.Length == 0) { Dialogue.Informer(Fenetre, "Ce fichier MyChurch est vide."); return; }
+        if (!Dialogue.Confirmer(Fenetre, $"Importer {contenu} ?" +
                 (m.Chants > 0 ? "\n\nUn chant qui existe déjà (même recueil, même titre) est remplacé par celui du fichier ; rien n'est mis en double." : ""),
                 "Importer")) return;
         try
@@ -190,12 +213,12 @@ public partial class OutilsWindow : FenetreDialogue
             if (m.Bibles.Count > 0)
                 lignes.Add($"{b.BiblesAjoutees} Bible{(b.BiblesAjoutees > 1 ? "s" : "")} ajoutée{(b.BiblesAjoutees > 1 ? "s" : "")}" +
                            (b.BiblesPresentes > 0 ? $", {b.BiblesPresentes} déjà là" : ""));
-            Dialogue.Informer(this, "Import terminé :\n" + string.Join("\n", lignes));
+            Dialogue.Informer(Fenetre, "Import terminé :\n" + string.Join("\n", lignes));
         }
         catch (Exception x)
         {
             Journal.Erreur("import MyVerse", x);
-            Dialogue.Informer(this, "L'import n'a pas pu se faire : " + x.Message);
+            Dialogue.Informer(Fenetre, "L'import n'a pas pu se faire : " + x.Message);
         }
     }
 }

@@ -186,6 +186,7 @@ public partial class MainWindow
         int n = Math.Max(i + 1, faits);
         AgendaProgres.Text = l.Count == 0 ? "" : $"{n} / {l.Count}";
         AgendaBarre.Width = l.Count > 0 ? Math.Max(0, AgendaPiste.ActualWidth * n / l.Count) : 0;
+        MajEntete();
     }
 
     void ChoisirElement(ElementAgenda? e)
@@ -213,7 +214,7 @@ public partial class MainWindow
         ElemModifier.Visibility = e != null && e.Type is "texte" or "chant" or "compte" ? Visibility.Visible : Visibility.Collapsed;
         if (e == null)
         {
-            ElemType.Text = R.Agenda.Elements.Count > 0 ? "DÉROULÉ DU CULTE" : "POUR COMMENCER";
+            ElemType.Text = Capitales.Espacer(R.Agenda.Elements.Count > 0 ? "Déroulé du culte" : "Pour commencer");
             ElemTitre.Text = R.Agenda.Elements.Count > 0 ? "Choisissez un élément à gauche" : "Préparez le culte";
             if (R.Agenda.Elements.Count == 0)
                 Diapos.Children.Add(new TextBlock
@@ -226,7 +227,7 @@ public partial class MainWindow
             return;
         }
         int etape = R.Agenda.Elements.IndexOf(e) + 1;
-        ElemType.Text = $"ÉTAPE {etape} · {TypeLib(e).ToUpperInvariant()}";
+        ElemType.Text = Capitales.Espacer($"Étape {etape} · {TypeLib(e)}");
         ElemTitre.Text = e.Type == "chant" && R.Trouver(e.ChantId) is { } c ? c.Title : e.Titre;
         if (e.Type == "bible")
         {
@@ -235,7 +236,7 @@ public partial class MainWindow
             if (parts.Length > 1) ElemVersions.Children.Add(Puce("+ " + parts[1] + " en dessous", false));
         }
         var d = R.Diapos(e);
-        for (int i = 0; i < d.Count; i++) Diapos.Children.Add(Carte(e, d[i], i, pos == i));
+        for (int i = 0; i < d.Count; i++) Diapos.Children.Add(Carte(e, d[i], i, pos == i, pos + 1 == i));
         if (d.Count == 0)
             Diapos.Children.Add(new TextBlock { Text = e.Type == "chant" ? "Ce chant n'existe plus dans MyChurch." : "Rien à afficher dans cette Bible.", Style = Style_("Muet"), FontSize = 15, Margin = new Thickness(4) });
         if (versHaut) DefilDiapos.ScrollToTop();
@@ -251,70 +252,52 @@ public partial class MainWindow
         Child = new TextBlock { Text = texte, FontSize = 12, FontWeight = FontWeights.Bold, Foreground = pleine ? Pinceau("Encre") : Pinceau("Blanc") },
     };
 
-    /// <summary>Une carte : verset (numéro, texte en Literata, 2e version dessous), strophe, display ou compte à rebours.</summary>
-    Border Carte(ElementAgenda e, DiapoAgenda d, int i, bool direct)
+    /// <summary>
+    /// Une diapositive de l'élément choisi (maquette 3.1) : en haut « ● À L'ÉCRAN » (rouge), « SUIVANT » (ambre) ou son nom,
+    /// et son numéro ; dessous le texte (verset, avec la 2e version en plus petit), la strophe, le texte Display ou le compte à rebours.
+    /// </summary>
+    Border Carte(ElementAgenda e, DiapoAgenda d, int i, bool direct, bool suivante)
     {
-        var g = new Grid();
-        UIElement droite = direct
-            ? new TextBlock { Text = "À L'ÉCRAN", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = Pinceau("Direct"), VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(10, 2, 0, 0) }
-            : i < 9 ? new Border { Style = Style_("Touche"), VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(10, 0, 0, 0), Child = new TextBlock { Text = (i + 1).ToString(), FontSize = 11, FontWeight = FontWeights.Bold, Foreground = Pinceau("Brume") } }
-            : new Border();
+        var pile = new StackPanel();
+        var tete = new DockPanel { Margin = new Thickness(0, 0, 0, 10) };
+        string numero = e.Type == "bible" && d.Cible is CibleVerset cn ? cn.V1.ToString() : (i + 1).ToString();
+        var num = new TextBlock { Text = numero, FontFamily = (FontFamily)FindResource("Mono"), FontSize = 12, FontWeight = FontWeights.SemiBold, Foreground = Pinceau("Brume2"), VerticalAlignment = VerticalAlignment.Center };
+        if (i < 9 && !direct) num.ToolTip = $"Touche {i + 1}";
+        DockPanel.SetDock(num, Dock.Right);
+        tete.Children.Add(num);
+        string etat = direct ? "● À l'écran" : suivante ? "Suivant" : e.Type == "compte" ? "Compte à rebours" : e.Type == "bible" ? "" : d.Label;
+        tete.Children.Add(new Capitales { Libelle = etat, Foreground = Pinceau(direct ? "Direct" : suivante ? "Or" : "Brume"), Margin = new Thickness(0), TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center });
+        pile.Children.Add(tete);
         if (e.Type == "bible" && d.Cible is CibleVerset cv)
         {
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
-            g.ColumnDefinitions.Add(new ColumnDefinition());
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            g.Children.Add(new Border
-            {
-                Width = 40, Height = 40, CornerRadius = new CornerRadius(12), VerticalAlignment = VerticalAlignment.Top, Background = Pinceau(direct ? "OrVif" : "Nuit2"),
-                Child = new TextBlock { Text = cv.V1.ToString(), FontWeight = FontWeights.Bold, FontSize = 15, Foreground = Pinceau(direct ? "SurOr" : "Encre2"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
-            });
-            var txt = new StackPanel();
-            txt.Children.Add(new TextBlock { Text = d.Texte, FontFamily = (FontFamily)FindResource("UiTitre"), FontSize = 18.5, LineHeight = 28, TextWrapping = TextWrapping.Wrap, Foreground = Pinceau("Blanc") });
+            pile.Children.Add(new TextBlock { Text = d.Texte, FontSize = 16, LineHeight = 24, TextWrapping = TextWrapping.Wrap, Foreground = Pinceau("Blanc") });
             var t2 = cv.Parts <= 1 && VB.Seconde != null ? VB.Texte2(cv.B, cv.C, cv.V1, cv.V1) : "";
-            if (t2.Length > 0) txt.Children.Add(new TextBlock { Text = t2, FontSize = 14, LineHeight = 21, TextWrapping = TextWrapping.Wrap, Foreground = Pinceau("Brume"), Margin = new Thickness(0, 8, 0, 0) });
-            if (cv.Parts > 1) txt.Children.Add(new TextBlock { Text = d.Label, FontSize = 12, Foreground = Pinceau("Brume"), Margin = new Thickness(0, 6, 0, 0) });
-            Grid.SetColumn(txt, 2);
-            g.Children.Add(txt);
-            Grid.SetColumn(droite, 3);
-            g.Children.Add(droite);
+            if (t2.Length > 0) pile.Children.Add(new TextBlock { Text = t2, FontSize = 13, LineHeight = 19, TextWrapping = TextWrapping.Wrap, Foreground = Pinceau("Brume"), Margin = new Thickness(0, 10, 0, 0) });
+            if (cv.Parts > 1) pile.Children.Add(new TextBlock { Text = d.Label, FontSize = 12, Foreground = Pinceau("Brume"), Margin = new Thickness(0, 6, 0, 0) });
         }
-        else
+        else if (e.Type == "compte")
         {
-            g.ColumnDefinitions.Add(new ColumnDefinition());
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            var txt = new StackPanel();
-            txt.Children.Add(new TextBlock { Text = e.Type == "compte" ? "Compte à rebours d'accueil" : d.Label, FontSize = 12, FontWeight = FontWeights.Bold, Foreground = Pinceau("Or"), TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 0, 0, 6) });
-            if (e.Type == "compte")
-            {
-                var l = d.Texte.Split('\n');
-                txt.Children.Add(new TextBlock { Text = l[0], FontSize = 16, Foreground = Pinceau("Encre2") });
-                txt.Children.Add(new TextBlock { Text = direct && R.Etat.Lignes.Count > 1 ? R.Etat.Lignes[1] : l.Length > 1 ? l[1] : "", FontFamily = (FontFamily)FindResource("UiTitre"), FontSize = 44, FontWeight = FontWeights.SemiBold });
-            }
-            else txt.Children.Add(new TextBlock { Text = d.Texte, FontSize = 15, LineHeight = 21, TextWrapping = TextWrapping.Wrap, Foreground = Pinceau("Blanc"), MaxHeight = 260, TextTrimming = TextTrimming.CharacterEllipsis });
-            g.Children.Add(txt);
-            Grid.SetColumn(droite, 1);
-            g.Children.Add(droite);
+            var l = d.Texte.Split('\n');
+            pile.Children.Add(new TextBlock { Text = l[0], FontSize = 14, Foreground = Pinceau("Encre2") });
+            pile.Children.Add(new TextBlock { Text = direct && R.Etat.Lignes.Count > 1 ? R.Etat.Lignes[1] : l.Length > 1 ? l[1] : "", FontFamily = (FontFamily)FindResource("Grotesk"), FontSize = 40, FontWeight = FontWeights.Bold });
         }
+        else pile.Children.Add(new TextBlock { Text = d.Texte, FontSize = 15, LineHeight = 22, TextWrapping = TextWrapping.Wrap, Foreground = Pinceau("Blanc"), MaxHeight = 260, TextTrimming = TextTrimming.CharacterEllipsis });
         var carte = new Border
         {
-            Background = Pinceau("Encre"), BorderBrush = Pinceau(direct ? "OrVif" : "Nuit3"), BorderThickness = new Thickness(direct ? 2 : 1),
-            CornerRadius = new CornerRadius(18), Padding = new Thickness(18, 14, 16, 14), Margin = new Thickness(0, 0, 12, 12), Cursor = Cursors.Hand, Child = g, Tag = i,
+            Background = Pinceau("Encre"), BorderBrush = Pinceau(direct ? "Direct" : "Nuit3"), BorderThickness = new Thickness(direct ? 1.5 : 1),
+            CornerRadius = new CornerRadius(16), Padding = new Thickness(16, 14, 16, 16), Margin = new Thickness(0, 0, 12, 12), Cursor = Cursors.Hand, Child = pile, Tag = i,
             ToolTip = "Clic : afficher",
         };
-        if (direct) carte.Effect = new DropShadowEffect { Color = Color.FromRgb(0x1F, 0x3F, 0xCB), Opacity = 0.14, BlurRadius = 16, ShadowDepth = 4, Direction = 270 };
         carte.MouseLeftButtonDown += (_, _) => R.AfficherElement(e, i);
         return carte;
     }
 
-    /// <summary>Versets : une carte par ligne ; strophes et displays : autant de colonnes que la largeur le permet.</summary>
+    /// <summary>Les diapositives en colonnes d'au moins 190 px (deux versets côte à côte, comme la maquette) ; le compte à rebours sur toute la largeur.</summary>
     void LargeurDiapos()
     {
         double w = DefilDiapos.ActualWidth - 8;
         if (w <= 0) return;
-        bool ligne = elementChoisi?.Type is "bible" or "compte";
-        int cols = ligne ? 1 : Math.Max(1, (int)((w + 12) / 270));
+        int cols = elementChoisi?.Type == "compte" ? 1 : Math.Max(1, (int)((w + 12) / 202));
         double l = Math.Floor((w + 12) / cols) - 12;
         foreach (var c in Diapos.Children.OfType<Border>()) c.Width = l;
     }
@@ -711,6 +694,7 @@ public partial class MainWindow
         AnnoncesVide.Visibility = l.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         AnnonceSupprimer.IsEnabled = annonceChoisie != null;
         GrilleMaj();
+        MajEntete();
     }
 
     /// <summary>Enregistre ce qui est tapé (crée le display au besoin). Null si tout est vide.</summary>

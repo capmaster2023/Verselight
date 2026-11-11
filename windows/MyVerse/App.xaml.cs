@@ -6,7 +6,7 @@ namespace MyVerse.Ui;
 /// <summary>MyVerse 4.0 : démarrage, une seule copie à la fois, services (Bibles, régie, téléphone, OBS).</summary>
 public partial class App : Application
 {
-    /// <summary>La version compilée (fichier VERSION du dépôt, « 3.0.1 »), sans le numéro de commit ajouté par la compilation.</summary>
+    /// <summary>La version compilée (fichier VERSION du dépôt, « 3.1.0 »), sans le numéro de commit ajouté par la compilation.</summary>
     public static string Version { get; } = LireVersion();
     static string LireVersion()
     {
@@ -101,7 +101,7 @@ public partial class App : Application
             Journal.Erreur("erreur", ev.Exception);
             ev.Handled = true;
             if (AutoTest != null) Ui.AutoTest.Echec("exception : " + ev.Exception);
-            else if (MainWindow is MainWindow mw) mw.Toast("Erreur : " + ev.Exception.Message + " (détails dans Paramètres › Journal d'erreurs)");
+            else if (MainWindow is MainWindow mw) mw.Toast("Erreur : " + ev.Exception.Message + " (détails dans Réglages › Journal)");
         };
         AppDomain.CurrentDomain.UnhandledException += (_, ev) =>
         {

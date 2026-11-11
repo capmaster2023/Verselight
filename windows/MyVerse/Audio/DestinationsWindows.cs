@@ -339,7 +339,7 @@ public sealed class SortieWindow : FenetreDestination
         Corps.Children.Add(peripherique);
         Corps.Children.Add(Note(cable is { } trouve
             ? $"Câble détecté : {trouve.Nom}. Dans Zoom, choisissez « CABLE Output » comme microphone."
-            : "Aucun câble audio virtuel détecté : installez VB-CABLE dans Paramètres › MyVirtualSound (sur clic), ou choisissez une sortie."));
+            : "Aucun câble audio virtuel détecté : installez VB-CABLE dans Réglages › MyVirtualSound (sur clic), ou choisissez une sortie."));
 
         Corps.Children.Add(Libelle("SOURCES ENVOYÉES"));
         audio = SourcesAudio(v?.SourceIds ?? new List<string>());

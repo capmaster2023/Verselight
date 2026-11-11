@@ -32,11 +32,17 @@ public sealed class AudioSettingsPanel : StackPanel
 
     public AudioSettingsPanel()
     {
-        Children.Add(SectionPeripheriques());
-        Children.Add(SectionVirtualSound());
-        Children.Add(SectionEnregistrement());
-        Children.Add(SectionCodeSource());
+        Children.Add(Peripheriques = SectionPeripheriques());
+        Children.Add(VirtualSound = SectionVirtualSound());
+        Children.Add(Enregistrements = SectionEnregistrement());
+        Children.Add(Licences = SectionCodeSource());
     }
+
+    /// <summary>Les sections, pour le sommaire de la page Réglages.</summary>
+    public Border Peripheriques { get; }
+    public Border VirtualSound { get; }
+    public Border Enregistrements { get; }
+    public Border Licences { get; }
 
     // ------------------------------------------------------------ petits outils de mise en page
     static (Border Cadre, StackPanel Corps) Section(string titre, string? sousTitre = null)

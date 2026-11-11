@@ -3,11 +3,13 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:MyVerse.Ui"
         Title="MyChurch" Icon="/myverse.ico"
-        Width="1440" Height="900" MinWidth="1000" MinHeight="640"
+        Width="1440" Height="900" MinWidth="1100" MinHeight="660"
         Background="{StaticResource Page}" Foreground="{StaticResource Blanc}"
         FontFamily="{StaticResource Ui}" FontSize="15"
         UseLayoutRounding="True" TextOptions.TextFormattingMode="Ideal"
         WindowStartupLocation="CenterScreen">
+    <!-- MyChurch 3.1 : barre de pages à gauche, en-tête de page, colonnes de travail, l'écran en direct
+         (au centre sur la page Culte, à droite ailleurs : un seul panneau, déplacé par MontrerOnglet) -->
     <Window.Resources>
         <Style x:Key="LigneVerset" TargetType="Border">
             <Setter Property="Padding" Value="12,9" />
@@ -55,102 +57,118 @@
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
-        <!-- une ligne du déroulé : heure, icône du type (coche si fait), titre ; « EN COURS » en pilule -->
+        <!-- une ligne du déroulé : heure, titre, sous-titre ; « EN COURS » en ambre ; grisée quand elle est passée -->
         <DataTemplate x:Key="ModeleAgenda">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="48" />
-                    <ColumnDefinition Width="42" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock x:Name="Heure" Text="{Binding Heure}" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource Brume}" VerticalAlignment="Center" />
-                <Border x:Name="Pastille" Grid.Column="1" Width="30" Height="30" CornerRadius="9" Background="{StaticResource Nuit2}" HorizontalAlignment="Left" VerticalAlignment="Center">
-                    <Path x:Name="Icone" Data="{Binding Icone}" Stroke="{StaticResource Brume}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                          Width="15" Height="15" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Border>
-                <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                    <TextBlock x:Name="Titre" Text="{Binding Titre}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Foreground="{StaticResource Blanc}" />
-                    <TextBlock x:Name="Sous" Text="{Binding Sous}" FontSize="12" Foreground="{StaticResource Brume}" TextTrimming="CharacterEllipsis" />
-                </StackPanel>
-                <Border x:Name="EnCours" Grid.Column="3" CornerRadius="10" Background="{StaticResource Blanc}" Padding="8,2" VerticalAlignment="Center" Margin="8,0,0,0" Visibility="Collapsed">
-                    <TextBlock Text="EN COURS" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Encre}" />
-                </Border>
-            </Grid>
+            <Border x:Name="Cadre" BorderThickness="1.5" BorderBrush="Transparent" CornerRadius="12" Padding="12,10" Margin="-12,-9">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="54" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="Heure" Text="{Binding Heure}" FontFamily="{StaticResource Mono}" FontSize="12.5" Foreground="{StaticResource Brume2}" VerticalAlignment="Top" Margin="0,2,0,0" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock x:Name="Titre" Text="{Binding Titre}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Foreground="{StaticResource Blanc}" />
+                        <TextBlock x:Name="Sous" Text="{Binding Sous}" FontSize="12.5" Foreground="{StaticResource Brume}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                    </StackPanel>
+                    <Border x:Name="EnCours" Grid.Column="2" CornerRadius="6" Background="{StaticResource OrVif}" Padding="7,3" VerticalAlignment="Center" Margin="8,0,0,0" Visibility="Collapsed">
+                        <TextBlock Text="EN COURS" FontSize="10" FontWeight="Bold" Foreground="{StaticResource SurOr}" />
+                    </Border>
+                </Grid>
+            </Border>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding Fait}" Value="True">
-                    <Setter TargetName="Pastille" Property="Background" Value="#EAF4EA" />
-                    <Setter TargetName="Icone" Property="Stroke" Value="#2F6B3A" />
-                    <Setter TargetName="Titre" Property="Foreground" Value="{StaticResource Encre2}" />
+                    <Setter TargetName="Titre" Property="Foreground" Value="{StaticResource Brume2}" />
+                    <Setter TargetName="Sous" Property="Foreground" Value="{StaticResource Brume2}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding EnCours}" Value="True">
-                    <Setter TargetName="Pastille" Property="Background" Value="{StaticResource OrVif}" />
-                    <Setter TargetName="Icone" Property="Stroke" Value="{StaticResource SurOr}" />
+                    <Setter TargetName="Cadre" Property="Background" Value="{StaticResource OrLeger}" />
+                    <Setter TargetName="Cadre" Property="BorderBrush" Value="{StaticResource OrVif}" />
                     <Setter TargetName="Heure" Property="Foreground" Value="{StaticResource Or}" />
                     <Setter TargetName="Heure" Property="FontWeight" Value="Bold" />
                     <Setter TargetName="Titre" Property="Foreground" Value="{StaticResource Blanc}" />
-                    <Setter TargetName="Titre" Property="FontWeight" Value="Bold" />
                     <Setter TargetName="Sous" Property="Foreground" Value="{StaticResource Encre2}" />
                     <Setter TargetName="EnCours" Property="Visibility" Value="Visible" />
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
-        <!-- une display de la bibliothèque -->
+        <!-- une source de la bibliothèque Display : titre, description, et « + » (✓ quand elle est dans la grille) -->
         <DataTemplate x:Key="ModeleAnnonce">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <Button Style="{StaticResource BtnAjout}" Width="34" Height="34" Click="GrilleAnnonceListe_Click" Margin="0,0,12,0" VerticalAlignment="Center" ToolTip="Ajouter à la grille (un clic dans la grille = en direct)" />
-                <Button Grid.Column="2" Style="{StaticResource Btn}" Click="ModifierAnnonceListe_Click" Content="Modifier" FontSize="13.5" Padding="12,6" Margin="8,0,0,0" VerticalAlignment="Center" ToolTip="Modifier le titre ou le texte" />
-                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding Titre}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" MaxHeight="40" TextTrimming="CharacterEllipsis" Foreground="{StaticResource Blanc}" />
-                    <TextBlock Text="{Binding Description}" FontSize="13" MaxHeight="18" Foreground="{StaticResource Brume}" TextTrimming="CharacterEllipsis" Margin="0,1,0,0" />
+                <StackPanel VerticalAlignment="Center" Margin="0,0,10,0">
+                    <TextBlock Text="{Binding Titre}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Foreground="{StaticResource Blanc}" />
+                    <TextBlock Text="{Binding Description}" FontSize="12.5" MaxHeight="18" Foreground="{StaticResource Brume}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
                 </StackPanel>
+                <Button x:Name="Grille" Grid.Column="1" Style="{StaticResource BtnGrille}" Click="GrilleAnnonceListe_Click" VerticalAlignment="Center" ToolTip="Ajouter à la grille (un clic dans la grille = en direct)">
+                    <Path x:Name="Signe" Data="{StaticResource IconePlus}" Stroke="{StaticResource Or}" StrokeThickness="2.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                          StrokeLineJoin="Round" Width="13" Height="13" Stretch="Uniform" />
+                </Button>
             </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Grille}" Value="True">
+                    <Setter TargetName="Signe" Property="Data" Value="{StaticResource IconeCoche}" />
+                    <Setter TargetName="Signe" Property="Width" Value="15" />
+                    <Setter TargetName="Grille" Property="Background" Value="{StaticResource OrLeger}" />
+                    <Setter TargetName="Grille" Property="BorderBrush" Value="{StaticResource OrVif}" />
+                    <Setter TargetName="Grille" Property="ToolTip" Value="Dans la grille · cliquer pour l'en retirer" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
         </DataTemplate>
     </Window.Resources>
 
     <Grid>
-        <DockPanel>
-            <!-- ==================== barre du haut ==================== -->
-            <Border DockPanel.Dock="Top" Background="{StaticResource Nuit}" BorderBrush="{StaticResource Nuit3}" BorderThickness="0,0,0,1" Padding="22,12">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="88" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ==================== barre des pages ==================== -->
+        <Border Background="{StaticResource Rail}" BorderBrush="{StaticResource Nuit3}" BorderThickness="0,0,1,0">
+            <DockPanel Margin="0,16,0,14">
+                <StackPanel DockPanel.Dock="Top">
+                    <Border Width="46" Height="46" CornerRadius="13" Background="{StaticResource OrVif}" HorizontalAlignment="Center" ToolTip="MyChurch">
+                        <TextBlock Text="M" FontFamily="{StaticResource Grotesk}" FontSize="23" FontWeight="Bold" Foreground="{StaticResource SurOr}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <Border x:Name="VersionPastille" Margin="0,6,0,14" HorizontalAlignment="Center">
+                        <Button x:Name="VersionBtn" Style="{StaticResource BtnPlat}" Padding="6,2" FontSize="11" Foreground="{StaticResource Brume2}" ToolTip="Vérifier les mises à jour" Content="v3" HorizontalContentAlignment="Center" />
+                    </Border>
+                    <RadioButton x:Name="OngletAgenda" Style="{StaticResource Rail}" GroupName="Pages" Content="Culte" Tag="{StaticResource IconeCulte}" ToolTip="Le déroulé du culte (Ctrl K pour chercher)" />
+                    <RadioButton x:Name="OngletBible" Style="{StaticResource Rail}" GroupName="Pages" Content="Bible" Tag="{StaticResource IconeBible}" IsChecked="True" />
+                    <RadioButton x:Name="OngletChants" Style="{StaticResource Rail}" GroupName="Pages" Content="Chants" Tag="{StaticResource IconeChants}" />
+                    <RadioButton x:Name="OngletAnnonces" Style="{StaticResource Rail}" GroupName="Pages" Content="Display" Tag="{StaticResource IconeDisplay}" />
+                    <RadioButton x:Name="OngletDuo" Style="{StaticResource Rail}" GroupName="Pages" Content="Duo" Tag="{StaticResource IconeDuo}" />
+                </StackPanel>
+                <RadioButton x:Name="OngletReglages" DockPanel.Dock="Bottom" Style="{StaticResource Rail}" GroupName="Pages" Content="Réglages" Tag="{StaticResource IconeReglages}" VerticalAlignment="Bottom"
+                             ToolTip="Apparence, audio, MyVirtualSound, enregistrements, projection, mise à jour, journal, licences" />
+                <Border />
+            </DockPanel>
+        </Border>
+
+        <DockPanel Grid.Column="1">
+            <!-- ==================== en-tête de page ==================== -->
+            <Border DockPanel.Dock="Top" Height="72" BorderBrush="{StaticResource Nuit3}" BorderThickness="0,0,0,1" Padding="26,0,22,0">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Border Width="40" Height="40" CornerRadius="10" Background="{StaticResource Blanc}" VerticalAlignment="Center">
-                            <TextBlock Text="M" FontSize="20" FontWeight="Bold" Foreground="{StaticResource Encre}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,1" />
-                        </Border>
-                        <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                            <TextBlock Text="MyChurch" FontWeight="Bold" FontSize="20" Foreground="{StaticResource Blanc}" />
-                            <Border x:Name="VersionPastille">
-                                <TextBlock x:Name="SousTitre" Text="version" FontSize="12.5" Foreground="{StaticResource Brume}" Margin="0,-1,0,0" />
-                            </Border>
-                        </StackPanel>
-                        <Button x:Name="VersionBtn" Style="{StaticResource BtnPlat}" Padding="6,2" Margin="4,2,0,0" FontSize="12" Foreground="{StaticResource Brume}" ToolTip="Vérifier les mises à jour" Content="v5" Visibility="Collapsed" />
-                        <Button x:Name="MajBtn" Style="{StaticResource BtnPetitOr}" Margin="8,0,0,0" Visibility="Collapsed" Content="Mettre à jour" />
+                        <TextBlock x:Name="TitrePage" Style="{StaticResource TitrePage}" VerticalAlignment="Center" Text="Bible" />
+                        <TextBlock x:Name="AgendaTitre" Style="{StaticResource TitrePage}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="460" Visibility="Collapsed" />
+                        <Button x:Name="AgendaMenu" Style="{StaticResource BtnPlat}" Padding="8,8" Margin="6,0,0,0" VerticalAlignment="Center" Visibility="Collapsed" ToolTip="Changer de culte, nouveau, renommer, supprimer">
+                            <Path Data="M0,0 L5,5 L10,0" Stroke="{StaticResource Brume}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+                        </Button>
+                        <TextBlock x:Name="SousTitre" FontFamily="{StaticResource Mono}" FontSize="13" Foreground="{StaticResource Brume}" VerticalAlignment="Center" Margin="14,2,0,0" />
                     </StackPanel>
 
-                    <Border Grid.Column="1" Background="{StaticResource Page}" CornerRadius="14" Padding="4" Margin="24,0,0,0" VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal">
-                            <RadioButton x:Name="OngletAgenda" Style="{StaticResource Onglet}" GroupName="Onglets" Content="Culte" ToolTip="Le déroulé du culte (Ctrl K pour chercher)" />
-                            <RadioButton x:Name="OngletBible" Style="{StaticResource Onglet}" GroupName="Onglets" IsChecked="True" Content="Bible" Margin="2,0,0,0" />
-                            <RadioButton x:Name="OngletChants" Style="{StaticResource Onglet}" GroupName="Onglets" Content="Chants" Margin="2,0,0,0" />
-                            <RadioButton x:Name="OngletAnnonces" Style="{StaticResource Onglet}" GroupName="Onglets" Content="Display" Margin="2,0,0,0" />
-                            <RadioButton x:Name="OngletDuo" Style="{StaticResource Onglet}" GroupName="Onglets" Content="Duo" Margin="2,0,0,0" />
-                        </StackPanel>
-                    </Border>
-
-                    <!-- recherche : culte (versets et chants, Ctrl K), Bible ou chants selon l'onglet -->
-                    <Grid Grid.Column="2" Margin="20,0" MaxWidth="720" HorizontalAlignment="Stretch">
-                        <Border x:Name="RechercheCulte" Background="{StaticResource Nuit2}" BorderBrush="{StaticResource Nuit3}" BorderThickness="1" CornerRadius="13" Padding="14,0,8,0" Visibility="Collapsed" ToolTip="Ctrl K : chercher un verset ou un chant">
+                    <!-- recherche : culte (versets et chants, Ctrl K), Bible ou chants selon la page -->
+                    <Grid x:Name="Recherches" Grid.Column="1" Margin="22,0" MaxWidth="560" HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                        <Border x:Name="RechercheCulte" Background="{StaticResource Encre}" BorderBrush="{StaticResource Nuit3}" BorderThickness="1" CornerRadius="12" Padding="14,0,8,0" Visibility="Collapsed" ToolTip="Ctrl K : chercher un verset ou un chant">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
@@ -159,24 +177,24 @@
                                 </Grid.ColumnDefinitions>
                                 <Path Data="M9,2 A7,7 0 1 1 8.99,2 Z M14,14 L19,19" Stroke="{StaticResource Brume}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" Width="20" Height="20" Stretch="None" />
                                 <TextBlock x:Name="CmdIndice" Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" FontSize="15" Foreground="{StaticResource Brume2}" IsHitTestVisible="False"
-                                           Text="Jean 3:16, chant 45, ou quelques mots des paroles" TextTrimming="CharacterEllipsis" />
+                                           Text="jean 3 16, chant 45, ou des mots du chant" TextTrimming="CharacterEllipsis" />
                                 <TextBox x:Name="Cmd" Grid.Column="1" Margin="10,0,0,0" FontSize="15" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Blanc}"
-                                         CaretBrush="{StaticResource Or}" SelectionBrush="{StaticResource OrVif}" VerticalContentAlignment="Center" Padding="0,9" FocusVisualStyle="{x:Null}" />
+                                         CaretBrush="{StaticResource Blanc}" SelectionBrush="{StaticResource OrVif}" VerticalContentAlignment="Center" Padding="0,10" FocusVisualStyle="{x:Null}" />
+                                <Border Grid.Column="2" Style="{StaticResource Touche}" Margin="6,0,0,0">
+                                    <TextBlock Text="Ctrl K" FontFamily="{StaticResource Mono}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Brume}" />
+                                </Border>
                             </Grid>
                         </Border>
                         <Popup x:Name="CmdPopup" PlacementTarget="{Binding ElementName=RechercheCulte}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" Focusable="False"
                                Width="{Binding ActualWidth, ElementName=RechercheCulte}">
-                            <Border Background="{StaticResource Encre}" BorderBrush="{StaticResource Trait2}" BorderThickness="1" CornerRadius="16" Padding="6" Margin="0,6,0,14">
-                                <Border.Effect>
-                                    <DropShadowEffect Color="#0F172A" BlurRadius="18" ShadowDepth="4" Direction="270" Opacity="0.14" />
-                                </Border.Effect>
+                            <Border Background="{StaticResource Encre}" BorderBrush="{StaticResource Trait2}" BorderThickness="1" CornerRadius="14" Padding="6" Margin="0,6,0,14">
                                 <StackPanel>
                                     <StackPanel x:Name="CmdResultats" />
                                     <TextBlock x:Name="CmdAide" Margin="10,6,10,4" FontSize="12" Foreground="{StaticResource Brume}" Text="Entrée : afficher · Tab ou + : ajouter au déroulé · ↑ ↓ : choisir" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
                         </Popup>
-                        <Border x:Name="RechercheBible" Background="{StaticResource Nuit2}" BorderBrush="{StaticResource Nuit3}" BorderThickness="1" CornerRadius="13" Padding="14,0">
+                        <Border x:Name="RechercheBible" Background="{StaticResource Encre}" BorderBrush="{StaticResource Nuit3}" BorderThickness="1" CornerRadius="12" Padding="14,0">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
@@ -187,11 +205,11 @@
                                 <TextBlock x:Name="QIndice" Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" FontSize="15" Foreground="{StaticResource Brume2}" IsHitTestVisible="False"
                                            Text="jn 3 16 · ps 23 · rm 8.28 · ou des mots, même mal écrits" TextTrimming="CharacterEllipsis" />
                                 <TextBox x:Name="Q" Grid.Column="1" Margin="10,0,0,0" FontSize="15" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Blanc}"
-                                         CaretBrush="{StaticResource Or}" SelectionBrush="{StaticResource OrVif}" VerticalContentAlignment="Center" Padding="0,9" FocusVisualStyle="{x:Null}" />
+                                         CaretBrush="{StaticResource Blanc}" SelectionBrush="{StaticResource OrVif}" VerticalContentAlignment="Center" Padding="0,10" FocusVisualStyle="{x:Null}" />
                                 <Button x:Name="QEffacer" Grid.Column="2" Style="{StaticResource BtnPlat}" Padding="8,4" Content="×" FontSize="18" Foreground="{StaticResource Brume}" Visibility="Collapsed" ToolTip="Effacer la recherche" />
                             </Grid>
                         </Border>
-                        <Border x:Name="RechercheChants" Background="{StaticResource Nuit2}" BorderBrush="{StaticResource Nuit3}" BorderThickness="1" CornerRadius="13" Padding="14,0" Visibility="Collapsed">
+                        <Border x:Name="RechercheChants" Background="{StaticResource Encre}" BorderBrush="{StaticResource Nuit3}" BorderThickness="1" CornerRadius="12" Padding="14,0" Visibility="Collapsed">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
@@ -202,237 +220,290 @@
                                 <TextBlock x:Name="QcIndice" Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" FontSize="15" Foreground="{StaticResource Brume2}" IsHitTestVisible="False"
                                            Text="Chercher un chant : titre, numéro ou paroles" TextTrimming="CharacterEllipsis" />
                                 <TextBox x:Name="Qc" Grid.Column="1" Margin="10,0,0,0" FontSize="15" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Blanc}"
-                                         CaretBrush="{StaticResource Or}" SelectionBrush="{StaticResource OrVif}" VerticalContentAlignment="Center" Padding="0,9" FocusVisualStyle="{x:Null}" />
+                                         CaretBrush="{StaticResource Blanc}" SelectionBrush="{StaticResource OrVif}" VerticalContentAlignment="Center" Padding="0,10" FocusVisualStyle="{x:Null}" />
                                 <Button x:Name="QcEffacer" Grid.Column="2" Style="{StaticResource BtnPlat}" Padding="8,4" Content="×" FontSize="18" Foreground="{StaticResource Brume}" Visibility="Collapsed" ToolTip="Effacer la recherche" />
                             </Grid>
                         </Border>
                     </Grid>
 
-                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button x:Name="TelBtn" Style="{StaticResource Btn}" Padding="16,0" Height="44" ToolTip="Télécommande Android">
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="MajBtn" Style="{StaticResource BtnOr}" Height="40" Padding="14,0" FontSize="13.5" Margin="0,0,8,0" Visibility="Collapsed" Content="Mettre à jour" />
+                        <Button x:Name="TelBtn" Style="{StaticResource Pilule}" ToolTip="Télécommande Android">
                             <StackPanel Orientation="Horizontal">
                                 <Ellipse x:Name="TelPoint" Width="8" Height="8" Fill="{StaticResource Brume2}" VerticalAlignment="Center" Margin="0,1,8,0" Visibility="Collapsed" />
                                 <TextBlock x:Name="TelTexte" Text="Téléphone" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
-                        <Button x:Name="SceneBtn" Style="{StaticResource Btn}" Content="Écran de scène" Padding="16,0" Height="44" Margin="8,0,0,0" ToolTip="Écran de scène : l'heure, ce qui est à l'écran et ce qui vient (pour le prédicateur et la chorale)" />
-                        <Button x:Name="ProjectionBtn" Style="{StaticResource Btn}" Padding="16,0" Height="44" Margin="8,0,0,0" ToolTip="Choisir l'écran de projection">
+                        <Button x:Name="SceneBtn" Style="{StaticResource Pilule}" Content="Écran de scène" Margin="8,0,0,0" ToolTip="Écran de scène : l'heure, ce qui est à l'écran et ce qui vient (pour le prédicateur et la chorale)" />
+                        <Button x:Name="ProjectionBtn" Style="{StaticResource Pilule}" Margin="8,0,0,0" ToolTip="Choisir l'écran de projection">
                             <StackPanel Orientation="Horizontal">
-                                <Ellipse x:Name="ProjectionPoint" Width="8" Height="8" Fill="{StaticResource Brume2}" VerticalAlignment="Center" Margin="0,1,9,0" />
+                                <Ellipse x:Name="ProjectionPoint" Width="8" Height="8" Fill="{StaticResource Brume2}" VerticalAlignment="Center" Margin="0,1,8,0" />
                                 <TextBlock x:Name="ProjectionTexte" Text="Projection arrêtée" VerticalAlignment="Center" />
                             </StackPanel>
-                        </Button>
-                        <Button x:Name="OutilsBtn" Style="{StaticResource Btn}" Width="44" Height="44" Padding="0" Margin="8,0,0,0" ToolTip="Paramètres : audio, mise à jour, transfert, code source, journal d'erreurs">
-                            <Path Data="M3,5 H11 M15,5 H17 M3,10 H5 M9,10 H17 M3,15 H13 M17,15 H17 M13,3 V7 M7,8 V12 M15,13 V17" Stroke="{StaticResource Blanc}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="20" Height="20" Stretch="None" />
                         </Button>
                     </StackPanel>
                 </Grid>
             </Border>
 
-            <!-- ==================== colonne de droite : en direct, habillage ==================== -->
-            <Border x:Name="Colonne" DockPanel.Dock="Right" Width="400" Background="{StaticResource Page}">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel Margin="4,18,22,18">
-                        <Border Style="{StaticResource Carte}" Padding="18">
-                            <StackPanel>
-                                <DockPanel Margin="0,0,0,12">
-                                    <TextBlock x:Name="EcranInfo" DockPanel.Dock="Right" FontSize="13" Foreground="{StaticResource Brume}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="8,0,0,0" />
-                                    <StackPanel Orientation="Horizontal">
-                                        <Ellipse Width="8" Height="8" Fill="{StaticResource Rouge}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                        <TextBlock Text="EN DIRECT" FontSize="13" FontWeight="Bold" Foreground="{StaticResource Direct}" />
-                                    </StackPanel>
-                                </DockPanel>
-                                <Grid>
-                                    <Border x:Name="Apercu" BorderBrush="{StaticResource Nuit3}" BorderThickness="1.5" CornerRadius="12" Background="{StaticResource Damier}"
-                                            ToolTip="Double-clic : couper cette diapositive" Cursor="Hand">
-                                        <Viewbox Stretch="Uniform">
-                                            <local:Rendu x:Name="ApercuRendu" Width="1920" Height="1080" Transitions="False" />
-                                        </Viewbox>
-                                    </Border>
-                                    <Border x:Name="Pastille" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8" CornerRadius="6" Padding="8,2" Background="#D9FFFFFF" Visibility="Collapsed">
-                                        <TextBlock x:Name="PastilleTexte" Text="Écran fermé" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Brume}" />
-                                    </Border>
-                                </Grid>
-                                <Button x:Name="Afficher" Style="{StaticResource BtnOr}" Content="Afficher" FontSize="18" Height="54" Padding="0" Margin="0,14,0,0" ToolTip="Entrée" />
-                                <Grid Margin="0,8,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition />
-                                        <ColumnDefinition Width="8" />
-                                        <ColumnDefinition />
-                                    </Grid.ColumnDefinitions>
-                                    <Button x:Name="Prec" Style="{StaticResource Btn}" Content="Précédent" Height="44" Padding="0" ToolTip="Flèche gauche" />
-                                    <Button x:Name="Suiv" Grid.Column="2" Style="{StaticResource Btn}" Content="Suivant" Height="44" Padding="0" ToolTip="Flèche droite ou espace" />
-                                </Grid>
-                                <Button x:Name="Effacer" Style="{StaticResource BtnRouge}" Content="Retirer de l'écran" Height="44" Padding="0" Margin="0,8,0,0" ToolTip="Échap" />
-                                <Border Background="{StaticResource Nuit2}" BorderBrush="{StaticResource Trait}" BorderThickness="1" CornerRadius="12" Padding="12,8,8,8" Margin="0,10,0,0">
-                                    <DockPanel>
-                                        <Button x:Name="Decouper" DockPanel.Dock="Right" Style="{StaticResource BtnPetit}" Content="Découper" FontSize="12" Padding="8,3" IsEnabled="False" Margin="8,0,0,0"
-                                                ToolTip="Couper la diapositive suivante en plusieurs (Entrée devant une ligne)" />
-                                        <TextBlock Text="SUIVANT" DockPanel.Dock="Left" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Brume}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                        <TextBlock FontSize="13" Foreground="{StaticResource Encre2}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
-                                            <Run x:Name="SuivantLab" FontWeight="Bold" Foreground="{StaticResource Blanc}" /><Run x:Name="SuivantTexte" Text="—" />
-                                        </TextBlock>
-                                    </DockPanel>
-                                </Border>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Duo : deux contenus en même temps (un contenu épinglé dans un coin, ou côte à côte) -->
-                        <Border Style="{StaticResource Carte}" Padding="18" Margin="0,14,0,0">
-                            <StackPanel>
-                                <DockPanel Margin="0,0,0,8">
-                                    <TextBlock x:Name="DuoEtat" DockPanel.Dock="Right" Text="rien d'épinglé" FontSize="12.5" Foreground="{StaticResource Brume}" VerticalAlignment="Center" />
-                                    <TextBlock Text="Duo" Style="{StaticResource TitreCarte}" VerticalAlignment="Center" />
-                                </DockPanel>
-                                <TextBlock x:Name="DuoAide" Text="Affichez un premier contenu, épinglez-le, puis affichez le second." FontSize="13.5" Foreground="{StaticResource Brume}" TextWrapping="Wrap" Margin="0,0,0,12" />
-                                <Border x:Name="DuoBoite" Background="{StaticResource Nuit2}" CornerRadius="12" Padding="12,9" Margin="0,0,0,10" Visibility="Collapsed">
-                                    <DockPanel>
-                                        <TextBlock Text="ÉPINGLÉ" DockPanel.Dock="Left" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Brume}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                        <TextBlock x:Name="DuoLibelle" FontSize="13" FontWeight="Bold" Foreground="{StaticResource Blanc}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                                    </DockPanel>
-                                </Border>
-                                <Button x:Name="DuoEpingler" Style="{StaticResource BtnContour}" Content="Épingler le contenu en direct" Height="44" Padding="0" ToolTip="Touche P · ce qui est à l'écran part dans le coin, l'écran se libère pour autre chose" />
-                                <Button x:Name="DuoRetirer" Style="{StaticResource Btn}" Content="Retirer le duo" Height="44" Padding="0" Margin="0,8,0,0" IsEnabled="False" Visibility="Collapsed" ToolTip="Touche P · retire seulement le contenu épinglé" />
-                                <DockPanel Margin="0,12,0,0">
-                                    <ComboBox x:Name="DuoPlace" DockPanel.Dock="Right" Width="190" MinHeight="40" ToolTip="Place du contenu épinglé">
-                                        <ComboBoxItem Tag="hd" Content="Haut droite" />
-                                        <ComboBoxItem Tag="hg" Content="Haut gauche" />
-                                        <ComboBoxItem Tag="bd" Content="Bas droite" />
-                                        <ComboBoxItem Tag="bg" Content="Bas gauche" />
-                                        <ComboBoxItem Tag="cote" Content="Côte à côte" />
-                                    </ComboBox>
-                                    <TextBlock Text="Place" FontSize="14" Foreground="{StaticResource Brume}" VerticalAlignment="Center" />
-                                </DockPanel>
-                                <TextBlock x:Name="DuoTailleLab" Text="Taille du contenu épinglé : 35 %" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Encre2}" Margin="0,12,0,4" />
-                                <Slider x:Name="DuoTaille" Minimum="20" Maximum="50" SmallChange="5" LargeChange="5" TickFrequency="5" IsSnapToTickEnabled="True" Value="35" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource Carte}" Padding="18" Margin="0,14,0,0">
-                            <StackPanel>
-                                <TextBlock Text="Habillage de l'écran" Style="{StaticResource TitreCarte}" Margin="0,0,0,12" />
-                                <WrapPanel x:Name="Fonds" />
-                                <DockPanel Margin="0,10,0,0">
-                                    <ComboBox x:Name="Presentation" DockPanel.Dock="Right" Width="150" ToolTip="Présentation">
-                                        <ComboBoxItem Tag="plein" Content="Plein écran" />
-                                        <ComboBoxItem Tag="bandeau" Content="En bandeau" />
-                                    </ComboBox>
-                                    <TextBlock Text="Présentation" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Encre2}" VerticalAlignment="Center" />
-                                </DockPanel>
-                                <TextBlock Text="Taille du texte" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Encre2}" Margin="0,12,0,4" />
-                                <Slider x:Name="Taille" Minimum="0.6" Maximum="1.2" SmallChange="0.05" LargeChange="0.05" TickFrequency="0.05" IsSnapToTickEnabled="True" Value="1" />
-
-                                <TextBlock Text="RACCOURCIS" Style="{StaticResource CarteTitre}" Margin="0,18,0,8" />
-                                <WrapPanel x:Name="Aide" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </Border>
-
             <Grid x:Name="Centre">
-                <!-- ==================== culte : déroulé (à gauche) et élément en cours (au centre) ==================== -->
-                <Grid x:Name="PanneauAgenda" Margin="22,18,18,18" Visibility="Collapsed">
+                <!-- ==================== culte : déroulé, écran en direct, élément choisi ==================== -->
+                <Grid x:Name="PanneauAgenda" Visibility="Collapsed">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition x:Name="ColonneAgenda" Width="360" />
-                        <ColumnDefinition Width="20" />
+                        <ColumnDefinition x:Name="ColonneAgenda" Width="330" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition x:Name="ColonneElement" Width="450" />
                     </Grid.ColumnDefinitions>
-                    <Border Style="{StaticResource Carte}" Padding="18">
+                    <Border BorderBrush="{StaticResource Nuit3}" BorderThickness="0,0,1,0" Padding="20,18,16,18">
                         <DockPanel>
-                            <DockPanel DockPanel.Dock="Top">
-                                <TextBlock x:Name="AgendaProgres" DockPanel.Dock="Right" FontSize="13" FontWeight="Bold" Foreground="{StaticResource Brume}" VerticalAlignment="Bottom" Margin="8,0,0,6" />
-                                <StackPanel>
-                                    <TextBlock Text="DÉROULÉ DU CULTE" Style="{StaticResource CarteTitre}" />
-                                    <DockPanel Margin="0,2,0,0">
-                                        <Button x:Name="AgendaMenu" DockPanel.Dock="Right" Style="{StaticResource BtnPlat}" Padding="8,8" VerticalAlignment="Center" ToolTip="Changer de culte, nouveau, renommer, supprimer">
-                                            <Path Data="M0,0 L5,5 L10,0" Stroke="{StaticResource Brume}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
-                                        </Button>
-                                        <TextBlock x:Name="AgendaTitre" FontFamily="{StaticResource UiTitre}" FontSize="21" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                                    </DockPanel>
-                                </StackPanel>
+                            <DockPanel DockPanel.Dock="Top" Margin="2,0,0,8">
+                                <Button x:Name="AgendaPartager" DockPanel.Dock="Right" Style="{StaticResource BtnPlat}" Padding="8" ToolTip="Envoyer le déroulé sur WhatsApp">
+                                    <Path Data="{StaticResource IconePartager}" Stroke="{StaticResource Brume}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="18" Height="18" Stretch="Uniform" />
+                                </Button>
+                                <TextBlock x:Name="AgendaProgres" DockPanel.Dock="Right" FontFamily="{StaticResource Mono}" FontSize="12" Foreground="{StaticResource Brume2}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <local:Capitales Libelle="Déroulé" VerticalAlignment="Center" />
                             </DockPanel>
-                            <Grid x:Name="AgendaPiste" DockPanel.Dock="Top" Height="6" Margin="0,12,0,12">
-                                <Border Background="{StaticResource Trait}" CornerRadius="3" />
-                                <Border x:Name="AgendaBarre" Background="{StaticResource OrVif}" CornerRadius="3" HorizontalAlignment="Left" Width="0" />
+                            <Grid x:Name="AgendaPiste" DockPanel.Dock="Top" Height="4" Margin="0,0,0,12">
+                                <Border Background="{StaticResource Trait}" CornerRadius="2" />
+                                <Border x:Name="AgendaBarre" Background="{StaticResource OrVif}" CornerRadius="2" HorizontalAlignment="Left" Width="0" />
                             </Grid>
                             <Grid DockPanel.Dock="Bottom" Margin="0,12,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition />
-                                    <ColumnDefinition Width="8" />
-                                    <ColumnDefinition />
-                                </Grid.ColumnDefinitions>
-                                <Grid>
-                                    <Rectangle RadiusX="12" RadiusY="12" Stroke="{StaticResource Trait2}" StrokeDashArray="4 3" StrokeThickness="1" Fill="{StaticResource Nuit2}" IsHitTestVisible="False" />
-                                    <Button x:Name="AgendaAjouter" Style="{StaticResource Btn}" Background="Transparent" BorderBrush="Transparent" Content="+ Ajouter" Height="44" Padding="0" ToolTip="Ajouter un chant, un passage, une display, un compte à rebours" />
-                                </Grid>
-                                <Button x:Name="AgendaPartager" Grid.Column="2" Style="{StaticResource Btn}" Height="44" Padding="0" ToolTip="Envoyer le déroulé sur WhatsApp">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Path Data="M14,1.5 A2.5,2.5 0 1 1 13.99,1.5 Z M4,7.5 A2.5,2.5 0 1 1 3.99,7.5 Z M14,13.5 A2.5,2.5 0 1 1 13.99,13.5 Z M6.2,8.8 L11.8,5.2 M6.2,11.2 L11.8,14.8" Stroke="{StaticResource Blanc}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" />
-                                        <TextBlock Text="Partager" Margin="8,0,0,0" FontSize="14" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Button>
+                                <Rectangle RadiusX="12" RadiusY="12" Stroke="{StaticResource Trait2}" StrokeDashArray="4 3" StrokeThickness="1" Fill="{StaticResource Nuit2}" IsHitTestVisible="False" />
+                                <Button x:Name="AgendaAjouter" Style="{StaticResource Btn}" Background="Transparent" BorderBrush="Transparent" Content="+ Ajouter au déroulé" Height="46" Padding="0" ToolTip="Ajouter un chant, un passage, une source Display, un compte à rebours" />
                             </Grid>
                             <Grid>
                                 <ListBox x:Name="ListeAgenda" Style="{StaticResource ListeChants}" ItemContainerStyle="{StaticResource ElementChant}" ItemTemplate="{StaticResource ModeleAgenda}" />
                                 <TextBlock x:Name="AgendaVide" Margin="6,8,6,0" VerticalAlignment="Top" TextWrapping="Wrap" FontSize="14" Foreground="{StaticResource Brume}" IsHitTestVisible="False" LineHeight="22"
-                                           Text="Le déroulé est vide. « + Ajouter » ou cherchez en haut (Ctrl K) : « chant 12 », « jean 3 16 »… puis Tab. Les boutons + de Bible, Chants et Display ajoutent aussi ici." />
+                                           Text="Le déroulé est vide. « + Ajouter au déroulé » ou cherchez en haut (Ctrl K) : « chant 12 », « jean 3 16 »… puis Tab. Les boutons + de Bible, Chants et Display ajoutent aussi ici." />
                             </Grid>
                         </DockPanel>
                     </Border>
 
-                    <DockPanel Grid.Column="2">
-                        <Border DockPanel.Dock="Bottom" Style="{StaticResource Carte}" Padding="16,12" Margin="0,14,0,0">
-                            <DockPanel>
-                                <Button x:Name="ResumePartager" DockPanel.Dock="Right" Style="{StaticResource Btn}" Height="44" Padding="14,0" VerticalAlignment="Center" Margin="12,0,0,0" ToolTip="Envoyer le résumé du culte sur WhatsApp">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Path Data="M14,1.5 A2.5,2.5 0 1 1 13.99,1.5 Z M4,7.5 A2.5,2.5 0 1 1 3.99,7.5 Z M14,13.5 A2.5,2.5 0 1 1 13.99,13.5 Z M6.2,8.8 L11.8,5.2 M6.2,11.2 L11.8,14.8" Stroke="{StaticResource Blanc}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" />
-                                        <TextBlock Text="Partager sur WhatsApp" Margin="8,0,0,0" FontSize="14" VerticalAlignment="Center" />
+                    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ContentControl x:Name="SlotCulte" Margin="26,18,26,24" Focusable="False" />
+                    </ScrollViewer>
+
+                    <Border Grid.Column="2" BorderBrush="{StaticResource Nuit3}" BorderThickness="1,0,0,0" Padding="22,18,22,18">
+                        <DockPanel>
+                            <Border DockPanel.Dock="Bottom" Style="{StaticResource Carte}" Padding="16,12,10,12" Margin="0,12,0,0">
+                                <DockPanel>
+                                    <Button x:Name="ResumePartager" DockPanel.Dock="Right" Style="{StaticResource BtnPlat}" Padding="8" VerticalAlignment="Center" ToolTip="Envoyer le résumé du culte sur WhatsApp">
+                                        <Path Data="{StaticResource IconePartager}" Stroke="{StaticResource Brume}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="18" Height="18" Stretch="Uniform" />
+                                    </Button>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <local:Capitales Libelle="Résumé du culte" />
+                                        <TextBlock x:Name="ResumeTexte" FontSize="13.5" Foreground="{StaticResource Encre2}" TextWrapping="Wrap" MaxHeight="40" TextTrimming="CharacterEllipsis" Margin="0,4,0,0" Text="Rien n'a encore été affiché." />
                                     </StackPanel>
-                                </Button>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="RÉSUMÉ DU CULTE" Style="{StaticResource CarteTitre}" />
-                                    <TextBlock x:Name="ResumeTexte" FontSize="13.5" Foreground="{StaticResource Encre2}" TextWrapping="Wrap" MaxHeight="40" TextTrimming="CharacterEllipsis" Margin="0,3,0,0" Text="Rien n'a encore été affiché." />
-                                </StackPanel>
-                            </DockPanel>
-                        </Border>
-                        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,14">
-                            <TextBlock x:Name="ElemType" Style="{StaticResource CarteTitre}" />
-                            <TextBlock x:Name="ElemTitre" FontFamily="{StaticResource UiTitre}" FontSize="34" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" Text="Préparez le culte" />
-                            <WrapPanel x:Name="ElemBoutons" Margin="0,10,0,0" Visibility="Collapsed">
-                                <StackPanel x:Name="ElemVersions" Orientation="Horizontal" VerticalAlignment="Center" />
-                                <Button x:Name="ElemAfficher" Style="{StaticResource BtnPetitOr}" Content="Afficher depuis le début" Margin="0,0,8,0" />
-                                <Button x:Name="ElemModifier" Style="{StaticResource BtnPetit}" Content="Modifier" Visibility="Collapsed" />
-                            </WrapPanel>
-                        </StackPanel>
-                        <ScrollViewer x:Name="DefilDiapos" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,0">
-                            <WrapPanel x:Name="Diapos" />
-                        </ScrollViewer>
-                    </DockPanel>
+                                </DockPanel>
+                            </Border>
+                            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                                <TextBlock x:Name="ElemType" Style="{StaticResource CarteTitre}" />
+                                <TextBlock x:Name="ElemTitre" FontFamily="{StaticResource Grotesk}" FontSize="32" FontWeight="Bold" TextWrapping="Wrap" MaxHeight="84" TextTrimming="CharacterEllipsis" Margin="0,6,0,0" Text="Préparez le culte" />
+                                <WrapPanel x:Name="ElemBoutons" Margin="0,10,0,0" Visibility="Collapsed">
+                                    <StackPanel x:Name="ElemVersions" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6" />
+                                    <Button x:Name="ElemAfficher" Style="{StaticResource BtnPetitOr}" Content="Afficher depuis le début" Margin="0,0,8,6" />
+                                    <Button x:Name="ElemModifier" Style="{StaticResource BtnPetit}" Content="Modifier" Margin="0,0,0,6" Visibility="Collapsed" />
+                                </WrapPanel>
+                            </StackPanel>
+                            <ScrollViewer x:Name="DefilDiapos" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,0">
+                                <WrapPanel x:Name="Diapos" />
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
                 </Grid>
 
-                <!-- ==================== duo : des dossiers de 2 éléments affichés ensemble ==================== -->
-                <Grid x:Name="PanneauDuo" Margin="22,18,18,18" Visibility="Collapsed">
+                <!-- ==================== Bible ==================== -->
+                <Grid x:Name="PanneauBible">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="320" />
-                        <ColumnDefinition Width="20" />
+                        <ColumnDefinition x:Name="ColonneCote" Width="300" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition x:Name="ColonneDirectBible" Width="380" />
                     </Grid.ColumnDefinitions>
-                    <Border Style="{StaticResource Carte}" Padding="16">
+                    <Border BorderBrush="{StaticResource Nuit3}" BorderThickness="0,0,1,0">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="20,18,14,18">
+                            <StackPanel>
+                                <local:Capitales Libelle="Bibles" />
+                                <StackPanel x:Name="BiblesChoix" Margin="0,10,0,0" />
+                                <Grid Margin="0,2,0,0">
+                                    <Rectangle RadiusX="10" RadiusY="10" Stroke="{StaticResource Trait2}" StrokeDashArray="4 3" StrokeThickness="1" Fill="{StaticResource Nuit2}" IsHitTestVisible="False" />
+                                    <Button x:Name="BiblesImporter" Style="{StaticResource Btn}" Background="Transparent" BorderBrush="Transparent" Padding="10" Content="+ Importer une Bible" />
+                                </Grid>
+                                <TextBlock x:Name="BiblesEtat" Style="{StaticResource MuetPetit}" Margin="0,8,0,0">
+                                    <Run Text="Cliquez une Bible pour l'afficher ·" /> <Run Text="2e" FontWeight="Bold" /> <Run Text="= versets bilingues (sous le verset)" />
+                                </TextBlock>
+                                <Button x:Name="BiblesGerer" Style="{StaticResource BtnLien}" Content="Gérer les Bibles…" Margin="0,8,0,0" ToolTip="Supprimer une Bible, choisir dans une liste" />
+                                <local:Capitales Libelle="Ancien Testament" Margin="0,20,0,8" />
+                                <UniformGrid x:Name="LivresAT" Columns="4" />
+                                <local:Capitales Libelle="Nouveau Testament" Margin="0,14,0,8" />
+                                <UniformGrid x:Name="LivresNT" Columns="4" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+
+                    <DockPanel Grid.Column="1" Margin="24,18,22,18">
+                        <DockPanel DockPanel.Dock="Top" MinHeight="40" Margin="0,0,0,12" LastChildFill="False">
+                            <Button x:Name="AgendaAjoutBible" DockPanel.Dock="Right" Style="{StaticResource BtnPetit}" Content="+ Déroulé" Margin="10,0,0,0" ToolTip="Ajouter les versets choisis (ou le chapitre) au déroulé" VerticalAlignment="Center" />
+                            <TextBlock x:Name="VersionsLab" DockPanel.Dock="Right" Style="{StaticResource Muet}" VerticalAlignment="Center" Text="Version : LSG" Margin="12,0,0,0" TextWrapping="NoWrap" />
+                            <Button x:Name="ChapPrec" DockPanel.Dock="Left" Style="{StaticResource BtnPetit}" Content="‹" ToolTip="Chapitre précédent" Visibility="Collapsed" VerticalAlignment="Center" />
+                            <TextBlock x:Name="TitreChap" DockPanel.Dock="Left" Style="{StaticResource GrandTitre}" Margin="12,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            <Button x:Name="ChapSuiv" DockPanel.Dock="Left" Style="{StaticResource BtnPetit}" Content="›" ToolTip="Chapitre suivant" Visibility="Collapsed" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <Border Style="{StaticResource Carte}" Padding="8">
+                            <ScrollViewer x:Name="DefilVersets" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,0">
+                                <StackPanel x:Name="Versets" MaxWidth="1300" />
+                            </ScrollViewer>
+                        </Border>
+                    </DockPanel>
+
+                    <Border Grid.Column="2" BorderBrush="{StaticResource Nuit3}" BorderThickness="1,0,0,0">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <ContentControl x:Name="SlotBible" Margin="20,18,20,22" Focusable="False" />
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+
+                <!-- ==================== Chants ==================== -->
+                <Grid x:Name="PanneauChants" Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition x:Name="ColonneChants" Width="320" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition x:Name="ColonneDirectChants" Width="380" />
+                    </Grid.ColumnDefinitions>
+                    <Border BorderBrush="{StaticResource Nuit3}" BorderThickness="0,0,1,0" Padding="20,18,14,18">
+                        <DockPanel>
+                            <local:Capitales DockPanel.Dock="Top" Libelle="Recueil" Margin="0,0,0,8" />
+                            <DockPanel DockPanel.Dock="Top">
+                                <Button x:Name="SupprimerRecueil" DockPanel.Dock="Right" Style="{StaticResource BtnDanger}" Content="Supprimer" Margin="8,0,0,0" ToolTip="Supprimer ce recueil et ses chants" />
+                                <ComboBox x:Name="Recueil" ToolTip="Recueil" MaxDropDownHeight="520" />
+                            </DockPanel>
+                            <StackPanel DockPanel.Dock="Top" Margin="0,10,0,8">
+                                <Button x:Name="Importer" Style="{StaticResource BtnOr}" Content="+ Importer chants ou recueil" Height="44" Padding="0"
+                                        ToolTip="Ajouter des chants ou un recueil : VideoPsalm, OpenLyrics, OpenSong, ChordPro, SongSelect, ProPresenter 6, PDF, texte collé, lien d'un site" />
+                                <Button x:Name="Nouveau" Style="{StaticResource Btn}" Content="+ Nouveau chant" Height="44" Padding="0" Margin="0,8,0,0"
+                                        ToolTip="Taper ou coller un chant : il est rangé tout seul en diapositives" />
+                            </StackPanel>
+                            <Border x:Name="NumBoite" DockPanel.Dock="Top" Margin="0,0,0,8" Background="{StaticResource Encre}" BorderBrush="{StaticResource Nuit3}" BorderThickness="1" CornerRadius="10" Padding="12,0,4,0"
+                                    ToolTip="Taper le numéro du chant dans ce recueil (Entrée : ouvrir, puis 1-9 pour les strophes)">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="N°" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Or}" VerticalAlignment="Center" />
+                                    <TextBlock x:Name="NumIndice" Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="14" Foreground="{StaticResource Brume2}" IsHitTestVisible="False"
+                                               Text="Numéro du chant" TextTrimming="CharacterEllipsis" />
+                                    <TextBox x:Name="NumChant" Grid.Column="1" Margin="8,0,0,0" FontSize="15" FontWeight="SemiBold" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Blanc}" MaxLength="6"
+                                             CaretBrush="{StaticResource Blanc}" SelectionBrush="{StaticResource OrVif}" VerticalContentAlignment="Center" Padding="0,9" FocusVisualStyle="{x:Null}" InputMethod.IsInputMethodEnabled="False" />
+                                    <Button x:Name="NumEffacer" Grid.Column="2" Style="{StaticResource BtnPlat}" Padding="8,2" Content="×" FontSize="18" Foreground="{StaticResource Brume}" Visibility="Collapsed" ToolTip="Effacer le numéro" />
+                                </Grid>
+                            </Border>
+                            <Grid>
+                                <ListBox x:Name="ListeChants" Style="{StaticResource ListeChants}" ItemContainerStyle="{StaticResource ElementChant}" ItemTemplate="{StaticResource ModeleChant}" />
+                                <TextBlock x:Name="ListeVide" Margin="6,14,6,0" VerticalAlignment="Top" TextWrapping="Wrap" FontSize="14" Foreground="{StaticResource Brume}" Visibility="Collapsed" IsHitTestVisible="False" />
+                            </Grid>
+                        </DockPanel>
+                    </Border>
+                    <DockPanel Grid.Column="1" Margin="24,18,22,18">
+                        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,14">
+                            <TextBlock x:Name="ChantTitre" Style="{StaticResource GrandTitre}" Text="Aucun chant choisi" TextTrimming="CharacterEllipsis" />
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <Button x:Name="AgendaAjoutChant" Style="{StaticResource BtnPetit}" Content="+ Déroulé" IsEnabled="False" ToolTip="Ajouter ce chant au déroulé" />
+                                <Button x:Name="Modifier" Style="{StaticResource BtnPetit}" Content="Modifier" IsEnabled="False" Margin="8,0,0,0" />
+                                <Button x:Name="Supprimer" Style="{StaticResource BtnDanger}" Content="Supprimer" IsEnabled="False" Margin="8,0,0,0" />
+                            </StackPanel>
+                        </StackPanel>
+                        <ScrollViewer x:Name="DefilSections" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <WrapPanel x:Name="Sections" />
+                        </ScrollViewer>
+                    </DockPanel>
+                    <Border Grid.Column="2" BorderBrush="{StaticResource Nuit3}" BorderThickness="1,0,0,0">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <ContentControl x:Name="SlotChants" Margin="20,18,20,22" Focusable="False" />
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+
+                <!-- ==================== Display : bibliothèque, grille et mélangeur ==================== -->
+                <Grid x:Name="PanneauAnnonces" Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition x:Name="ColonneAnnonces" Width="320" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition x:Name="ColonneDirectDisplay" Width="380" />
+                    </Grid.ColumnDefinitions>
+                    <Border BorderBrush="{StaticResource Nuit3}" BorderThickness="0,0,1,0" Padding="20,18,14,18">
                         <DockPanel>
                             <StackPanel DockPanel.Dock="Top">
-                                <TextBlock Text="DUO" Style="{StaticResource CarteTitre}" />
-                                <TextBlock Text="Dossiers" Style="{StaticResource Titre2}" Margin="0,4,0,12" />
-                                <Button x:Name="DuoNouveau" Style="{StaticResource BtnOr}" Content="+ Nouveau duo" Height="44" Padding="0" />
-                                <TextBlock Margin="2,10,2,0" TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource Brume}" Text="Un dossier = 2 éléments affichés ensemble. Double-clic : en direct." />
+                                <local:Capitales Libelle="Bibliothèque" />
+                                <Button x:Name="DisplayAjouter" Style="{StaticResource BtnOr}" Content="+ Ajouter une source" FontSize="15" Height="46" Padding="14,0" Margin="0,10,0,0" ToolTip="Ajouter un texte, des images ou une source vidéo" />
+                                <TextBlock Text="+ : ajouter à la grille (✓ : déjà dedans, clic pour l'en retirer) · double-clic : en direct · clic droit : modifier, épingler, supprimer"
+                                           TextWrapping="Wrap" Foreground="{StaticResource Brume}" FontSize="12.5" LineHeight="18" Margin="0,10,0,0" />
+                            </StackPanel>
+                            <Grid Margin="0,12,0,0">
+                                <ListBox x:Name="ListeAnnonces" Style="{StaticResource ListeChants}" ItemContainerStyle="{StaticResource ElementCarte}" ItemTemplate="{StaticResource ModeleAnnonce}" />
+                                <TextBlock x:Name="AnnoncesVide" Margin="6,8,6,0" VerticalAlignment="Top" TextWrapping="Wrap" FontSize="14" Foreground="{StaticResource Brume}" IsHitTestVisible="False" LineHeight="22"
+                                           Text="Ajoutez un texte, une image, un périphérique vidéo ou une capture de fenêtre." />
+                            </Grid>
+                        </DockPanel>
+                    </Border>
+
+                    <ScrollViewer x:Name="DefilGrille" Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Margin="24,18,22,24">
+                            <DockPanel Margin="0,0,0,14">
+                                <TextBlock x:Name="GrilleInfo" DockPanel.Dock="Right" FontSize="12.5" Foreground="{StaticResource Brume2}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="12,0,0,0" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Grille" Style="{StaticResource GrandTitre}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Un clic envoie la vignette en direct" FontSize="13.5" Foreground="{StaticResource Brume}" VerticalAlignment="Center" Margin="14,4,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+                            <WrapPanel x:Name="GrilleSources" />
+                            <Border x:Name="GrilleVide" BorderBrush="{StaticResource Trait2}" BorderThickness="1" CornerRadius="12" Padding="24">
+                                <TextBlock TextWrapping="Wrap" FontSize="14.5" LineHeight="23" Foreground="{StaticResource Brume}" TextAlignment="Center"
+                                           Text="La grille est vide. Cliquez le + d'une source à gauche pour l'ajouter ici. Ensuite, un seul clic sur une tuile l'envoie en direct sur l'écran choisi." />
+                            </Border>
+                            <!-- ancien éditeur de texte de Display (caché : les textes se modifient par « Modifier… ») -->
+                            <StackPanel Visibility="Collapsed">
+                                <TextBox x:Name="AnnonceTitre" Style="{StaticResource Champ}" />
+                                <TextBlock x:Name="DisplaySourceInfo" />
+                                <Button x:Name="DisplayReconnecter" Style="{StaticResource Btn}" Content="Reconnecter la source en direct" />
+                                <Button x:Name="AnnonceEnregistrer" Style="{StaticResource BtnOr}" Content="Enregistrer" />
+                                <Button x:Name="AnnonceAfficher" Style="{StaticResource Btn}" Content="Afficher" />
+                                <Button x:Name="AnnonceAjouter" Style="{StaticResource Btn}" Content="+ Déroulé du culte" />
+                                <Button x:Name="AnnonceSupprimer" Style="{StaticResource BtnRouge}" Content="Supprimer" />
+                                <TextBox x:Name="AnnonceTexte" Style="{StaticResource Zone}" />
+                            </StackPanel>
+                            <!-- mélangeur audio (moteur OBS), sous la grille -->
+                            <Border x:Name="AudioHote" Margin="0,26,0,0" />
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <Border Grid.Column="2" BorderBrush="{StaticResource Nuit3}" BorderThickness="1,0,0,0">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <ContentControl x:Name="SlotDisplay" Margin="20,18,20,22" Focusable="False" />
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+
+                <!-- ==================== Duo : des dossiers de 2 éléments affichés ensemble ==================== -->
+                <Grid x:Name="PanneauDuo" Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition x:Name="ColonneDuos" Width="320" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition x:Name="ColonneDirectDuo" Width="380" />
+                    </Grid.ColumnDefinitions>
+                    <Border BorderBrush="{StaticResource Nuit3}" BorderThickness="0,0,1,0" Padding="20,18,14,18">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Top">
+                                <local:Capitales Libelle="Dossiers" />
+                                <Button x:Name="DuoNouveau" Style="{StaticResource BtnOr}" Content="+ Nouveau duo" Height="46" Padding="0" Margin="0,10,0,0" />
+                                <TextBlock Margin="2,10,2,0" TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource Brume}" Text="Un dossier = 2 éléments affichés ensemble. Double-clic : en direct." />
                             </StackPanel>
                             <Grid Margin="0,12,0,0">
                                 <ListBox x:Name="ListeDuos" Style="{StaticResource ListeChants}" ItemContainerStyle="{StaticResource ElementCarte}">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <StackPanel Margin="2,2,2,2">
-                                                <TextBlock Text="{Binding Nom}" FontWeight="Bold" FontSize="15" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Description}" FontSize="12" Foreground="{StaticResource Brume}" TextTrimming="CharacterEllipsis" />
+                                            <StackPanel Margin="0,1,0,1">
+                                                <TextBlock Text="{Binding Nom}" FontWeight="SemiBold" FontSize="15" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Description}" FontSize="12.5" Foreground="{StaticResource Brume}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
                                             </StackPanel>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
@@ -442,190 +513,135 @@
                             </Grid>
                         </DockPanel>
                     </Border>
-                    <Border Grid.Column="2" Style="{StaticResource Carte}" Padding="20">
-                        <Grid>
-                            <TextBlock x:Name="DuoChoisirAide" TextWrapping="Wrap" FontSize="15" LineHeight="24" Foreground="{StaticResource Brume}" Margin="4,6,4,0"
-                                       Text="Créez ou choisissez un dossier à gauche. Mettez-y 2 éléments (une source Display, un chant ou un verset), réglez la place et la taille de chacun, puis « + Display » pour l'avoir dans la grille de Display." />
-                            <ScrollViewer x:Name="DuoEditeur" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                <StackPanel x:Name="DuoPile" Margin="0,0,8,0" />
-                            </ScrollViewer>
-                        </Grid>
-                    </Border>
-                </Grid>
-
-                <!-- ==================== displays : la bibliothèque ==================== -->
-                <Grid x:Name="PanneauAnnonces" Margin="22,18,18,18" Visibility="Collapsed">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition x:Name="ColonneAnnonces" Width="360" />
-                        <ColumnDefinition Width="20" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Border Style="{StaticResource Carte}" Padding="18">
-                        <DockPanel>
-                            <StackPanel DockPanel.Dock="Top">
-                                <TextBlock Text="DISPLAY" Style="{StaticResource CarteTitre}" />
-                                <TextBlock Text="Bibliothèque" FontSize="22" FontWeight="Bold" Margin="0,2,0,14" />
-                                <Button x:Name="DisplayAjouter" Style="{StaticResource BtnOr}" Content="+ Ajouter une source" FontSize="16" Height="48" Padding="14,0" ToolTip="Ajouter un texte, des images ou une source vidéo" />
-                                <TextBlock Text="+ : ajouter à la grille · double-clic : en direct · clic droit : autres actions" TextWrapping="Wrap" Foreground="{StaticResource Brume}" FontSize="13" Margin="0,12,0,0" />
-                            </StackPanel>
-                            <Grid Margin="0,12,0,0">
-                                <ListBox x:Name="ListeAnnonces" Style="{StaticResource ListeChants}" ItemContainerStyle="{StaticResource ElementCarte}" ItemTemplate="{StaticResource ModeleAnnonce}" />
-                                <TextBlock x:Name="AnnoncesVide" Margin="6,8,6,0" VerticalAlignment="Top" TextWrapping="Wrap" FontSize="14" Foreground="{StaticResource Brume}" IsHitTestVisible="False" LineHeight="22"
-                                           Text="Ajoutez un texte, une image, un périphérique vidéo ou une capture de fenêtre." />
-                            </Grid>
-                        </DockPanel>
-                    </Border>
-                    <Grid Grid.Column="2">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*" MinHeight="180" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Border Style="{StaticResource Carte}" Padding="20">
-                        <DockPanel>
-                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,14">
-                                <TextBlock x:Name="GrilleInfo" DockPanel.Dock="Right" FontSize="12.5" Foreground="{StaticResource Brume2}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="12,0,0,0" />
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Grille" Style="{StaticResource TitreCarte}" VerticalAlignment="Center" />
-                                    <TextBlock Text="Un clic envoie la vignette en direct" FontSize="14" Foreground="{StaticResource Brume}" VerticalAlignment="Center" Margin="14,2,0,0" />
-                                </StackPanel>
-                            </DockPanel>
-                            <StackPanel DockPanel.Dock="Top" Visibility="Collapsed">
-                                <TextBlock Text="TITRE" Style="{StaticResource CarteTitre}" />
-                                <TextBox x:Name="AnnonceTitre" Style="{StaticResource Champ}" Margin="0,6,0,14" FontSize="17" />
-                                <TextBlock x:Name="DisplaySourceInfo" Text="Texte : une ligne vide entre deux diapositives" Style="{StaticResource CarteTitre}" />
-                            </StackPanel>
-                            <WrapPanel DockPanel.Dock="Bottom" Margin="0,14,0,0" Visibility="Collapsed">
-                                <Button x:Name="DisplayReconnecter" Visibility="Collapsed" Style="{StaticResource Btn}" Content="Reconnecter la source en direct" Padding="18,10" Margin="0,0,8,6" />
-                                <Button x:Name="AnnonceEnregistrer" Style="{StaticResource BtnOr}" Content="Enregistrer" Padding="18,10" Margin="0,0,8,6" />
-                                <Button x:Name="AnnonceAfficher" Style="{StaticResource Btn}" Content="Afficher" Padding="18,10" Margin="0,0,8,6" />
-                                <Button x:Name="AnnonceAjouter" Style="{StaticResource Btn}" Content="+ Déroulé du culte" Padding="18,10" Margin="0,0,8,6" />
-                                <Button x:Name="AnnonceSupprimer" Style="{StaticResource BtnRouge}" Content="Supprimer" Padding="18,10" Margin="0,0,8,6" />
-                            </WrapPanel>
-                            <TextBox x:Name="AnnonceTexte" DockPanel.Dock="Bottom" Visibility="Collapsed" Style="{StaticResource Zone}" Margin="0,6,0,0" FontSize="16" />
-                            <Grid>
-                                <ScrollViewer x:Name="DefilGrille" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                    <WrapPanel x:Name="GrilleSources" />
-                                </ScrollViewer>
-                                <TextBlock x:Name="GrilleVide" TextWrapping="Wrap" FontSize="15" LineHeight="24" Foreground="{StaticResource Brume}" IsHitTestVisible="False" Margin="4,6,4,0"
-                                           Text="La grille est vide. Cliquez le + devant un titre à gauche pour l'ajouter ici. Ensuite, un seul clic sur une tuile l'envoie en direct sur l'écran choisi." />
-                            </Grid>
-                        </DockPanel>
-                    </Border>
-                    <!-- mélangeur audio (moteur OBS), sous la grille -->
-                    <Border x:Name="AudioHote" Grid.Row="1" Margin="0,16,0,0" />
-                    </Grid>
-                </Grid>
-
-                <!-- ==================== Bible ==================== -->
-                <Grid x:Name="PanneauBible" Margin="22,14">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition x:Name="ColonneCote" Width="300" />
-                        <ColumnDefinition Width="18" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,2,0">
-                        <StackPanel>
-                            <Border Style="{StaticResource Carte}">
-                                <StackPanel>
-                                    <TextBlock Text="BIBLES" Style="{StaticResource CarteTitre}" />
-                                    <StackPanel x:Name="BiblesChoix" Margin="0,6,0,0" />
-                                    <Grid Margin="0,6,0,0">
-                                        <Rectangle RadiusX="10" RadiusY="10" Stroke="{StaticResource Trait2}" StrokeDashArray="4 3" StrokeThickness="1" IsHitTestVisible="False" />
-                                        <Button x:Name="BiblesImporter" Style="{StaticResource Btn}" Background="Transparent" BorderBrush="Transparent" Foreground="{StaticResource Or}" Padding="10" Content="+ Importer une Bible" />
-                                    </Grid>
-                                    <TextBlock x:Name="BiblesEtat" Style="{StaticResource MuetPetit}" Margin="0,8,0,0">
-                                        <Run Text="Cliquez une Bible pour l'afficher ·" /> <Run Text="2e" FontWeight="Bold" /> <Run Text="= versets bilingues (sous le verset)" />
-                                    </TextBlock>
-                                    <Button x:Name="BiblesGerer" Style="{StaticResource BtnLien}" Content="Gérer les Bibles…" Margin="0,8,0,0" ToolTip="Supprimer une Bible, choisir dans une liste" />
-                                </StackPanel>
-                            </Border>
-                            <Border Style="{StaticResource Carte}" Margin="0,14,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="ANCIEN TESTAMENT" Style="{StaticResource CarteTitre}" Margin="0,0,0,6" />
-                                    <UniformGrid x:Name="LivresAT" Columns="3" />
-                                    <TextBlock Text="NOUVEAU TESTAMENT" Style="{StaticResource CarteTitre}" Margin="0,12,0,6" />
-                                    <UniformGrid x:Name="LivresNT" Columns="3" />
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-                    </ScrollViewer>
-
-                    <Border Grid.Column="2" Style="{StaticResource Carte}" Padding="16,14">
-                        <DockPanel>
-                            <DockPanel DockPanel.Dock="Top" MinHeight="38" Margin="0,0,0,10" LastChildFill="False">
-                                <Button x:Name="AgendaAjoutBible" DockPanel.Dock="Right" Style="{StaticResource BtnPetit}" Content="+ Agenda" Margin="10,0,0,0" ToolTip="Ajouter les versets choisis (ou le chapitre) à l'agenda" VerticalAlignment="Center" />
-                                <TextBlock x:Name="VersionsLab" DockPanel.Dock="Right" Style="{StaticResource Muet}" VerticalAlignment="Center" Text="Version : LSG" Margin="12,0,0,0" TextWrapping="NoWrap" />
-                                <Button x:Name="ChapPrec" DockPanel.Dock="Left" Style="{StaticResource BtnPetit}" Content="‹" ToolTip="Chapitre précédent" Visibility="Collapsed" VerticalAlignment="Center" />
-                                <TextBlock x:Name="TitreChap" DockPanel.Dock="Left" Style="{StaticResource Titre2}" Margin="10,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                <Button x:Name="ChapSuiv" DockPanel.Dock="Left" Style="{StaticResource BtnPetit}" Content="›" ToolTip="Chapitre suivant" Visibility="Collapsed" VerticalAlignment="Center" />
-                            </DockPanel>
-                            <ScrollViewer x:Name="DefilVersets" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,0">
-                                <StackPanel x:Name="Versets" MaxWidth="1300" />
-                            </ScrollViewer>
-                        </DockPanel>
-                    </Border>
-                </Grid>
-
-                <!-- ==================== chants ==================== -->
-                <Grid x:Name="PanneauChants" Margin="22,14" Visibility="Collapsed">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="300" />
-                        <ColumnDefinition Width="18" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <DockPanel>
-                        <DockPanel DockPanel.Dock="Top">
-                            <Button x:Name="SupprimerRecueil" DockPanel.Dock="Right" Style="{StaticResource BtnDanger}" Content="Supprimer" Margin="8,0,0,0" ToolTip="Supprimer ce recueil et ses chants" />
-                            <ComboBox x:Name="Recueil" ToolTip="Recueil" MaxDropDownHeight="520" />
-                        </DockPanel>
-                        <StackPanel DockPanel.Dock="Top" Margin="0,10,0,8">
-                            <Button x:Name="Importer" Style="{StaticResource BtnOr}" Content="+ Importer chants / recueil"
-                                    ToolTip="Ajouter des chants ou un recueil : VideoPsalm, OpenLyrics, OpenSong, ChordPro, SongSelect, ProPresenter 6, PDF, texte collé, lien d'un site" />
-                            <Button x:Name="Nouveau" Style="{StaticResource Btn}" Content="+ Nouveau chant" Margin="0,8,0,0"
-                                    ToolTip="Taper ou coller un chant : il est rangé tout seul en diapositives" />
-                        </StackPanel>
-                        <Border x:Name="NumBoite" DockPanel.Dock="Top" Margin="0,0,0,8" Background="{StaticResource Encre}" BorderBrush="{StaticResource Nuit3}" BorderThickness="1" CornerRadius="10" Padding="12,0,4,0"
-                                ToolTip="Taper le numéro du chant dans ce recueil (Entrée : ouvrir, puis 1-9 pour les strophes)">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="N°" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Or}" VerticalAlignment="Center" />
-                                <TextBlock x:Name="NumIndice" Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="14" Foreground="{StaticResource Brume2}" IsHitTestVisible="False"
-                                           Text="Numéro du chant" TextTrimming="CharacterEllipsis" />
-                                <TextBox x:Name="NumChant" Grid.Column="1" Margin="8,0,0,0" FontSize="15" FontWeight="SemiBold" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Blanc}" MaxLength="6"
-                                         CaretBrush="{StaticResource Or}" SelectionBrush="{StaticResource Or}" VerticalContentAlignment="Center" Padding="0,8" FocusVisualStyle="{x:Null}" InputMethod.IsInputMethodEnabled="False" />
-                                <Button x:Name="NumEffacer" Grid.Column="2" Style="{StaticResource BtnPlat}" Padding="8,2" Content="×" FontSize="18" Foreground="{StaticResource Brume}" Visibility="Collapsed" ToolTip="Effacer le numéro" />
-                            </Grid>
-                        </Border>
-                        <Grid>
-                            <ListBox x:Name="ListeChants" Style="{StaticResource ListeChants}" ItemContainerStyle="{StaticResource ElementChant}" ItemTemplate="{StaticResource ModeleChant}" />
-                            <TextBlock x:Name="ListeVide" Margin="6,14,6,0" VerticalAlignment="Top" TextWrapping="Wrap" FontSize="14" Foreground="{StaticResource Brume}" Visibility="Collapsed" IsHitTestVisible="False" />
-                        </Grid>
-                    </DockPanel>
-                    <DockPanel Grid.Column="2">
-                        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                            <TextBlock x:Name="ChantTitre" Style="{StaticResource Titre2}" Text="Aucun chant choisi" TextTrimming="CharacterEllipsis" />
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <Button x:Name="AgendaAjoutChant" Style="{StaticResource BtnPetit}" Content="+ Agenda" IsEnabled="False" ToolTip="Ajouter ce chant à l'agenda" />
-                                <Button x:Name="Modifier" Style="{StaticResource BtnPetit}" Content="Modifier" IsEnabled="False" Margin="8,0,0,0" />
-                                <Button x:Name="Supprimer" Style="{StaticResource BtnDanger}" Content="Supprimer" IsEnabled="False" Margin="8,0,0,0" />
-                            </StackPanel>
-                        </StackPanel>
-                        <ScrollViewer x:Name="DefilSections" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                            <WrapPanel x:Name="Sections" />
+                    <Grid Grid.Column="1" Margin="24,18,18,18">
+                        <TextBlock x:Name="DuoChoisirAide" TextWrapping="Wrap" FontSize="15" LineHeight="24" Foreground="{StaticResource Brume}" Margin="4,6,4,0"
+                                   Text="Créez ou choisissez un dossier à gauche. Mettez-y 2 éléments (une source Display, un chant ou un verset), réglez la place et la taille de chacun, puis « + Display » pour l'avoir dans la grille de Display." />
+                        <ScrollViewer x:Name="DuoEditeur" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel x:Name="DuoPile" Margin="0,0,8,0" />
                         </ScrollViewer>
-                    </DockPanel>
+                    </Grid>
+                    <Border Grid.Column="2" BorderBrush="{StaticResource Nuit3}" BorderThickness="1,0,0,0">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <ContentControl x:Name="SlotDuo" Margin="20,18,20,22" Focusable="False" />
+                        </ScrollViewer>
+                    </Border>
                 </Grid>
+
+                <!-- ==================== Réglages (construits en C# : ReglagesPage.cs) ==================== -->
+                <Border x:Name="PanneauReglages" Visibility="Collapsed" />
             </Grid>
         </DockPanel>
 
+        <!-- ==================== l'écran en direct : un seul panneau, posé par MontrerOnglet dans la page affichée ==================== -->
+        <StackPanel x:Name="Colonne" Visibility="Collapsed">
+            <DockPanel Margin="0,0,0,10">
+                <TextBlock x:Name="EcranInfo" DockPanel.Dock="Right" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Brume}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="8,0,0,0" />
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="7" Height="7" Fill="{StaticResource Direct}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <local:Capitales Libelle="En direct" Foreground="{StaticResource Direct}" Margin="0" />
+                </StackPanel>
+            </DockPanel>
+            <Grid>
+                <Border x:Name="Apercu" BorderBrush="{StaticResource Nuit3}" BorderThickness="1.5" CornerRadius="12" Background="{StaticResource Damier}"
+                        ToolTip="Double-clic : couper cette diapositive" Cursor="Hand">
+                    <Viewbox Stretch="Uniform">
+                        <local:Rendu x:Name="ApercuRendu" Width="1920" Height="1080" Transitions="False" />
+                    </Viewbox>
+                </Border>
+                <Border x:Name="Pastille" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8" CornerRadius="6" Padding="8,2" Background="#D9FFFFFF" Visibility="Collapsed">
+                    <TextBlock x:Name="PastilleTexte" Text="Écran fermé" FontSize="11" FontWeight="Bold" Foreground="#555B66" />
+                </Border>
+            </Grid>
+            <Button x:Name="Afficher" Style="{StaticResource BtnContour}" Content="Afficher la sélection (Entrée)" Height="46" Padding="0" Margin="0,12,0,0" ToolTip="Entrée" />
+            <Grid Margin="0,10,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition />
+                </Grid.ColumnDefinitions>
+                <Button x:Name="Prec" Style="{StaticResource Btn}" Height="50" Padding="0" ToolTip="Flèche gauche">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="M8,0 L0,5.5 L8,11 Z" Fill="{StaticResource Blanc}" VerticalAlignment="Center" Margin="0,0,9,0" />
+                        <TextBlock Text="Précédent" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="Suiv" Grid.Column="2" Style="{StaticResource BtnOr}" Height="50" Padding="0" ToolTip="Flèche droite ou espace">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Suivant" VerticalAlignment="Center" />
+                        <Path Data="M0,0 L8,5.5 L0,11 Z" Fill="{StaticResource SurOr}" VerticalAlignment="Center" Margin="9,0,0,0" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+            <Button x:Name="Effacer" Style="{StaticResource BtnRouge}" Content="Retirer de l'écran (Échap)" Height="40" Padding="0" Margin="0,10,0,0" FontSize="14" ToolTip="Échap" />
+            <Border Style="{StaticResource Carte}" Padding="12,8,8,8" Margin="0,10,0,0">
+                <DockPanel>
+                    <Button x:Name="Decouper" DockPanel.Dock="Right" Style="{StaticResource BtnPetit}" Content="Découper" FontSize="12.5" Padding="9,4" IsEnabled="False" Margin="8,0,0,0"
+                            ToolTip="Couper la diapositive suivante en plusieurs (Entrée devant une ligne)" />
+                    <local:Capitales DockPanel.Dock="Left" Libelle="Suivant" Foreground="{StaticResource Or}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBlock FontSize="13" Foreground="{StaticResource Encre2}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                        <Run x:Name="SuivantLab" FontWeight="Bold" Foreground="{StaticResource Blanc}" /><Run x:Name="SuivantTexte" Text="—" />
+                    </TextBlock>
+                </DockPanel>
+            </Border>
+
+            <!-- enregistrements et MyVirtualSound en bref (pas sur Display : le mélangeur y est complet) -->
+            <ContentControl x:Name="AudioBref" Focusable="False" Margin="0,8,0,0" />
+
+            <!-- Duo : deux contenus en même temps (un contenu épinglé dans un coin, ou côte à côte) -->
+            <Border Style="{StaticResource Carte}" Padding="18,16" Margin="0,16,0,0">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,6">
+                        <TextBlock x:Name="DuoEtat" DockPanel.Dock="Right" Text="rien d'épinglé" FontSize="12.5" Foreground="{StaticResource Brume}" VerticalAlignment="Center" />
+                        <TextBlock Text="Duo" Style="{StaticResource TitreCarte}" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <TextBlock x:Name="DuoAide" Text="Affichez un premier contenu, épinglez-le (touche P), puis affichez le second." FontSize="13" Foreground="{StaticResource Brume}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                    <Border x:Name="DuoBoite" Background="{StaticResource Nuit2}" CornerRadius="12" Padding="12,9" Margin="0,0,0,10" Visibility="Collapsed">
+                        <DockPanel>
+                            <local:Capitales DockPanel.Dock="Left" Libelle="Épinglé" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <TextBlock x:Name="DuoLibelle" FontSize="13" FontWeight="Bold" Foreground="{StaticResource Blanc}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        </DockPanel>
+                    </Border>
+                    <Button x:Name="DuoEpingler" Style="{StaticResource BtnContour}" Content="Épingler le contenu en direct" Height="44" Padding="0" ToolTip="Touche P · ce qui est à l'écran part dans le coin, l'écran se libère pour autre chose" />
+                    <Button x:Name="DuoRetirer" Style="{StaticResource Btn}" Content="Retirer le duo" Height="44" Padding="0" Margin="0,8,0,0" IsEnabled="False" Visibility="Collapsed" ToolTip="Touche P · retire seulement le contenu épinglé" />
+                    <DockPanel Margin="0,12,0,0">
+                        <ComboBox x:Name="DuoPlace" DockPanel.Dock="Right" Width="180" MinHeight="40" ToolTip="Place du contenu épinglé">
+                            <ComboBoxItem Tag="hd" Content="Haut droite" />
+                            <ComboBoxItem Tag="hg" Content="Haut gauche" />
+                            <ComboBoxItem Tag="bd" Content="Bas droite" />
+                            <ComboBoxItem Tag="bg" Content="Bas gauche" />
+                            <ComboBoxItem Tag="cote" Content="Côte à côte" />
+                        </ComboBox>
+                        <TextBlock Text="Place" FontSize="14" Foreground="{StaticResource Brume}" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <TextBlock x:Name="DuoTailleLab" Text="Taille du contenu épinglé : 35 %" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Encre2}" Margin="0,12,0,4" />
+                    <Slider x:Name="DuoTaille" Minimum="20" Maximum="50" SmallChange="5" LargeChange="5" TickFrequency="5" IsSnapToTickEnabled="True" Value="35" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Carte}" Padding="18,16" Margin="0,14,0,0">
+                <StackPanel>
+                    <TextBlock Text="Habillage de l'écran" Style="{StaticResource TitreCarte}" Margin="0,0,0,12" />
+                    <WrapPanel x:Name="Fonds" />
+                    <DockPanel Margin="0,8,0,0">
+                        <ComboBox x:Name="Presentation" DockPanel.Dock="Right" Width="150" ToolTip="Présentation">
+                            <ComboBoxItem Tag="plein" Content="Plein écran" />
+                            <ComboBoxItem Tag="bandeau" Content="En bandeau" />
+                        </ComboBox>
+                        <TextBlock Text="Présentation" FontSize="14" Foreground="{StaticResource Brume}" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <TextBlock Text="Taille du texte" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Encre2}" Margin="0,12,0,4" />
+                    <Slider x:Name="Taille" Minimum="0.6" Maximum="1.2" SmallChange="0.05" LargeChange="0.05" TickFrequency="0.05" IsSnapToTickEnabled="True" Value="1" />
+
+                    <local:Capitales Libelle="Raccourcis" Margin="0,18,0,8" />
+                    <WrapPanel x:Name="Aide" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
         <!-- message court -->
-        <Border x:Name="ToastBoite" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,20" Background="{StaticResource Blanc}" BorderThickness="0"
-                CornerRadius="12" Padding="18,10" MaxWidth="900" Opacity="0" IsHitTestVisible="False">
-            <TextBlock x:Name="ToastTexte" TextWrapping="Wrap" Foreground="White" />
+        <Border x:Name="ToastBoite" Grid.ColumnSpan="2" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,22" Background="{StaticResource Blanc}" BorderThickness="0"
+                CornerRadius="12" Padding="18,11" MaxWidth="900" Opacity="0" IsHitTestVisible="False">
+            <TextBlock x:Name="ToastTexte" TextWrapping="Wrap" Foreground="{StaticResource Encre}" FontSize="14" />
         </Border>
     </Grid>
 </Window>
