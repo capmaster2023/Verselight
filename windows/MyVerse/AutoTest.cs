@@ -74,27 +74,41 @@ public static class AutoTest
         finally { try { d?.Close(); } catch (Exception) { } }
     }
 
-    /// <summary>Le mélangeur dans MyChurch : trois sources (dont un sinus à −6 dBFS joué par OBS), capture du panneau et de la fenêtre Filtres.</summary>
-    static async Task TestAudio(MainWindow w)
+    /// <summary>
+    /// Le mélangeur dans MyChurch (3.0.1) : trois sources (dont un sinus à −6 dBFS joué par OBS), une sortie MyVirtualSound,
+    /// deux enregistrements qui tournent en même temps (une vidéo MKV avec la projection et deux sources Display, un WAV qui
+    /// coupe les autres sources), puis les fichiers relus par le ffmpeg livré avec MyChurch. Captures du panneau et des fenêtres.
+    /// </summary>
+    static async Task TestAudio(MainWindow w, Annonce texte, Annonce image)
     {
         var cfg = App.Audio.Config;
-        var avant = cfg.Sources.ToList();
+        var avantSources = cfg.Sources.ToList();
+        var avantProfils = cfg.Profiles.ToList();
+        var avantSorties = cfg.VirtualSounds.ToList();
+        string dossierTest = Path.Combine(Path.GetTempPath(), "mychurch-autotest-" + Guid.NewGuid().ToString("N")[..8]);
         try
         {
-            for (int i = 0; i < 40 && !App.Audio.Running && !App.Audio.Diagnostic.Contains("indisponible"); i++) await Attendre(250);
+            for (int i = 0; i < 40 && !App.Audio.Running && !App.Audio.ObsAbsent && !App.Audio.Diagnostic.Contains("indisponible"); i++) await Attendre(250);
             Note("audio : " + App.Audio.Diagnostic);
             Ok(App.Audio.Running, "moteur audio OBS démarré dans MyChurch (" + App.Audio.Diagnostic + ")");
+            Ok(File.Exists(Audio.ChurchAudioService.FfmpegInclus), "ffmpeg livré avec MyChurch (" + Audio.ChurchAudioService.FfmpegInclus + ")");
             string sinus = Path.Combine(App.Donnees.Dossier, "test-sinus.wav");
             EcrireSinus(sinus);
-            var micro = new MyVerse.Audio.AudioSource { Name = "Micro pasteur", Kind = MyVerse.Audio.AudioInputKind.Microphone, DeviceId = "default", Tracks = 3, VolumeDb = -4, Monitoring = MyVerse.Audio.AudioMonitoring.AndOutput };
+            var micro = new MyVerse.Audio.AudioSource { Name = "Micro pasteur", Kind = MyVerse.Audio.AudioInputKind.Microphone, DeviceId = "default", VolumeDb = -4, Monitoring = MyVerse.Audio.AudioMonitoring.AndOutput };
             micro.Filters.Add(new MyVerse.Audio.AudioFilter { Kind = MyVerse.Audio.AudioFilterKind.NoiseSuppression });
             micro.Filters.Add(new MyVerse.Audio.AudioFilter { Kind = MyVerse.Audio.AudioFilterKind.NoiseGate, AttackMs = 25, ReleaseMs = 150 });
             micro.Filters.Add(new MyVerse.Audio.AudioFilter { Kind = MyVerse.Audio.AudioFilterKind.Compressor });
             micro.Filters.Add(new MyVerse.Audio.AudioFilter { Kind = MyVerse.Audio.AudioFilterKind.Limiter, ThresholdDb = -6 });
-            var ordi = new MyVerse.Audio.AudioSource { Name = "Son de l'ordinateur", Kind = MyVerse.Audio.AudioInputKind.Sortie, DeviceId = "default", Tracks = 1, VolumeDb = -12, Muted = true };
-            var media = new MyVerse.Audio.AudioSource { Name = "Sinus de test", Kind = MyVerse.Audio.AudioInputKind.Media, MediaPath = sinus, Loop = true, Tracks = 3 };
+            var ordi = new MyVerse.Audio.AudioSource { Name = "Son de l'ordinateur", Kind = MyVerse.Audio.AudioInputKind.Sortie, DeviceId = "default", VolumeDb = -12, Muted = true };
+            var media = new MyVerse.Audio.AudioSource { Name = "Sinus de test", Kind = MyVerse.Audio.AudioInputKind.Media, MediaPath = sinus, Loop = true };
             cfg.Sources.Clear();
             cfg.Sources.Add(micro); cfg.Sources.Add(ordi); cfg.Sources.Add(media);
+            // créés comme par l'utilisateur : une sortie « Zoom » (le sinus), un enregistrement vidéo du culte, un WAV de la prédication
+            var zoom = new MyVerse.Audio.VirtualSoundSettings { Name = "Zoom", Enabled = true, DeviceId = "default", SourceIds = { media.Id } };
+            var culte = new MyVerse.Audio.RecordingProfile { Name = "Culte (test)", SourceIds = { micro.Id, media.Id }, DisplayIds = { MyVerse.Audio.RecordingProfile.Projection, texte.Id, image.Id }, Directory = Path.Combine(dossierTest, "culte") };
+            var predication = new MyVerse.Audio.RecordingProfile { Name = "Prédication (test)", SourceIds = { micro.Id }, MuteOthers = true, Directory = Path.Combine(dossierTest, "predication") };
+            cfg.VirtualSounds.Clear(); cfg.VirtualSounds.Add(zoom);
+            cfg.Profiles.Clear(); cfg.Profiles.Add(culte); cfg.Profiles.Add(predication);
             App.Audio.Apply();
             w.MontrerAudio();
             w.PanneauAudio?.Rafraichir();
@@ -104,25 +118,75 @@ public static class AutoTest
                 var (g, d) = App.Audio.Level(media.Id);
                 Ok(g > -12 && g < -2, $"vumètre OBS dans MyChurch : sinus à −6 dBFS ({g:0.0} / {d:0.0} dBFS)");
                 Ok(App.Audio.InputReady(micro.Id) && App.Audio.InputReady(ordi.Id), "micro et son de l'ordinateur créés dans OBS");
+                Note("MyVirtualSound « Zoom » : " + App.Audio.Sorties.Status(zoom.Id));
+                Capture(w, "32-audio.png");
                 if (App.Audio.TracksActive)
                 {
-                    float p1 = float.NegativeInfinity;
-                    for (int i = 0; i < 25 && !(p1 > -12); i++) { await Attendre(200); p1 = App.Audio.TrackLevel(0); }
-                    Ok(p1 > -12, $"piste 1 : reçoit le sinus ({p1:0.0} dBFS)");
+                    Ok(zoom.Track > 0 && culte.Track == 0 && predication.Track == 0, $"pistes automatiques : Zoom a la piste {zoom.Track}, les enregistrements arrêtés n'en ont pas");
+                    float p = float.NegativeInfinity;
+                    for (int i = 0; i < 25 && !(p > -12); i++) { await Attendre(200); p = App.Audio.TrackLevel(zoom.Track - 1); }
+                    Ok(p > -12, $"piste de Zoom : reçoit le sinus ({p:0.0} dBFS)");
+
+                    // deux enregistrements en même temps
+                    await App.Audio.Recorder.ToggleAsync(culte);
+                    Ok(App.Audio.Recorder.Active(culte.Id), "enregistrement vidéo « Culte » démarré : " + App.Audio.Recorder.Message(culte.Id));
+                    await App.Audio.Recorder.ToggleAsync(predication);
+                    Ok(App.Audio.Recorder.Active(predication.Id), "2e enregistrement en même temps (« Prédication ») : " + App.Audio.Recorder.Message(predication.Id));
+                    Ok(App.Audio.SourdinesForcees.Contains(media.Id) && App.Audio.SourdinesForcees.Contains(ordi.Id) && !App.Audio.SourdinesForcees.Contains(micro.Id),
+                        "« Prédication » coupe les autres sources partout (le sinus et l'ordinateur), pas le micro");
+                    Ok(culte.Track > 0 && predication.Track > 0 && culte.Track != predication.Track && culte.Track != zoom.Track && predication.Track != zoom.Track,
+                        $"une piste d'OBS par mélange : Culte {culte.Track}, Prédication {predication.Track}, Zoom {zoom.Track}");
+                    await Attendre(1500);
+                    Capture(w, "36-enregistrements-en-cours.png");
+                    await App.Audio.Recorder.ToggleAsync(predication);
+                    Ok(!App.Audio.SourdinesForcees.Contains(media.Id) && predication.Track == 0, "« Prédication » arrêtée : le sinus revient, sa piste est libérée");
+                    await Attendre(2500);
+                    await App.Audio.Recorder.ToggleAsync(culte);
+                    string? video = App.Audio.Recorder.LastFile(culte.Id), wav = App.Audio.Recorder.LastFile(predication.Id);
+                    long tv = video != null && File.Exists(video) ? new FileInfo(video).Length : 0, ta = wav != null && File.Exists(wav) ? new FileInfo(wav).Length : 0;
+                    Ok(App.Audio.Recorder.State(culte.Id) == Audio.ChurchRecordingState.Ready && tv > 20000, $"vidéo MKV finalisée : {Path.GetFileName(video)} ({tv} octets, {App.Audio.Recorder.Message(culte.Id)})");
+                    Ok(wav != null && wav.EndsWith(".wav", StringComparison.OrdinalIgnoreCase) && ta > 48000 * 3, $"WAV de la prédication : {Path.GetFileName(wav)} ({ta} octets)");
+                    if (tv > 0)
+                    {
+                        var (code, journal) = await Decrire(App.Audio.Ffmpeg, video!);
+                        var duree = System.Text.RegularExpressions.Regex.Match(journal, @"Duration: (\d+):(\d+):([0-9.]+)");
+                        double s = duree.Success ? int.Parse(duree.Groups[1].Value) * 3600 + int.Parse(duree.Groups[2].Value) * 60 + double.Parse(duree.Groups[3].Value, System.Globalization.CultureInfo.InvariantCulture) : 0;
+                        Ok(code == 0 && journal.Contains("Video: ") && journal.Contains("Audio: aac"), "MKV relu en entier par ffmpeg : une piste vidéo et une piste audio");
+                        Ok(s > 3, $"MKV : durée {s:0.0} s");
+                        foreach (var ligne in journal.Split('\n').Where(l => l.Contains("Stream #"))) Note("  " + ligne.Trim());
+                    }
                 }
-                else Note("pistes d'OBS inactives sur cette machine (pas de carte graphique) : essais des pistes non faits");
+                else Note("pistes d'OBS inactives sur cette machine (pas de carte graphique) : essais des pistes et des enregistrements non faits");
             }
-            Capture(w, "32-audio.png");
             await Fenetre(w, () => new Audio.FiltresWindow(micro), "33-filtres.png");
+            await Fenetre(w, () => new Audio.EnregistrementWindow(culte), "34-enregistrement.png");
+            await Fenetre(w, () => new Audio.SortieWindow(zoom), "35-sortie.png");
         }
         catch (Exception x) { Echec("panneau Audio : " + x); }
         finally
         {
-            cfg.Sources.Clear();
-            cfg.Sources.AddRange(avant);
+            try { await App.Audio.Recorder.StopAllAsync(); } catch (Exception x) { Echec("arrêt des enregistrements : " + x.Message); }
+            cfg.Sources.Clear(); cfg.Sources.AddRange(avantSources);
+            cfg.Profiles.Clear(); cfg.Profiles.AddRange(avantProfils);
+            cfg.VirtualSounds.Clear(); cfg.VirtualSounds.AddRange(avantSorties);
             App.Audio.Apply();
             w.PanneauAudio?.Rafraichir();
+            try { Directory.Delete(dossierTest, true); } catch (Exception) { }
         }
+    }
+
+    /// <summary>ffmpeg relit tout le fichier (sans rien écrire) : code de sortie et journal (flux, durée).</summary>
+    static async Task<(int Code, string Journal)> Decrire(string ffmpeg, string fichier)
+    {
+        var info = new System.Diagnostics.ProcessStartInfo(ffmpeg) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true, RedirectStandardOutput = true };
+        foreach (var a in new[] { "-hide_banner", "-nostats", "-i", fichier, "-map", "0", "-f", "null", "-" }) info.ArgumentList.Add(a);
+        using var p = System.Diagnostics.Process.Start(info)!;
+        var erreurs = p.StandardError.ReadToEndAsync();
+        var sortie = p.StandardOutput.ReadToEndAsync();
+        try { await p.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(60)); }
+        catch { try { p.Kill(true); } catch (Exception) { } throw; }
+        await sortie;
+        return (p.ExitCode, await erreurs);
     }
 
     static void EcrireSinus(string chemin)
@@ -343,7 +407,7 @@ public static class AutoTest
             Capture(w, "27-display-grille.png");
 
             // 3.0 : panneau Audio sous la grille, sur le vrai moteur d'OBS (dossier « obs » à côté de MyChurch.exe)
-            await TestAudio(w);
+            await TestAudio(w, an, img);
             w.TestCliquerTuile(1);
             await Attendre(1300);
             Ok(R.Etat.Mode == "media" && App.Sources.Image != null, "clic sur la tuile image : en direct");
