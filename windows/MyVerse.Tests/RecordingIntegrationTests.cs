@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using MyVerse.Audio;
 
 namespace MyVerse.Tests;
@@ -25,6 +27,51 @@ public static class RecordingIntegrationTests
         using var p = Process.Start(info)!; var output = p.StandardOutput.ReadToEndAsync(); var error = p.StandardError.ReadToEndAsync();
         try { await p.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(20)); } catch { p.Kill(true); throw; }
         if (p.ExitCode != 0) throw new IOException(await error); return await output;
+    }
+    /// <summary>Journal (stderr) de FFmpeg, où silencedetect et metadata écrivent leurs mesures.</summary>
+    static async Task<string> JournalAsync(string exe, IEnumerable<string> args)
+    {
+        var info = new ProcessStartInfo(exe) { RedirectStandardError = true, RedirectStandardOutput = true, UseShellExecute = false };
+        foreach (var arg in args) info.ArgumentList.Add(arg);
+        using var p = Process.Start(info)!; var output = p.StandardOutput.ReadToEndAsync(); var error = p.StandardError.ReadToEndAsync();
+        try { await p.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(30)); } catch { p.Kill(true); throw; }
+        await output; return await error;
+    }
+    /// <summary>Le moment (secondes) où le son devient fort et celui où l'image devient claire : le « clap » des blocs 50 à 59.</summary>
+    static async Task<(double? Son, double? Image)> ClapAsync(string ffmpeg, string path)
+    {
+        string a = await JournalAsync(ffmpeg, new[] { "-hide_banner", "-nostats", "-i", path, "-map", "0:a:0", "-af", "silencedetect=n=-20dB:d=0.04", "-f", "null", "-" });
+        var fin = Regex.Match(a, @"silence_end:\s*([0-9.]+)");
+        string v = await JournalAsync(ffmpeg, new[] { "-hide_banner", "-nostats", "-i", path, "-map", "0:v:0", "-vf", "signalstats,metadata=mode=print:key=lavfi.signalstats.YAVG", "-f", "null", "-" });
+        double? image = null; double t = 0;
+        foreach (var ligne in v.Split('\n'))
+        {
+            var mt = Regex.Match(ligne, @"pts_time:([0-9.]+)");
+            if (mt.Success) t = double.Parse(mt.Groups[1].Value, CultureInfo.InvariantCulture);
+            var my = Regex.Match(ligne, @"YAVG=([0-9.]+)");
+            if (my.Success && double.Parse(my.Groups[1].Value, CultureInfo.InvariantCulture) > 128) { image = t; break; }
+        }
+        return (fin.Success ? double.Parse(fin.Groups[1].Value, CultureInfo.InvariantCulture) : null, image);
+    }
+    /// <summary>Une vraie session vidéo (tubes nommés Windows) avec un décalage de synchro, puis la mesure du clap.</summary>
+    static async Task<(double? Son, double? Image)> SessionClapAsync(string ffmpeg, string directory, Frames frame, int delayMs)
+    {
+        var profile = new RecordingProfile { Name = "synchro" + delayMs, Format = "mkv", AudioOnly = false, Directory = directory, Width = 320, Height = 180, Fps = 30, Encoder = "mjpeg", AudioDelayMs = delayMs };
+        string path = RecordingFiles.ReservePath(directory, profile.Name, "mkv");
+        var block = new float[AudioBlock.Samples];
+        using (var session = new RecordingSession(profile, path, ffmpeg, "mjpeg", frame))
+        {
+            await session.PrepareAsync();
+            for (int n = 0; n < 150; n++)
+            {
+                frame.Set(n >= 50 && n < 60 ? (byte)240 : (byte)25);
+                FillAudio(block, n);
+                if (!session.Accept(block)) throw new IOException(session.Error);
+                await Task.Delay(10);
+            }
+            await session.StopAsync();
+        }
+        return await ClapAsync(ffmpeg, path);
     }
     static void FillAudio(float[] block, int n)
     {
@@ -93,6 +140,21 @@ public static class RecordingIntegrationTests
                 double duration = double.Parse(doc.RootElement.GetProperty("format").GetProperty("duration").GetString()!, System.Globalization.CultureInfo.InvariantCulture);
                 ok(Math.Abs(duration - 1.5) < .12, "FFprobe : durée du fichier (" + format + ")", duration.ToString());
                 if (format == "mkv") ok(streams.EnumerateArray().Any(s => s.TryGetProperty("width", out var width) && width.GetInt32() == 320 && s.GetProperty("height").GetInt32() == 180), "FFprobe : vidéo 320 × 180 réelle", null);
+                if (format == "mkv")
+                {
+                    // synchro : le son fort et l'image claire arrivent ensemble (blocs 50 à 59)
+                    var (son, image) = await ClapAsync(executable, path);
+                    ok(son != null && image != null && Math.Abs(son.Value - image.Value) < 0.05, "Synchro image/son mesurée dans le MKV", $"son {son:0.000} s · image {image:0.000} s");
+                    if (OperatingSystem.IsWindows())
+                    {
+                        foreach (int delai in new[] { 200, -200 })
+                        {
+                            var (s2, i2) = await SessionClapAsync(executable, directory, frame, delai);
+                            ok(s2 != null && i2 != null && Math.Abs(s2.Value - i2.Value - delai / 1000.0) < 0.05,
+                                delai > 0 ? "Décalage de synchro : son retardé de 200 ms" : "Décalage de synchro : image retardée de 200 ms", $"son {s2:0.000} s · image {i2:0.000} s");
+                        }
+                    }
+                }
                 await ProcessAsync(executable, new[] { "-v", "error", "-i", path, "-f", "null", "-" });
                 ok(true, "Décodage complet FFmpeg sans erreur (" + format + ")", null);
             }

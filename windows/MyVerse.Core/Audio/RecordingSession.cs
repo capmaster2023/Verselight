@@ -108,6 +108,10 @@ public sealed class RecordingSession : IDisposable
                 // A silent priming interval lets FFmpeg open both pipes before the allow-list is activated.
                 int primeFrames = videoPipe == null ? 0 : 48000 / profile.Fps;
                 if (primeFrames > 0) await audioPipe.WriteAsync(new byte[primeFrames * 8], cancel.Token);
+                // Synchro : le son est retardé de AudioDelayMs (caméra en retard). Ce silence n'avance pas la vidéo,
+                // qui reste cadencée par le son réellement reçu : tout le son glisse d'autant par rapport à l'image.
+                int delayFrames = videoPipe == null ? 0 : Math.Clamp(profile.AudioDelayMs, 0, 1000) * 48;
+                if (delayFrames > 0) await audioPipe.WriteAsync(new byte[delayFrames * 8], cancel.Token);
                 Interlocked.Exchange(ref writtenFrames, primeFrames);
                 ready.TrySetResult();
             }
@@ -149,15 +153,30 @@ public sealed class RecordingSession : IDisposable
     async Task WriteVideoAsync()
     {
         await videoPipe!.WaitForConnectionAsync(cancel.Token);
-        byte[] frame = new byte[profile.Width * profile.Height * 4];
+        int size = profile.Width * profile.Height * 4;
+        // Synchro négative : l'image est retardée de −AudioDelayMs (son en retard sur l'image) grâce à une file d'images.
+        int delay = Math.Clamp(-profile.AudioDelayMs, 0, 500) * profile.Fps / 1000;
+        var queue = new Queue<byte[]>();
+        var spare = new Stack<byte[]>();
         long sent = 0;
+        async Task SendAsync()
+        {
+            var image = spare.Count > 0 ? spare.Pop() : new byte[size];
+            compositor!.CopyFrame(image);
+            queue.Enqueue(image);
+            // tant que la file n'est pas pleine, la plus ancienne image est répétée
+            var output = queue.Count > delay ? queue.Dequeue() : queue.Peek();
+            await videoPipe.WriteAsync(output, cancel.Token);
+            if (!queue.Contains(output)) spare.Push(output);
+            sent++;
+        }
         // Prime the video input immediately so FFmpeg proceeds to open the audio pipe.
-        compositor!.CopyFrame(frame); await videoPipe.WriteAsync(frame, cancel.Token); sent++;
+        await SendAsync();
         while (!cancel.IsCancellationRequested)
         {
             long wanted = (Interlocked.Read(ref writtenFrames) * profile.Fps + 47999) / 48000;
             if (wanted - sent > profile.Fps * 2) { Fail("L’encodeur vidéo ne suit plus le son. Arrêt pour préserver la synchronisation."); break; }
-            if (sent < wanted) { compositor.CopyFrame(frame); await videoPipe.WriteAsync(frame, cancel.Token); sent++; }
+            if (sent < wanted) await SendAsync();
             else { if (audioDone) break; await Task.Delay(2, cancel.Token); }
         }
         videoPipe.Dispose();
