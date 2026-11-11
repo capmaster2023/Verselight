@@ -63,7 +63,7 @@ public sealed class CaptureEntrees : IDisposable
     public void Apply(IEnumerable<AudioSource> sources)
     {
         var voulues = sources.Where(s => s.Kind == AudioInputKind.Microphone && s.Channel > 0)
-            .GroupBy(s => Cle(s.DeviceId)).ToDictionary(g => g.Key, g => g.Select(s => (s.Id, s.Channel)).ToArray());
+            .GroupBy(s => Cle(s.DeviceId)).ToDictionary(g => g.Key, g => g.Select(s => (Id: s.Id, Entree: s.Channel)).ToArray());
         List<Capteur> fermer;
         lock (verrou)
         {

@@ -31,7 +31,7 @@ public partial class App : Application
         // barre de titre de Windows claire ou sombre, comme l'intérieur (la projection et l'écran de scène gardent la leur)
         if (Current != null)
             foreach (Window w in Current.Windows)
-                if (w is MainWindow or FenetreDialogue) Natif.TitreSombre(w, Palette.Actuelle.Sombre);
+                if (w is global::MyVerse.Ui.MainWindow or FenetreDialogue) Natif.TitreSombre(w, Palette.Actuelle.Sombre);
     }
     public static string Ressources => Path.Combine(AppContext.BaseDirectory, "Ressources");
     public static Donnees Donnees { get; private set; } = null!;
