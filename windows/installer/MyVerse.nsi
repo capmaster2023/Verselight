@@ -1,13 +1,13 @@
 ; Installateur de MyChurch 3 (logiciel Windows natif), compilé sur GitHub Actions.
 ; Le dossier « app » (copié en entier, sous-dossiers compris) contient aussi « obs » : libobs (OBS Studio 33.0.1, GNU GPL v2 ou ultérieure)
-; et COPYING.txt. VB-CABLE n'est jamais inclus : MyChurch le télécharge à la demande depuis le site officiel.
+; et COPYING.txt, ainsi que « ffmpeg » : ffmpeg.exe 8.0.1 (gyan.dev, GNU GPL v3) et sa licence, pour le FLAC et la vidéo des enregistrements. VB-CABLE n'est jamais inclus : MyChurch le télécharge à la demande depuis le site officiel.
 ; Installation par utilisateur (pas besoin d'être administrateur), au même endroit que la 3.x : la mise à jour la remplace.
 ; Chants, réglages, Bibles importées et téléphones jumelés (%APPDATA%\VerseLight) sont gardés.
 Unicode true
 !include "MUI2.nsh"
 
 !ifndef VERSION
-  !define VERSION "3.0.0"
+  !define VERSION "3.0.1"
 !endif
 !define APP "MyChurch"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\MyVerse"
@@ -23,7 +23,7 @@ SetCompressor /SOLID lzma
 !define MUI_FINISHPAGE_RUN "$INSTDIR\MyChurch.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "Lancer MyChurch"
 
-VIProductVersion "3.0.0.0"
+VIProductVersion "3.0.1.0"
 VIAddVersionKey /LANG=1036 "ProductName" "MyChurch"
 VIAddVersionKey /LANG=1036 "FileDescription" "Installateur de MyChurch"
 VIAddVersionKey /LANG=1036 "FileVersion" "${VERSION}"
@@ -98,6 +98,11 @@ Section "MyVerse"
   IfFileExists "$INSTDIR\MyChurch.exe" 0 +2
     RMDir /r "$INSTDIR\obs"
 
+  ; ffmpeg : un enregistrement interrompu peut laisser ffmpeg.exe ouvert un instant ; il est alors écarté (.old) comme MyVirtualCam
+  Delete "$INSTDIR\ffmpeg\ffmpeg.exe.old"
+  Push "ffmpeg\ffmpeg.exe"
+  Call LibererFichier
+
   ; MyVirtualCam : quand un logiciel (OBS, Zoom…) utilise la caméra virtuelle, Windows garde ses deux fichiers ouverts
   ; et refuse de les remplacer (« Erreur lors de l'ouverture du fichier en écriture »). Un fichier ouvert peut par contre
   ; être renommé : les anciens passent en .old, les nouveaux s'écrivent à leur place, et les .old sont supprimés
@@ -115,6 +120,7 @@ Section "MyVerse"
 
   Delete /REBOOTOK "$INSTDIR\MyVirtualCam.dll.old"
   Delete /REBOOTOK "$INSTDIR\MyVirtualCam32.dll.old"
+  Delete /REBOOTOK "$INSTDIR\ffmpeg\ffmpeg.exe.old"
   Delete "$INSTDIR\ns*.tmp.old"
   ; aucun redémarrage n'est demandé : le logiciel qui utilise la caméra garde l'ancienne version jusqu'à sa fermeture
   SetRebootFlag false
@@ -152,8 +158,9 @@ Section "Uninstall"
   Delete "$DESKTOP\MyChurch.lnk"
   Delete "$SMPROGRAMS\MyChurch.lnk"
   ; par sécurité : on ne vide le dossier que si c'est bien celui de MyVerse
-  IfFileExists "$INSTDIR\MyChurch.exe" 0 +3
+  IfFileExists "$INSTDIR\MyChurch.exe" 0 +4
     RMDir /r "$INSTDIR\obs"
+    RMDir /r "$INSTDIR\ffmpeg"
     RMDir /r "$INSTDIR"
   RMDir "$INSTDIR"
   DeleteRegKey HKCU "${UNINST_KEY}"

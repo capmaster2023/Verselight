@@ -92,10 +92,38 @@ jobs:
           if ($manque.Count -gt 0) { "MANQUANTES : $($manque -join ', ')" | Tee-Object -FilePath ci/obs.txt -Append; throw "Dépendances d'OBS manquantes" }
           Get-ChildItem -Recurse $obs -File | Measure-Object -Property Length -Sum | ForEach-Object { "dossier obs : {0} fichiers, {1:N1} Mo" -f $_.Count, ($_.Sum / 1MB) } | Tee-Object -FilePath ci/obs.txt -Append
 
+      - name: FFmpeg 8.0.1 (build « essentials » de gyan.dev, GNU GPL v3, SHA-256 vérifié)
+        run: |
+          New-Item -ItemType Directory -Force ci | Out-Null
+          $zip = "$env:RUNNER_TEMP\ffmpeg-8.0.1.zip"
+          Invoke-WebRequest "https://github.com/GyanD/codexffmpeg/releases/download/8.0.1/ffmpeg-8.0.1-essentials_build.zip" -OutFile $zip
+          $sha = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          "FFmpeg 8.0.1 essentials (gyan.dev) : SHA-256 $sha" | Tee-Object -FilePath ci/ffmpeg.txt
+          if ($sha -ne "e2aaeaa0fdbc397d4794828086424d4aaa2102cef1fb6874f6ffd29c0b88b673") { throw "SHA-256 du paquet FFmpeg inattendu" }
+          $tmp = "$env:RUNNER_TEMP\ffmpeg-8.0.1"
+          Expand-Archive $zip -DestinationPath $tmp -Force
+          $exe = Get-ChildItem $tmp -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          if (-not $exe) { throw "ffmpeg.exe introuvable dans le paquet" }
+          $racine = $exe.Directory.Parent.FullName
+          $licence = Get-ChildItem $racine -File -Filter "LICENSE*" | Select-Object -First 1
+          if (-not $licence) { throw "Licence de FFmpeg introuvable dans le paquet" }
+          # MyChurch ne livre que ffmpeg.exe (FLAC et vidéo MKV), avec sa licence et le README du build
+          New-Item -ItemType Directory -Force out/ffmpeg | Out-Null
+          Copy-Item $exe.FullName out/ffmpeg/
+          Copy-Item $licence.FullName out/ffmpeg/LICENSE.txt
+          Get-ChildItem $racine -File -Filter "README*" | Select-Object -First 1 | ForEach-Object { Copy-Item $_.FullName out/ffmpeg/README.txt }
+          # les tests du cœur relisent les fichiers avec ffprobe, à côté de ffmpeg.exe dans le paquet
+          "MYCHURCH_FFMPEG=$($exe.FullName)" >> $env:GITHUB_ENV
+          $version = @(& $exe.FullName -hide_banner -version)
+          $version[0] | Tee-Object -FilePath ci/ffmpeg.txt -Append
+          $encodeurs = @(& $exe.FullName -hide_banner -encoders)
+          $encodeurs | Where-Object { $_ -match "libx264|h264_nvenc|h264_qsv|h264_amf|mjpeg| flac | aac " } | ForEach-Object { $_.Trim() } | Tee-Object -FilePath ci/ffmpeg.txt -Append
+
       - name: Tests du cœur (Bible, recherche, chants, téléphone, mélangeur sur la vraie libobs)
         run: |
           New-Item -ItemType Directory -Force ci | Out-Null
           $env:MYCHURCH_OBS = (Resolve-Path "out/obs").Path
+          "ffmpeg des tests : $env:MYCHURCH_FFMPEG"
           dotnet run --project windows/MyVerse.Tests -c Release -- "$PWD/windows/MyVerse/Ressources" 2>&1 | Tee-Object -FilePath ci/tests.log
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
@@ -135,6 +163,8 @@ jobs:
           # moteur audio OBS (libobs, GNU GPL v2 ou ultérieure) et le texte de la licence
           Copy-Item -Recurse out/obs out/MyChurch/obs
           Copy-Item COPYING out/MyChurch/COPYING.txt
+          # ffmpeg.exe (GNU GPL v3) pour le FLAC et la vidéo des enregistrements, avec sa licence
+          Copy-Item -Recurse out/ffmpeg out/MyChurch/ffmpeg
           Copy-Item out/cam-x64/Release/MyVirtualCam.dll out/MyChurch/MyVirtualCam.dll
           Copy-Item out/cam-Win32/Release/MyVirtualCam.dll out/MyChurch/MyVirtualCam32.dll
           Get-ChildItem out/directshow/LICENSE* | Copy-Item -Destination out/MyChurch/
@@ -236,7 +266,7 @@ jobs:
           "MyVerse rouvert après la mise à jour : $([bool]$ouvert)" | Tee-Object -FilePath ci/installateur.txt -Append
           $ouvert | Stop-Process -Force -ErrorAction SilentlyContinue
           $ok = $true
-          foreach ($f in @("MyChurch.exe", "Ressources\lsg.json", "Ressources\obs\ecran.html", "Desinstaller.exe", "obs\bin\64bit\obs.dll", "obs\core\win-wasapi\win-wasapi.dll", "COPYING.txt")) { $e = Test-Path "$dir\$f"; "présent $f : $e" | Tee-Object -FilePath ci/installateur.txt -Append; if (-not $e) { $ok = $false } }
+          foreach ($f in @("MyChurch.exe", "Ressources\lsg.json", "Ressources\obs\ecran.html", "Desinstaller.exe", "obs\bin\64bit\obs.dll", "obs\core\win-wasapi\win-wasapi.dll", "COPYING.txt", "ffmpeg\ffmpeg.exe", "ffmpeg\LICENSE.txt")) { $e = Test-Path "$dir\$f"; "présent $f : $e" | Tee-Object -FilePath ci/installateur.txt -Append; if (-not $e) { $ok = $false } }
           foreach ($f in @("resources.neu", "extensions", "neutralinojs.log")) { $e = Test-Path "$dir\$f"; "ancien $f retiré : $(-not $e)" | Tee-Object -FilePath ci/installateur.txt -Append; if ($e) { $ok = $false } }
           "raccourci Bureau : $(Test-Path "$env:USERPROFILE\Desktop\MyChurch.lnk")" | Tee-Object -FilePath ci/installateur.txt -Append
           "Applications installées : $((Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MyVerse' -ErrorAction SilentlyContinue).DisplayVersion)" | Tee-Object -FilePath ci/installateur.txt -Append
@@ -370,6 +400,7 @@ jobs:
             cp /tmp/w/windows.status windows.status 2>/dev/null || true
             cp /tmp/w/installateur.txt installateur.txt 2>/dev/null || true
             cp /tmp/w/obs.txt obs.txt 2>/dev/null || true
+            cp /tmp/w/ffmpeg.txt ffmpeg.txt 2>/dev/null || true
             if [ -d /tmp/w/autotest ]; then cp -r /tmp/w/autotest autotest; fi
           fi
           git add -A && git commit -qm "CI ${GITHUB_SHA}" && git push -f origin ci-logs
