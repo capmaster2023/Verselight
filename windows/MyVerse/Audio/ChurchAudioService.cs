@@ -14,8 +14,18 @@ public sealed class ChurchAudioService : IDisposable
     string videoProjetee = "";
     public AudioConfiguration Config { get; }
     public ChurchRecordingService Recorder { get; }
-    public VirtualSound VirtualSound { get; }
+    /// <summary>Les sorties MyVirtualSound (Zoom…).</summary>
+    public SortiesVirtuelles Sorties { get; }
     public string Diagnostic { get; private set; } = "Moteur audio OBS : démarrage…";
+    /// <summary>Le dossier « obs » manque ou est incomplet : le panneau propose de réparer (réinstaller MyChurch).</summary>
+    public bool ObsAbsent { get; private set; }
+    /// <summary>Sources coupées en ce moment par un enregistrement ou une sortie qui « coupe les autres sources ».</summary>
+    public IReadOnlySet<string> SourdinesForcees { get; private set; } = new HashSet<string>();
+    /// <summary>Faux s'il faudrait plus de 6 mélanges différents en même temps (6 pistes d'OBS).</summary>
+    public bool PistesSuffisantes { get; private set; } = true;
+    /// <summary>ffmpeg (FLAC et vidéo MKV) : celui choisi dans les Paramètres, sinon celui livré avec MyChurch.</summary>
+    public string Ffmpeg => Config.FfmpegPath.Length > 0 && File.Exists(Config.FfmpegPath) ? Config.FfmpegPath : FfmpegInclus;
+    public static string FfmpegInclus => Path.Combine(AppContext.BaseDirectory, "ffmpeg", "ffmpeg.exe");
     public bool Running => mixer.Running;
     public bool TracksActive => mixer.TracksActive;
     public string Version => mixer.Version;
@@ -28,7 +38,7 @@ public sealed class ChurchAudioService : IDisposable
         Config = config;
         Config.Normalize();
         Recorder = new(this);
-        VirtualSound = new(this);
+        Sorties = new(this);
         sauvegarde.Tick += (_, _) => { sauvegarde.Stop(); try { App.Donnees.SauverReglages(); } catch (Exception e) { Journal.Erreur("réglages audio", e); } };
         veille.Tick += async (_, _) => { try { await Recorder.PollAsync(); } catch (Exception e) { Journal.Erreur("enregistrement", e); } };
         veille.Start();
@@ -44,16 +54,29 @@ public sealed class ChurchAudioService : IDisposable
     public void Start()
     {
         if (mixer.Running) return;
+        var chemins = ObsPaths.Windows(DossierObs);
+        if (!chemins.Present)
+        {
+            ObsAbsent = true;
+            Diagnostic = "Moteur audio absent : le dossier « obs » de MyChurch manque ou est incomplet. « Réparer » réinstalle MyChurch (chants et réglages gardés).";
+            Journal.Info("audio : fichier absent " + chemins.Library);
+            Changed?.Invoke();
+            return;
+        }
+        ObsAbsent = false;
         try
         {
-            mixer.Start(ObsPaths.Windows(DossierObs));
+            mixer.Start(chemins);
             Apply(false);
             Diagnostic = $"Moteur OBS {mixer.Version}" + (mixer.TracksActive ? "" : " · pistes indisponibles (carte graphique)");
             Journal.Info($"audio : libobs {mixer.Version}, modules {string.Join(", ", mixer.Modules)}, pistes {(mixer.TracksActive ? "actives" : "inactives")}");
         }
         catch (Exception e)
         {
-            Diagnostic = "Moteur audio OBS indisponible : " + e.Message;
+            Diagnostic = "Moteur audio OBS indisponible : " + (e is DllNotFoundException || e.Message.Contains("0x8007007E")
+                ? "une bibliothèque du dossier « obs » ne se charge pas (fichier manquant ou bloqué par l'antivirus). « Réparer » réinstalle MyChurch."
+                : e.Message);
+            ObsAbsent = e is DllNotFoundException or BadImageFormatException;
             Journal.Erreur("moteur audio OBS", e);
         }
         Changed?.Invoke();
@@ -74,10 +97,16 @@ public sealed class ChurchAudioService : IDisposable
     {
         Config.Normalize();
         foreach (var s in Config.Sources.Where(s => s.Kind == AudioInputKind.Media && s.FollowProjection)) s.MediaPath = videoProjetee;
+        // une piste d'OBS par mélange différent en cours (enregistrements qui tournent, sorties MyVirtualSound actives)
+        var reserves = Recorder.Reserves;
+        PistesSuffisantes = Config.AttribuerPistes(reserves);
+        var coupees = Config.SourcesCoupees(reserves);
+        SourdinesForcees = coupees;
         sauvegarde.Stop(); sauvegarde.Start();
-        try { mixer.Apply(Config); }
+        try { mixer.Apply(coupees.Count == 0 ? Config : Config.AvecSourdines(coupees)); }
         catch (Exception e) { Diagnostic = "OBS : " + e.Message; Journal.Erreur("réglages audio OBS", e); }
-        VirtualSound.Apply(Config.VirtualSound);
+        Sorties.Apply(Config.VirtualSounds);
+        Recorder.SuivrePistes();
         Changed?.Invoke();
     }
 
@@ -94,7 +123,7 @@ public sealed class ChurchAudioService : IDisposable
     public void Dispose()
     {
         sauvegarde.Stop(); veille.Stop();
-        try { VirtualSound.Dispose(); } catch (Exception e) { Journal.Erreur("MyVirtualSound", e); }
+        try { Sorties.Dispose(); } catch (Exception e) { Journal.Erreur("MyVirtualSound", e); }
         try { Recorder.Dispose(); } catch (Exception e) { Journal.Erreur("fin d'enregistrement", e); }
         try { mixer.Dispose(); } catch (Exception e) { Journal.Erreur("arrêt d'OBS", e); }
     }

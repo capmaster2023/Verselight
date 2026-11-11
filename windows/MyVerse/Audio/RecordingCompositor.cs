@@ -88,14 +88,18 @@ public sealed class RecordingCompositor : IRecordingFrameProvider, IDisposable
     readonly List<(Image Image, CameraFrames.Lease Camera)> cameraViews = new();
     readonly List<(Image Image, VideoCapture Video, Mat Frame, Mat Bgra, double Fps)> videos = new();
     readonly List<Rendu> projections = new();
+    /// <summary>Sources Display de la bibliothèque (texte, média, dossier Duo), rendues comme sur l'écran principal ;
+    /// leurs médias (caméra, fenêtre, image, vidéo) sont lus par des lecteurs à part, sans toucher à l'écran.</summary>
+    readonly List<(Rendu Rendu, Annonce Annonce, SourcesDisplay? Premier, SourcesDisplay? Second)> annonces = new();
+    int tours;
     readonly DispatcherTimer timer;
     readonly Stopwatch clock = new();
-    readonly int width, height;
+    readonly int width, height, imagesParSeconde;
     bool disposed;
     public string? Error { get; private set; }
     public RecordingCompositor(RecordingProfile profile)
     {
-        width = profile.Width; height = profile.Height;
+        width = profile.Width; height = profile.Height; imagesParSeconde = Math.Max(1, profile.Fps);
         canvas.Width = width; canvas.Height = height;
         bitmap = new(width, height, 96, 96, PixelFormats.Pbgra32); frame = new byte[width * height * 4];
         timer = new(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1d / profile.Fps) };
@@ -105,6 +109,22 @@ public sealed class RecordingCompositor : IRecordingFrameProvider, IDisposable
             {
                 FrameworkElement element;
                 if (visual.Kind == "projection") { var rendu = new Rendu { Transitions = false }; projections.Add(rendu); element = rendu; }
+                else if (visual.Kind == "annonce")
+                {
+                    var a = App.Donnees.Annonces.FirstOrDefault(x => x.Id == visual.Annonce) ?? throw new IOException("Une source Display de cet enregistrement a été supprimée : « Modifier » pour la retirer.");
+                    var etat = App.Regie.EtatAnnonce(a) ?? throw new IOException($"La source Display « {a.Titre} » est vide.");
+                    var rendu = new Rendu { Transitions = false };
+                    SourcesDisplay? premier = null, second = null;
+                    try
+                    {
+                        if (etat is { Mode: "media", Media: { } m1 }) { premier = new SourcesDisplay(""); premier.ChoisirSource(m1); }
+                        if (etat.Duo?.Etat is { Mode: "media", Media: { } m2 }) { second = new SourcesDisplay(""); second.ChoisirSource(m2); }
+                    }
+                    catch { premier?.Dispose(); second?.Dispose(); throw; }
+                    annonces.Add((rendu, a, premier, second));
+                    rendu.Afficher(etat);
+                    element = rendu;
+                }
                 else
                 {
                     var image = new Image { Stretch = visual.Crop ? Stretch.UniformToFill : Stretch.Uniform }; element = image;
@@ -138,6 +158,12 @@ public sealed class RecordingCompositor : IRecordingFrameProvider, IDisposable
             while (c.Image == null && c.Error == null && until.ElapsedMilliseconds < 8000) await Task.Delay(50);
             if (c.Image == null) throw new IOException(c.Error ?? "La caméra ne fournit pas d’image.");
         }
+        foreach (var lecteur in annonces.SelectMany(a => new[] { a.Premier, a.Second }).OfType<SourcesDisplay>())
+        {
+            var until = Stopwatch.StartNew();
+            while (lecteur.Image == null && lecteur.Statut == "Connexion à la source…" && until.ElapsedMilliseconds < 8000) await Task.Delay(50);
+            if (lecteur.Image == null) throw new IOException(lecteur.Statut is { Length: > 0 } st && st != "Connexion à la source…" ? st : "Une source Display de l'enregistrement ne fournit pas d’image.");
+        }
         Render();
     }
     public void Start() { clock.Restart(); timer.Start(); }
@@ -148,6 +174,14 @@ public sealed class RecordingCompositor : IRecordingFrameProvider, IDisposable
         {
             foreach (var view in cameraViews) { if (view.Camera.Error != null) throw new IOException(view.Camera.Error); view.Image.Source = view.Camera.Image; }
             foreach (var p in projections) { p.Afficher(App.Regie.Etat); p.ImageDisplay(App.Sources.Image); p.ImageDuo(App.SourcesDuo.Image); }
+            // une fois par seconde, la source Display suit ses modifications (texte, thème) ; ses images vivantes à chaque image
+            bool relire = ++tours % imagesParSeconde == 0;
+            foreach (var a in annonces)
+            {
+                if (relire && App.Regie.EtatAnnonce(a.Annonce) is { } etat) a.Rendu.Afficher(etat);
+                if (a.Premier != null) a.Rendu.ImageDisplay(a.Premier.Image);
+                if (a.Second != null) a.Rendu.ImageDuo(a.Second.Image);
+            }
             foreach (var v in videos)
             {
                 double desired = Math.Floor(clock.Elapsed.TotalSeconds * v.Fps);
@@ -170,5 +204,6 @@ public sealed class RecordingCompositor : IRecordingFrameProvider, IDisposable
     {
         disposed = true; timer.Stop(); foreach (var c in cameras) c.Dispose(); cameras.Clear();
         foreach (var v in videos) { v.Video.Dispose(); v.Frame.Dispose(); v.Bgra.Dispose(); } videos.Clear();
+        foreach (var a in annonces) { a.Premier?.Dispose(); a.Second?.Dispose(); } annonces.Clear();
     }
 }

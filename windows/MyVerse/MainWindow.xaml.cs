@@ -205,10 +205,11 @@ public partial class MainWindow : Window
         bool closingAfterRecording = false;
         Closing += async (_, e) =>
         {
-            if (!closingAfterRecording && (App.Audio.Recorder.Active || App.Audio.Recorder.Busy))
+            if (!closingAfterRecording && App.Audio.Recorder.AnyBusy)
             {
                 e.Cancel = true; IsEnabled = false;
-                await App.Audio.Recorder.StopAsync();
+                Toast("Finalisation des enregistrements en cours…");
+                await App.Audio.Recorder.StopAllAsync();
                 closingAfterRecording = true; Close(); return;
             }
             Fermeture();

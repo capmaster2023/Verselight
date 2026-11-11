@@ -13,7 +13,8 @@ namespace MyVerse.Ui;
 /// Une instance par contenu vivant : App.Sources (écran principal) et App.SourcesDuo (contenu épinglé du Duo).</summary>
 public sealed class SourcesDisplay : IDisposable
 {
-    /// <summary>Nom de l'image écrite pour la page OBS : display.jpg (écran principal) ou display-duo.jpg (Duo).</summary>
+    /// <summary>Nom de l'image écrite pour la page OBS : display.jpg (écran principal) ou display-duo.jpg (Duo) ;
+    /// vide pour un lecteur qui n'écrit rien (vidéo des enregistrements).</summary>
     readonly string export;
     public SourcesDisplay(string export = "display.jpg") { this.export = export; }
 
@@ -125,7 +126,7 @@ public sealed class SourcesDisplay : IDisposable
             if (g != generation) return;
             Image = b; Statut = "En direct"; Change?.Invoke();
         });
-        if (g != generation || !App.SortieObs.Prete || Environment.TickCount64 - dernierExport < 100) return;
+        if (export.Length == 0 || g != generation || !App.SortieObs.Prete || Environment.TickCount64 - dernierExport < 100) return;
         dernierExport = Environment.TickCount64;
         try
         {
@@ -141,7 +142,7 @@ public sealed class SourcesDisplay : IDisposable
 
     void ViderExport()
     {
-        if (!App.SortieObs.Prete) return;
+        if (export.Length == 0 || !App.SortieObs.Prete) return;
         try
         {
             var encoder = new JpegBitmapEncoder();
