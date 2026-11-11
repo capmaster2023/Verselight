@@ -139,6 +139,32 @@ public static class LibObs
     public static extern bool audio_output_connect(IntPtr audio, UIntPtr mixIndex, IntPtr conversion, AudioOutputCallback callback, IntPtr param);
     [DllImport(Lib)] public static extern void audio_output_disconnect(IntPtr audio, UIntPtr mixIndex, AudioOutputCallback callback, IntPtr param);
 
+    // ---------------------------------------------------------------- type de source de MyChurch : son poussé par MyChurch (entrées séparées)
+    public const int SourceTypeInput = 0;               // OBS_SOURCE_TYPE_INPUT
+    public const uint SourceAudio = 1 << 1;             // OBS_SOURCE_AUDIO
+    public const uint SourceDoNotDuplicate = 1 << 7;    // OBS_SOURCE_DO_NOT_DUPLICATE
+    public const int AudioFormatFloatPlanar = 8;        // AUDIO_FORMAT_FLOAT_PLANAR
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] public delegate IntPtr SourceGetName(IntPtr typeData);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] public delegate IntPtr SourceCreate(IntPtr settings, IntPtr source);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] public delegate void SourceDestroy(IntPtr data);
+    /// <summary>obs_register_source_s(const struct obs_source_info *info, size_t size) : seuls les premiers champs (jusqu'à destroy) sont donnés.</summary>
+    [DllImport(Lib)] public static extern void obs_register_source_s(IntPtr info, UIntPtr size);
+    [DllImport(Lib)] public static extern IntPtr obs_source_get_display_name([MarshalAs(UnmanagedType.LPUTF8Str)] string id);
+    /// <summary>struct obs_source_audio : data[MAX_AV_PLANES], frames, speakers, format, samples_per_sec, timestamp.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct SourceAudioData
+    {
+        public IntPtr Data0, Data1, Data2, Data3, Data4, Data5, Data6, Data7;
+        public uint Frames;
+        public int Speakers;
+        public int Format;
+        public uint SamplesPerSec;
+        public ulong Timestamp;
+    }
+    [DllImport(Lib)] public static extern void obs_source_output_audio(IntPtr source, ref SourceAudioData audio);
+    /// <summary>L'horloge d'OBS (nanosecondes), celle des horodatages du son.</summary>
+    [DllImport(Lib)] public static extern ulong os_gettime_ns();
+
     // ---------------------------------------------------------------- texte du journal d'OBS
     [DllImport("msvcrt", EntryPoint = "_vsnprintf", CallingConvention = CallingConvention.Cdecl)]
     static extern int vsnprintf_win(byte[] buffer, UIntPtr size, IntPtr format, IntPtr args);

@@ -13,7 +13,25 @@ public partial class App : Application
         var v = System.Reflection.CustomAttributeExtensions.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(typeof(App).Assembly)?.InformationalVersion ?? "";
         int plus = v.IndexOf('+');
         if (plus >= 0) v = v[..plus];
-        return v.Trim().Length > 0 ? v.Trim() : "3.0.1";
+        return v.Trim().Length > 0 ? v.Trim() : "3.1.0";
+    }
+
+    /// <summary>
+    /// Thème de l'interface : « clair » (par défaut) ou « sombre ». Appliqué tout de suite à toutes les fenêtres
+    /// (les pinceaux de Theme.xaml suivent la palette) et enregistré dans les réglages.
+    /// </summary>
+    public static void AppliquerApparence(string nom)
+    {
+        Palette.Actuelle.Appliquer(nom);
+        if (Donnees != null)
+        {
+            Donnees.Reglages.Apparence = Palette.Actuelle.Nom;
+            try { Donnees.SauverReglages(); } catch (Exception e) { Journal.Erreur("apparence", e); }
+        }
+        // barre de titre de Windows claire ou sombre, comme l'intérieur (la projection et l'écran de scène gardent la leur)
+        if (Current != null)
+            foreach (Window w in Current.Windows)
+                if (w is MainWindow or FenetreDialogue) Natif.TitreSombre(w, Palette.Actuelle.Sombre);
     }
     public static string Ressources => Path.Combine(AppContext.BaseDirectory, "Ressources");
     public static Donnees Donnees { get; private set; } = null!;
@@ -110,6 +128,8 @@ public partial class App : Application
             Shutdown(1);
             return;
         }
+        // thème de l'interface (clair par défaut), avant la première fenêtre
+        Palette.Actuelle.Appliquer(Donnees.Reglages.Apparence);
         SortieObs = new SortieObs(Path.Combine(Ressources, "obs"), AutoTest != null ? Path.Combine(dossier, "VerseLight-OBS") : null);
         Telephone = new Telephone(dossier, Regie, f => Dispatcher.InvokeAsync(f).Task.Unwrap());
         try { Telephone.Demarrer(); }

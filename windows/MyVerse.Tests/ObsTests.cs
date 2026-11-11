@@ -27,6 +27,58 @@ public static class ObsTests
         for (int t = 0; t < ms; t += 50) { Thread.Sleep(50); v = lire(); if (bon(v)) return v; }
         return v;
     }
+    /// <summary>Pousse en temps réel, par blocs de 10 ms, un sinus à 440 Hz dans chaque entrée (amplitude donnée), pendant la durée voulue.</summary>
+    static void PousserSinus(ObsMixer m, (string Id, float Amplitude, int Rate)[] entrees, int ms)
+    {
+        var horloge = System.Diagnostics.Stopwatch.StartNew();
+        long blocs = 0;
+        var phase = new double[entrees.Length];
+        while (horloge.ElapsedMilliseconds < ms)
+        {
+            while (blocs * 10 <= horloge.ElapsedMilliseconds + 20)
+            {
+                for (int k = 0; k < entrees.Length; k++)
+                {
+                    var (id, amplitude, rate) = entrees[k];
+                    int frames = rate / 100;
+                    var bloc = new float[frames];
+                    for (int f = 0; f < frames; f++) { bloc[f] = (float)(amplitude * Math.Sin(phase[k])); phase[k] += 2 * Math.PI * 440 / rate; }
+                    m.Pousser(id, bloc, frames, rate);
+                }
+                blocs++;
+            }
+            Thread.Sleep(2);
+        }
+    }
+
+    /// <summary>MyChurch 3.1 : chaque entrée d'une carte son est sa propre bande (type de source « entrée » de MyChurch, son poussé).</summary>
+    static void EntreesSeparees(ObsMixer m, AudioConfiguration c, Action<bool, string, string?> ok)
+    {
+        ok(m.EntreesSeparees, "OBS accepte le type de source « entrée séparée » de MyChurch", null);
+        if (!m.EntreesSeparees) return;
+        var e1 = new AudioSource { Name = "Pasteur", Kind = AudioInputKind.Microphone, DeviceId = "default", Channel = 1, Tracks = 1 };
+        var e2 = new AudioSource { Name = "Chorale", Kind = AudioInputKind.Microphone, DeviceId = "default", Channel = 2, Tracks = 1 };
+        c.Sources.Clear(); c.Sources.Add(e1); c.Sources.Add(e2); c.Normalize(); m.Apply(c);
+        ok(m.Has(e1.Id) && m.Has(e2.Id) && m.EstEntree(e1.Id) && m.EstEntree(e2.Id), "deux entrées du même périphérique : deux sources dans OBS", null);
+        // l'entrée 1 à −6 dBFS (48 kHz), l'entrée 2 à −20 dBFS (44,1 kHz : OBS rééchantillonne) ; chacune sur sa bande, des deux côtés
+        var pousse = Task.Run(() => PousserSinus(m, new[] { (e1.Id, 0.5f, 48000), (e2.Id, 0.1f, 44100) }, 4500));
+        float v1 = Attendre(m, () => m.Level(e1.Id).L, x => x > -8 && x < -4);
+        float v1d = m.Level(e1.Id).R;
+        float v2 = Attendre(m, () => m.Level(e2.Id).R, x => x > -22 && x < -18);
+        ok(v1 > -8 && v1 < -4 && v1d > -8 && v1d < -4, "entrée 1 : son poussé reçu sur sa bande, à gauche et à droite (−6 dBFS)", $"{v1:0.0} / {v1d:0.0}");
+        ok(v2 > -22 && v2 < -18, "entrée 2 : son poussé à 44,1 kHz reçu sur sa propre bande (−20 dBFS)", v2.ToString("0.0"));
+        e1.VolumeDb = -12; m.Apply(c);
+        float v = Attendre(m, () => m.Level(e1.Id).L, x => x > -20 && x < -16);
+        ok(v > -20 && v < -16, "volume d'OBS sur une entrée séparée : −12 dB → −18 dBFS", v.ToString("0.0"));
+        e1.Channel = 0; m.Apply(c);
+        ok(m.Has(e1.Id) && !m.EstEntree(e1.Id) && !m.Pousser(e1.Id, new float[480], 480, 48000), "toutes les entrées ensemble : la bande redevient une capture du périphérique", null);
+        e1.Channel = 3; m.Apply(c);
+        ok(m.EstEntree(e1.Id), "puis entrée 3 : de nouveau une entrée séparée", null);
+        pousse.Wait();
+        c.Sources.Clear(); m.Apply(c);
+        ok(!m.Has(e1.Id) && !m.Has(e2.Id) && !m.Pousser(e2.Id, new float[480], 480, 48000), "entrées retirées : plus rien n'est poussé vers OBS", null);
+    }
+
     public static void Run(Action<bool, string, string?> ok)
     {
         string? racine = Environment.GetEnvironmentVariable("MYCHURCH_OBS");
@@ -129,6 +181,8 @@ public static class ObsTests
 
             c.Sources.Clear(); m.Apply(c);
             ok(!m.Has(s.Id), "source retirée d'OBS", null);
+
+            EntreesSeparees(m, c, ok);
         }
         catch (Exception e) { ok(false, "mélangeur OBS", e.ToString()); }
         finally

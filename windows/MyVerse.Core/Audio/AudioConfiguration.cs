@@ -57,6 +57,11 @@ public sealed class AudioSource
     /// <summary>Média : joue le son de la vidéo projetée depuis Display (au lieu d'un fichier fixe).</summary>
     public bool FollowProjection { get; set; }
     public bool Loop { get; set; }
+    /// <summary>
+    /// Micro : l'entrée du périphérique écoutée par cette bande. 0 = toutes ses entrées ensemble, comme Windows les donne (stéréo) ;
+    /// 1, 2, 3… = cette entrée seule, sur les deux côtés. Une carte son à 4 entrées donne ainsi 4 bandes, comme 4 sources dans OBS (MyChurch 3.1).
+    /// </summary>
+    public int Channel { get; set; }
     public double VolumeDb { get; set; }
     public bool Muted { get; set; }
     public bool Mono { get; set; }
@@ -190,6 +195,8 @@ public sealed class AudioConfiguration
     public const int Pistes = 6;
     public const int MaxEnregistrements = 5;
     public const int MaxSortiesVirtuelles = 4;
+    /// <summary>Entrées d'un périphérique qu'une bande peut écouter seule (cartes son jusqu'à 32 canaux).</summary>
+    public const int MaxEntrees = 32;
     public int Version { get; set; } = Actuelle;
     public string FfmpegPath { get; set; } = "";
     /// <summary>Périphérique d'écoute au casque (monitoring OBS) ; « default » = sortie Windows par défaut.</summary>
@@ -265,6 +272,7 @@ public sealed class AudioConfiguration
             s.DeviceName ??= ""; s.MediaPath ??= ""; s.Filters ??= new();
             if (!Enum.IsDefined(s.Kind)) s.Kind = AudioInputKind.Microphone;
             if (!Enum.IsDefined(s.Monitoring)) s.Monitoring = AudioMonitoring.Off;
+            s.Channel = s.Kind == AudioInputKind.Microphone ? Math.Clamp(s.Channel, 0, MaxEntrees) : 0;
             s.VolumeDb = Bound(s.VolumeDb, -60, 6);
             s.Tracks &= (1 << Pistes) - 1;
             var fids = new HashSet<string>();

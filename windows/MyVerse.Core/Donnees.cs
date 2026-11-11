@@ -66,6 +66,8 @@ public sealed class Reglages
     [JsonPropertyName("fenetre")] public PositionFenetre? Fenetre { get; set; }
     [JsonPropertyName("recueil")] public string Recueil { get; set; } = "";
     [JsonPropertyName("agenda")] public string Agenda { get; set; } = "";
+    /// <summary>Thème de l'interface (MyChurch 3.1) : « clair » (par défaut) ou « sombre ». À ne pas confondre avec <see cref="Theme"/>, le fond de la projection.</summary>
+    [JsonPropertyName("apparence")] public string Apparence { get; set; } = "clair";
 }
 
 /// <summary>

@@ -58,6 +58,8 @@ public sealed class ObsMixer : IDisposable
         public uint Canal;
         public IntPtr Source, Volmeter;
         public AudioInputKind Kind;
+        /// <summary>Type de source OBS (wasapi_input_capture, ffmpeg_source, mychurch_entree…) : s'il change, la source est recréée.</summary>
+        public string Type = "";
         public string Signature = "";
         public AudioMonitoring Monitor;
         public readonly Dictionary<string, Filtre> Filtres = new();
@@ -79,6 +81,22 @@ public sealed class ObsMixer : IDisposable
     static readonly object verrouFiltres = new();
     const string PrefixeFiltre = "MyChurch filtre ";
 
+    // ------------------------------------------------------------ entrées séparées (MyChurch 3.1)
+    /// <summary>
+    /// Type de source OBS de MyChurch pour une entrée seule d'une carte son : MyChurch écoute le périphérique (WASAPI partagé),
+    /// prend le canal de la bande et le pousse ici ; volume, filtres, écoute, vumètre et pistes restent ceux d'OBS.
+    /// </summary>
+    public const string TypeEntree = "mychurch_entree";
+    static readonly LibObs.SourceGetName nomEntree = _ => nomType;
+    static readonly LibObs.SourceCreate creerEntree = (_, source) => source == IntPtr.Zero ? (IntPtr)1 : source;
+    static readonly LibObs.SourceDestroy detruireEntree = _ => { };
+    static IntPtr idType, nomType, infoType;
+    /// <summary>Mémoire remise à OBS pour obs_source_info : bien plus grande que la structure, et à zéro, pour les champs qu'OBS lit sans les copier.</summary>
+    const int TailleInfo = 4096;
+    readonly object verrouEntrees = new();
+    readonly Dictionary<string, (IntPtr Source, IntPtr Tampon, int Octets)> entrees = new();
+    bool entreesPossibles;
+
     readonly Dictionary<string, Bande> bandes = new();
     readonly ConcurrentDictionary<long, Bande> parCanal = new();
     readonly float[] cretePiste = new float[LibObs.Mixes];
@@ -97,6 +115,8 @@ public sealed class ObsMixer : IDisposable
     public string Version { get; private set; } = "";
     public IReadOnlyList<string> Modules { get; private set; } = Array.Empty<string>();
     public string? LastError { get; private set; }
+    /// <summary>OBS a accepté le type de source « entrée » de MyChurch : une bande peut écouter une seule entrée d'une carte son.</summary>
+    public bool EntreesSeparees => Running && entreesPossibles;
     /// <summary>Messages d'OBS (niveau, texte) : erreurs, avertissements, informations.</summary>
     public static event Action<int, string>? Log;
 
@@ -200,11 +220,77 @@ public sealed class ObsMixer : IDisposable
         }
         Modules = charges;
         try { LibObs.obs_post_load_modules(); } catch (Exception) { }
+        entreesPossibles = EnregistrerEntree();
         ancienMonitoring = !LibObs.Has("obs_source_set_monitoring_enabled");
         audio = LibObs.obs_get_audio();
         for (int i = 0; i < LibObs.Mixes; i++) LibObs.audio_output_connect(audio, (UIntPtr)i, IntPtr.Zero, sortie, (IntPtr)i);
         Running = true;
     }
+
+    /// <summary>Déclare à OBS le type « entrée » de MyChurch (une source audio dont MyChurch fournit le son). À refaire après chaque obs_startup.</summary>
+    static bool EnregistrerEntree()
+    {
+        try
+        {
+            if (!LibObs.Has("obs_register_source_s") || !LibObs.Has("obs_source_output_audio") || !LibObs.Has("os_gettime_ns")) return false;
+            if (infoType == IntPtr.Zero)
+            {
+                idType = Marshal.StringToCoTaskMemUTF8(TypeEntree);
+                nomType = Marshal.StringToCoTaskMemUTF8("Entrée MyChurch");
+                var info = Marshal.AllocHGlobal(TailleInfo);
+                for (int i = 0; i < TailleInfo; i += 8) Marshal.WriteInt64(info, i, 0);
+                // struct obs_source_info : id, type, output_flags, get_name, create, destroy (les autres champs restent vides)
+                Marshal.WriteIntPtr(info, 0, idType);
+                Marshal.WriteInt32(info, IntPtr.Size, LibObs.SourceTypeInput);
+                Marshal.WriteInt32(info, IntPtr.Size + 4, (int)(LibObs.SourceAudio | LibObs.SourceDoNotDuplicate));
+                Marshal.WriteIntPtr(info, IntPtr.Size + 8, Marshal.GetFunctionPointerForDelegate(nomEntree));
+                Marshal.WriteIntPtr(info, IntPtr.Size * 2 + 8, Marshal.GetFunctionPointerForDelegate(creerEntree));
+                Marshal.WriteIntPtr(info, IntPtr.Size * 3 + 8, Marshal.GetFunctionPointerForDelegate(detruireEntree));
+                infoType = info;
+            }
+            LibObs.obs_register_source_s(infoType, (UIntPtr)(IntPtr.Size * 4 + 8));
+            bool ok = LibObs.obs_source_get_display_name(TypeEntree) != IntPtr.Zero;
+            Log?.Invoke(ok ? 300 : 200, ok ? "MyChurch : entrées séparées disponibles (une bande par entrée de carte son)" : "MyChurch : type de source « entrée » refusé par OBS");
+            return ok;
+        }
+        catch (Exception e)
+        {
+            Log?.Invoke(100, "MyChurch : type de source « entrée » indisponible : " + e.Message);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Le son d'une entrée séparée (mono, flottant, à la fréquence du périphérique), depuis le fil de capture de MyChurch.
+    /// OBS le reçoit comme une source stéréo (le canal sur les deux côtés) et applique volume, filtres, écoute et pistes.
+    /// Faux si la bande n'est pas (ou plus) une entrée séparée.
+    /// </summary>
+    public bool Pousser(string id, float[] echantillons, int frames, int rate)
+    {
+        if (frames <= 0 || rate <= 0 || frames > echantillons.Length) return false;
+        lock (verrouEntrees)
+        {
+            if (!Running || !entrees.TryGetValue(id, out var e)) return false;
+            int octets = frames * sizeof(float);
+            if (e.Octets < octets)
+            {
+                if (e.Tampon != IntPtr.Zero) Marshal.FreeHGlobal(e.Tampon);
+                e = (e.Source, Marshal.AllocHGlobal(octets), octets);
+                entrees[id] = e;
+            }
+            Marshal.Copy(echantillons, 0, e.Tampon, frames);
+            ulong duree = (ulong)frames * 1_000_000_000UL / (ulong)rate, maintenant = LibObs.os_gettime_ns();
+            var son = new LibObs.SourceAudioData
+            {
+                Data0 = e.Tampon, Data1 = e.Tampon, Frames = (uint)frames, Speakers = LibObs.SpeakersStereo,
+                Format = LibObs.AudioFormatFloatPlanar, SamplesPerSec = (uint)rate, Timestamp = maintenant > duree ? maintenant - duree : 0,
+            };
+            LibObs.obs_source_output_audio(e.Source, ref son);
+            return true;
+        }
+    }
+    /// <summary>Cette bande est une entrée séparée (son fourni par MyChurch).</summary>
+    public bool EstEntree(string id) { lock (verrouEntrees) return entrees.ContainsKey(id); }
 
     // ------------------------------------------------------------ périphériques
     List<AudioDevice> Liste(string sourceId)
@@ -250,7 +336,13 @@ public sealed class ObsMixer : IDisposable
 
     // ------------------------------------------------------------ application des réglages
     static IntPtr Reglages(Action<IntPtr> remplir) { var d = LibObs.obs_data_create(); remplir(d); return d; }
-    string TypeSource(AudioInputKind k) => k switch { AudioInputKind.Microphone => chemins.MicrophoneId, AudioInputKind.Sortie => chemins.OutputId, _ => "ffmpeg_source" };
+    string TypeSource(AudioSource s) => s.Kind switch
+    {
+        AudioInputKind.Microphone when s.Channel > 0 && entreesPossibles => TypeEntree,
+        AudioInputKind.Microphone => chemins.MicrophoneId,
+        AudioInputKind.Sortie => chemins.OutputId,
+        _ => "ffmpeg_source",
+    };
     static IntPtr ReglagesSource(AudioSource s) => Reglages(d =>
     {
         if (s.Kind == AudioInputKind.Media)
@@ -325,7 +417,8 @@ public sealed class ObsMixer : IDisposable
         foreach (var id in bandes.Keys.Where(id => c.Sources.All(s => s.Id != id)).ToList()) Retirer(id);
         foreach (var s in c.Sources)
         {
-            if (bandes.TryGetValue(s.Id, out var b) && b.Kind != s.Kind) { Retirer(s.Id); b = null; }
+            string type = TypeSource(s);
+            if (bandes.TryGetValue(s.Id, out var b) && (b.Kind != s.Kind || b.Type != type)) { Retirer(s.Id); b = null; }
             string signature = Signature(s);
             if (b == null)
             {
@@ -333,11 +426,12 @@ public sealed class ObsMixer : IDisposable
                 while (canal < 64 && parCanal.ContainsKey(canal)) canal++;
                 if (canal >= 64) continue;
                 IntPtr reglages = ReglagesSource(s);
-                IntPtr source = LibObs.obs_source_create(TypeSource(s.Kind), "MyChurch " + s.Id, reglages, IntPtr.Zero);
+                IntPtr source = LibObs.obs_source_create(type, "MyChurch " + s.Id, reglages, IntPtr.Zero);
                 LibObs.obs_data_release(reglages);
-                if (source == IntPtr.Zero) { Log?.Invoke(100, "MyChurch : source OBS refusée (" + TypeSource(s.Kind) + ")"); continue; }
-                b = new Bande { Id = s.Id, Canal = canal, Source = source, Kind = s.Kind, Signature = signature };
+                if (source == IntPtr.Zero) { Log?.Invoke(100, "MyChurch : source OBS refusée (" + type + ")"); continue; }
+                b = new Bande { Id = s.Id, Canal = canal, Source = source, Kind = s.Kind, Type = type, Signature = signature };
                 parCanal[canal] = b; bandes[s.Id] = b;
+                if (type == TypeEntree) lock (verrouEntrees) entrees[s.Id] = (source, IntPtr.Zero, 0);
                 b.Volmeter = LibObs.obs_volmeter_create(LibObs.FaderLog);
                 LibObs.obs_volmeter_add_callback(b.Volmeter, vumetre, (IntPtr)canal);
                 LibObs.obs_volmeter_attach_source(b.Volmeter, source);
@@ -415,6 +509,9 @@ public sealed class ObsMixer : IDisposable
     {
         if (!bandes.Remove(id, out var b)) return;
         parCanal.TryRemove(b.Canal, out _);
+        // plus aucun son poussé vers cette source avant de la rendre à OBS
+        lock (verrouEntrees)
+            if (entrees.Remove(id, out var e) && e.Tampon != IntPtr.Zero) Marshal.FreeHGlobal(e.Tampon);
         try
         {
             Ecoute(b, AudioMonitoring.Off);
@@ -465,7 +562,7 @@ public sealed class ObsMixer : IDisposable
     {
         try { LibObs.obs_shutdown(); } catch (Exception) { }
         try { LibObs.base_set_log_handler(null, IntPtr.Zero); } catch (Exception) { }
-        Running = false; TracksActive = false;
+        Running = false; TracksActive = false; entreesPossibles = false;
         if (courant == this) courant = null;
     }
     public void Dispose()

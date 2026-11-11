@@ -12,7 +12,7 @@ public class FenetreDialogue : Window
     {
         Style = (Style)Application.Current.FindResource("Dialogue");
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        SourceInitialized += (_, _) => Natif.TitreSombre(this, false);
+        SourceInitialized += (_, _) => Natif.TitreSombre(this, Palette.Actuelle.Sombre);
         PreviewKeyDown += (_, e) =>
         {
             if (e.Key != Key.Escape || e.Handled) return;
@@ -133,7 +133,7 @@ public static class Dialogue
             boite.Children.Add(new Border
             {
                 Background = MainWindow.Pinceau("Nuit2"), CornerRadius = new CornerRadius(10), Padding = new Thickness(10, 8, 10, 8), Margin = new Thickness(0, 0, 8, 8), Width = largeur,
-                BorderBrush = longue ? new SolidColorBrush(Color.FromRgb(0xC0, 0x50, 0x4D)) : Brushes.Transparent, BorderThickness = new Thickness(longue ? 2 : 0),
+                BorderBrush = longue ? MainWindow.Pinceau("Direct") : Brushes.Transparent, BorderThickness = new Thickness(longue ? 2 : 0),
                 ToolTip = longue ? "Diapositive longue : appuyez sur Entrée devant une ligne pour la couper" : null,
                 Child = p,
             });

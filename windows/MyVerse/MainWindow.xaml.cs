@@ -214,7 +214,7 @@ public partial class MainWindow : Window
             }
             Fermeture();
         };
-        SourceInitialized += (_, _) => Natif.TitreSombre(this, false);
+        SourceInitialized += (_, _) => Natif.TitreSombre(this, Palette.Actuelle.Sombre);
         Loaded += (_, _) => Demarre();
 
         RemplirRecueils();

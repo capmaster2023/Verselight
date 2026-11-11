@@ -956,6 +956,21 @@ if (Actif())
     Ok(c5.Count == 5 && c5.All(x => Math.Abs(x.W - 1 / 3d) < 1e-9 && x.W == x.H && x.Y >= 0 && x.Y + x.H <= 1.000001), "côte à côte : 5 sources en grille 3 × 2, sans déformation");
     var c4 = MyVerse.Audio.RecordingProfile.Cadres(4, "cote");
     Ok(c4.Count == 4 && c4.All(x => x.W == 0.5 && x.H == 0.5) && c4[3] == (0.5, 0.5, 0.5, 0.5), "côte à côte : 4 sources en grille 2 × 2");
+
+    // 3.1 : une bande par entrée d'une carte son (entrée 0 = toutes ensemble)
+    var ent = new MyVerse.Audio.AudioConfiguration();
+    ent.Sources.Add(new MyVerse.Audio.AudioSource { Id = "e3", Kind = MyVerse.Audio.AudioInputKind.Microphone, Channel = 3 });
+    ent.Sources.Add(new MyVerse.Audio.AudioSource { Id = "trop", Kind = MyVerse.Audio.AudioInputKind.Microphone, Channel = 99 });
+    ent.Sources.Add(new MyVerse.Audio.AudioSource { Id = "neg", Kind = MyVerse.Audio.AudioInputKind.Microphone, Channel = -2 });
+    ent.Sources.Add(new MyVerse.Audio.AudioSource { Id = "media", Kind = MyVerse.Audio.AudioInputKind.Media, Channel = 2 });
+    ent.Normalize();
+    Ok(ent.Sources.Select(x => x.Channel).SequenceEqual(new[] { 3, MyVerse.Audio.AudioConfiguration.MaxEntrees, 0, 0 }), "entrée d'un micro : gardée, bornée, et 0 hors micro", string.Join(",", ent.Sources.Select(x => x.Channel)));
+    var entJson = System.Text.Json.JsonSerializer.Serialize(ent, Donnees.Json);
+    var entRelu = System.Text.Json.JsonSerializer.Deserialize<MyVerse.Audio.AudioConfiguration>(entJson, Donnees.Json)!;
+    Ok(entRelu.Sources[0].Channel == 3, "l'entrée d'une bande est enregistrée dans les réglages");
+    var ancien = System.Text.Json.JsonSerializer.Deserialize<MyVerse.Audio.AudioConfiguration>("{\"obsSources\":[{\"Id\":\"m\",\"Name\":\"Micro\",\"Kind\":0}]}", Donnees.Json)!;
+    ancien.Normalize();
+    Ok(ancien.Sources.Count == 1 && ancien.Sources[0].Channel == 0, "réglages de la 3.0 : un micro garde toutes ses entrées ensemble");
     var cfg = new MyVerse.Audio.AudioConfiguration();
     foreach (var n in new[] { "guitare", "piano", "chanteur", "pasteur" }) cfg.Sources.Add(new MyVerse.Audio.AudioSource { Id = n, Name = n });
     var louange = new MyVerse.Audio.RecordingProfile { Name = "Louange", SourceIds = { "guitare", "piano", "chanteur" } };
