@@ -379,8 +379,7 @@ if (Actif())
     var a12 = d12.Reglages.Audio;
     a12.Normalize();
     Egal(a12.Sources.Count, 0, "1.2 : le mélangeur OBS repart vide (anciennes sources ignorées)");
-    Egal(a12.Profiles.Count, 1, "1.2 : profil d'enregistrement gardé");
-    Egal(a12.Profiles[0].Track, 1, "1.2 : profil → piste 1");
+    Egal(a12.Profiles.Count, 0, "1.2 : anciens profils d'enregistrement non repris (aucun préréglage)");
     Egal(a12.MonitorDeviceId, "default", "1.2 : écoute au casque sur le périphérique par défaut");
     Ok(a12.MicrophoneId == "default" && a12.OutputId == "default", "1.2 : micro et sortie proposés = périphériques Windows par défaut");
     Egal(a12.Version, MyVerse.Audio.AudioConfiguration.Actuelle, "1.2 : version des réglages audio mise à jour");
@@ -397,7 +396,7 @@ if (Actif())
     Egal(r12.Sources.FirstOrDefault()?.Monitoring, MyVerse.Audio.AudioMonitoring.Only, "3.0 : écoute relue");
     Egal(r12.Sources.FirstOrDefault()?.Filters.FirstOrDefault()?.Ratio, 6.0, "3.0 : filtre relu");
     var neuf = new MyVerse.Audio.AudioConfiguration(); neuf.Normalize();
-    Ok(neuf.Sources.Count == 0 && neuf.Profiles.Count == 1 && neuf.Profiles[0].Format == "wav" && neuf.Profiles[0].Directory.EndsWith("MyChurch"), "nouveaux réglages : mélangeur vide, profil WAV piste 1 dans Vidéos\\MyChurch");
+    Ok(neuf.Sources.Count == 0 && neuf.Profiles.Count == 0 && neuf.VirtualSounds.Count == 0, "nouveaux réglages : mélangeur vide, aucun enregistrement ni sortie (rien de préréglé)");
 }
 
 // ------------------------------------------------------------------ régie
@@ -941,6 +940,69 @@ if (Actif())
     // un Duo n'est pas gardé d'une séance à l'autre
     var rg2 = new Regie(Donnees.Charger(don.Dossier, res), new Bibles(don));
     Ok(rg2.Etat.Duo == null && rg2.Etat.Vide, "au démarrage : pas de Duo");
+}
+
+Groupe("Enregistrements et sorties");
+if (Actif())
+{
+    // dispositions de la vidéo
+    var c1 = MyVerse.Audio.RecordingProfile.Cadres(1, "incrustation");
+    Ok(c1.Count == 1 && c1[0] == (0, 0, 1, 1), "une source Display : plein écran");
+    var c3 = MyVerse.Audio.RecordingProfile.Cadres(3, "incrustation");
+    Ok(c3.Count == 3 && c3[0] == (0, 0, 1, 1) && c3.Skip(1).All(x => x.W == 0.3 && x.X >= 0 && x.Y >= 0 && x.X + x.W <= 1 && x.Y + x.H <= 1) && c3[1].X > c3[2].X, "incrustation : la 1re en grand, les autres en petit en bas à droite");
+    var c2 = MyVerse.Audio.RecordingProfile.Cadres(2, "cote");
+    Ok(c2.Count == 2 && c2[0] == (0, 0.25, 0.5, 0.5) && c2[1] == (0.5, 0.25, 0.5, 0.5), "côte à côte : deux moitiés à la forme de l'écran, centrées en hauteur");
+    var c5 = MyVerse.Audio.RecordingProfile.Cadres(5, "cote");
+    Ok(c5.Count == 5 && c5.All(x => Math.Abs(x.W - 1 / 3d) < 1e-9 && x.W == x.H && x.Y >= 0 && x.Y + x.H <= 1.000001), "côte à côte : 5 sources en grille 3 × 2, sans déformation");
+    var c4 = MyVerse.Audio.RecordingProfile.Cadres(4, "cote");
+    Ok(c4.Count == 4 && c4.All(x => x.W == 0.5 && x.H == 0.5) && c4[3] == (0.5, 0.5, 0.5, 0.5), "côte à côte : 4 sources en grille 2 × 2");
+    var cfg = new MyVerse.Audio.AudioConfiguration();
+    foreach (var n in new[] { "guitare", "piano", "chanteur", "pasteur" }) cfg.Sources.Add(new MyVerse.Audio.AudioSource { Id = n, Name = n });
+    var louange = new MyVerse.Audio.RecordingProfile { Name = "Louange", SourceIds = { "guitare", "piano", "chanteur" } };
+    var predication = new MyVerse.Audio.RecordingProfile { Name = "Prédication", SourceIds = { "pasteur" }, MuteOthers = true, DisplayIds = { "projection", "camera1" }, Layout = "cote" };
+    cfg.Profiles.Add(louange); cfg.Profiles.Add(predication);
+    var zoom = new MyVerse.Audio.VirtualSoundSettings { Name = "Zoom", Enabled = true, SourceIds = { "pasteur", "inconnue" } };
+    var flux = new MyVerse.Audio.VirtualSoundSettings { Name = "Direct YouTube", SourceIds = { "guitare", "piano", "chanteur" } };
+    cfg.VirtualSounds.Add(zoom); cfg.VirtualSounds.Add(flux);
+    cfg.Normalize();
+    Ok(louange.AudioOnly && louange.Format == "wav" && !predication.AudioOnly && predication.Format == "mkv", "sans source Display : son seulement (WAV) ; avec : vidéo MKV");
+    Ok(zoom.SourceIds.SequenceEqual(new[] { "pasteur" }), "sources inconnues retirées");
+    Ok(louange.Directory.EndsWith("Louange"), "dossier propre à chaque enregistrement : Vidéos\\MyChurch\\Louange");
+    var vis = predication.VisuelsDisplay();
+    Ok(vis.Count == 2 && vis[0].Kind == "projection" && vis[1].Kind == "annonce" && vis[1].Annonce == "camera1" && vis[1].X == 0.5, "vidéo : la projection et la caméra côte à côte");
+    // pistes d'OBS : une par mélange différent en cours
+    Ok(cfg.AttribuerPistes(Array.Empty<string>()) && zoom.Track > 0 && louange.Track == 0 && flux.Track == 0, "rien n'enregistre : seule la sortie Zoom activée a une piste");
+    var z = zoom.Track;
+    Ok(cfg.Sources.First(x => x.Id == "pasteur").Tracks == 1 << (z - 1) && cfg.Sources.First(x => x.Id == "guitare").Tracks == 0, "le pasteur va dans la piste de Zoom, la guitare nulle part");
+    Ok(cfg.AttribuerPistes(new[] { louange.Id }) && louange.Track > 0 && louange.Track != z && zoom.Track == z, "Louange démarre : une deuxième piste, Zoom garde la sienne");
+    var l = louange.Track;
+    flux.Enabled = true;
+    Ok(cfg.AttribuerPistes(new[] { louange.Id }) && flux.Track == l && cfg.Melanges(new[] { louange.Id }) == 2, "mêmes sources que Louange : la sortie YouTube partage sa piste");
+    Ok(cfg.AttribuerPistes(new[] { louange.Id, predication.Id }) && predication.Track == z && louange.Track == l, "Prédication (pasteur seul) partage la piste de Zoom ; Louange ne change pas de piste");
+    Ok(cfg.Sources.First(x => x.Id == "piano").Tracks == 1 << (l - 1), "le piano va seulement dans la piste de Louange");
+    // couper les autres sources
+    var coupees = cfg.SourcesCoupees(new[] { predication.Id });
+    Ok(coupees.SetEquals(new[] { "guitare", "piano", "chanteur" }), "Prédication en cours : guitare, piano et chanteur coupés partout");
+    Ok(cfg.SourcesCoupees(new[] { louange.Id }).Count == 0, "Louange (sans l'option) ne coupe rien");
+    var obs = cfg.AvecSourdines(coupees);
+    Ok(obs.Sources.Count(x => x.Muted) == 3 && cfg.Sources.All(x => !x.Muted), "OBS reçoit les sourdines ; les réglages de l'utilisateur ne changent pas");
+    // plus de 6 mélanges différents
+    var trop = new MyVerse.Audio.AudioConfiguration();
+    for (int i = 0; i < 9; i++) trop.Sources.Add(new MyVerse.Audio.AudioSource { Id = "s" + i });
+    for (int i = 0; i < 7; i++) trop.Profiles.Add(new MyVerse.Audio.RecordingProfile { SourceIds = { "s" + i } });
+    for (int i = 0; i < 6; i++) trop.VirtualSounds.Add(new MyVerse.Audio.VirtualSoundSettings { SourceIds = { "s" + i, "s8" } });
+    trop.Normalize();
+    Ok(trop.Profiles.Count == 5 && trop.VirtualSounds.Count == 4, "5 enregistrements et 4 sorties au plus");
+    trop.VirtualSounds.ForEach(v => v.Enabled = true);
+    Ok(!trop.AttribuerPistes(trop.Profiles.Select(p => p.Id)) && trop.Profiles.Concat<MyVerse.Audio.IDestinationAudio>(trop.VirtualSounds).Count(d => d.Track > 0) == 6, "9 mélanges différents : 6 pistes données, les autres refusées");
+    // réglages de la 3.0.0 : une seule sortie MyVirtualSound sur une piste choisie à la main
+    var json30 = """{"version":3,"virtualSound":{"enabled":true,"deviceId":"","track":2},"obsSources":[{"id":"a","name":"Micro","tracks":2},{"id":"b","name":"Ordi","tracks":1}],"profiles":[{"name":"Enregistrement","track":1}]}""";
+    var a30 = System.Text.Json.JsonSerializer.Deserialize<MyVerse.Audio.AudioConfiguration>(json30, Donnees.Json)!;
+    a30.Normalize();
+    Ok(a30.VirtualSounds.Count == 1 && a30.VirtualSounds[0].Name == "Zoom" && a30.VirtualSounds[0].Enabled && a30.VirtualSounds[0].SourceIds.SequenceEqual(new[] { "a" }), "3.0.0 : la sortie MyVirtualSound devient « Zoom » avec les sources de son ancienne piste");
+    Ok(a30.Profiles.Count == 0 && a30.AncienneSortie == null && a30.Version == MyVerse.Audio.AudioConfiguration.Actuelle, "3.0.0 : le profil automatique n'est pas repris");
+    var relu30 = System.Text.Json.JsonSerializer.Serialize(a30, Donnees.Json);
+    Ok(relu30.Contains("\"sortiesVirtuelles\"") && relu30.Contains("\"enregistrements\"") && !relu30.Contains("\"virtualSound\""), "enregistré sous les nouveaux noms");
 }
 
 Groupe("Audio OBS");
