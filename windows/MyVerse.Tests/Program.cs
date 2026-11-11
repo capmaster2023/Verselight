@@ -849,6 +849,14 @@ if (Actif())
     Ok(rg.Etat.Duo is { Place: "libre" } && rg.Etat.Mode == "chant", "clic sur la tuile Display : le dossier part en direct");
     rg.Effacer();
     Ok(rg.Etat.Vide && rg.Etat.Duo == null, "Retirer de l'écran : tout le dossier part");
+    changes = 0;
+    var apercu = rg.EtatAnnonce(an);
+    Ok(apercu is { Mode: "chant", Duo: { Place: "libre" } ad } && ad.Etat.Mode == "verset" && ad.Cadres is { Length: 6 } && ad.Dossier == d.Id, "aperçu du dossier (vignette, vidéo) : le chant, avec le verset par-dessus");
+    Ok(rg.Etat.Vide && changes == 0 && rg.Cible == null, "aperçu : rien ne s'affiche, aucun changement d'écran");
+    var texteAn = rg.NouvelleAnnonce("Annonce", "Bienvenue\nà tous\n\nDeuxième");
+    Ok(rg.EtatAnnonce(texteAn) is { Mode: "chant", Lignes.Count: 2 } && rg.EtatAnnonce(texteAn, 1)?.Lignes[0] == "Deuxième", "aperçu d'un texte Display : ses diapositives");
+    Ok(rg.EtatVerset(42, 3, 16, 16) is { Mode: "verset" } ev && ev.Ref.StartsWith("Jean 3"), "aperçu d'un verset");
+    Ok(rg.EtatDuo(new DossierDuo()) == null, "aperçu d'un dossier incomplet : rien");
     var relu = Donnees.Charger(don.Dossier, res);
     Ok(relu.Duos.Count == 1 && relu.Duos[0].A.Type == "chant" && relu.Duos[0].B.Ref?[2] == 16, "dossiers relus du disque");
     rg.SupprimerDuo(d.Id);
