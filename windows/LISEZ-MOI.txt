@@ -1,4 +1,4 @@
-MYCHURCH 3.0.0
+MYCHURCH 3.0.1
 
 PROJECTION AUTONOME
 Dans Projection, choisissez votre écran ou Nouvelle fenêtre. Cliquez sur une vignette pour envoyer son contenu directement à cette sortie.
@@ -8,28 +8,32 @@ Le menu + Ajouter une source propose Nouveau texte, Images, Vidéos, Périphéri
 
 AUDIO (MOTEUR OBS)
 Le panneau Audio est dans Display, sous la grille. Le son est traité par libobs, la bibliothèque d'OBS Studio 33.0.1 (dossier « obs » à côté de MyChurch.exe).
-- Le mélangeur démarre vide : + Source audio ajoute un microphone, le son d'une sortie (son de l'ordinateur), un fichier audio ou vidéo, ou le son de la vidéo projetée depuis Display.
-- Chaque bande : 2 vumètres, volume de -60 à +6 dB, M = sourdine, casque = écoute (coupée, écoute seule, écoute et sortie, comme dans OBS), Filtres, et les pistes 1 à 6 où la source est envoyée.
-- Clic droit sur une bande : renommer, changer de périphérique ou de fichier, mono, relancer le média, monter, descendre, supprimer.
+- Mélangeur vertical, comme OBS. Il démarre vide : + Source audio ajoute un microphone, le son d'une sortie (son de l'ordinateur), un fichier audio ou vidéo, ou le son de la vidéo projetée depuis Display.
+- Chaque bande : son volume en dB, une échelle de 0 à -60 dB, 2 vumètres, un fader de -60 à +6 dB (double-clic : 0 dB), M = sourdine, casque = écoute (coupée, écoute seule, écoute et sortie), Filtres.
+- Pastilles sous chaque bande : 1 à 5 = enregistrements, A à D = sorties MyVirtualSound. Un clic envoie la source dans cette destination ou l'en retire.
+- Clic droit sur une bande : renommer, changer de périphérique ou de fichier, mono, relancer le média, vers la gauche, vers la droite, supprimer.
 - Filtres d'OBS : réduction du bruit (RNNoise ou Speex), noise gate, compresseur, limiteur. Ils s'appliquent de haut en bas, en direct.
-- À droite : les filtres de la source choisie (interrupteurs), l'écoute au casque, les 6 pistes indépendantes et MyVirtualSound.
-- ● Enregistrer : enregistre une piste en WAV (ou FLAC avec un ffmpeg.exe que vous fournissez), dans Vidéos\MyChurch par défaut. Réglages dans Paramètres > Enregistrement.
-Le mixage audio local de la 1.2 bêta et le minuteur de prédication ont été retirés. Les anciens réglages audio de la 1.2 ne sont pas repris : le mélangeur repart vide.
+- Si le dossier « obs » manque, le panneau propose Réparer le moteur audio (réinstallation, données gardées).
+
+ENREGISTREMENTS
+Rien n'est préréglé. + Créer un enregistrement : son nom, ses sources audio, l'option « Couper les autres sources pendant cet enregistrement » (les autres sources sont coupées partout tant qu'il tourne), et ses sources Display pour une vidéo MKV (la 1re en grand ; incrustation ou côte à côte ; synchro du son pour une caméra en retard). Sans source Display : WAV ou FLAC. Dossier par défaut : Vidéos\MyChurch\<nom>.
+Jusqu'à 5 enregistrements, qui peuvent tourner en même temps. FFmpeg 8.0.1 est inclus (dossier « ffmpeg ») : rien à installer.
 
 MYVIRTUALSOUND (ZOOM)
-MyVirtualSound envoie le mix d'une piste vers un câble audio virtuel : Zoom, Teams ou un navigateur le reçoivent comme un micro. Dans Zoom, choisissez « CABLE Output » comme microphone.
-VB-CABLE n'est pas inclus dans MyChurch. Paramètres > MyVirtualSound > Installer VB-CABLE télécharge le paquet officiel et lance son installateur (accord administrateur de Windows).
++ Créer une sortie : son nom, son câble audio virtuel (ou une sortie), ses sources, « couper les autres sources ». Jusqu'à 4 sorties, actives en même temps si besoin. Zoom, Teams ou un navigateur la reçoivent comme un micro : dans Zoom, choisissez « CABLE Output » comme microphone.
+VB-CABLE n'est pas inclus dans MyChurch. Paramètres > MyVirtualSound > Installer VB-CABLE télécharge le paquet officiel et lance son installateur (accord administrateur de Windows), seulement quand vous cliquez.
 VB-CABLE est un logiciel de VB-Audio Software (www.vb-cable.com), distribué en donationware : chacun paie ce qu'il veut s'il le trouve utile.
 
 DUO
-Affichez un premier contenu, puis Épingler le contenu en direct (touche P). Affichez ensuite un second contenu. Les deux restent à l'écran. La carte Duo permet de choisir un coin ou Côte à côte, et une taille de 20 à 50 % pour un coin.
+Onglet Duo : un dossier de 2 éléments, chacun à sa place et à sa taille. Choisir > Chant… : le recueil, puis le numéro ou le titre. Choisir > Verset… : un passage (jean 3 16). Dans la grille de Display, la vignette du dossier montre ses deux éléments comme à l'écran.
+Pour épingler à la volée : affichez un premier contenu, puis Épingler le contenu en direct (touche P). Affichez ensuite un second contenu. Les deux restent à l'écran. La carte Duo permet de choisir un coin ou Côte à côte, et une taille de 20 à 50 % pour un coin.
 Retirer de l'écran ne vide que le contenu principal. Retirer le duo enlève le contenu épinglé. B masque tout temporairement.
 
 MYVIRTUALCAM
 La caméra virtuelle reçoit automatiquement la sortie de MyChurch, Duo compris. L'installation demande l'autorisation Windows une fois. En version portable, utilisez + Ajouter une source > Caméra virtuelle MyVirtualCam pour l'enregistrer. Elle reste sélectionnable avec une image noire quand MyChurch est fermé. Le son passe par MyVirtualSound.
 
 PARAMÈTRES
-Le bouton en haut à droite ouvre les Paramètres : périphériques audio (micro et sortie proposés, écoute au casque), MyVirtualSound, enregistrement, code source et licences, mise à jour, transfert vers un autre ordinateur, journal d'erreurs.
+Le bouton en haut à droite ouvre les Paramètres : périphériques audio (micro et sortie proposés, écoute au casque), MyVirtualSound (VB-CABLE), enregistrements (dossier, ffmpeg), code source et licences, mise à jour, transfert vers un autre ordinateur, journal d'erreurs.
 
 MISE À JOUR
 Les chants, Bibles, réglages et jumelages sont conservés. Une caméra virtuelle déjà utilisée est renommée avant remplacement. Fermez puis rouvrez le logiciel vidéo qui l'utilise pour charger la nouvelle version.
@@ -45,3 +49,4 @@ MyChurch est un logiciel libre, sous licence GNU GPL version 2 ou ultérieure, p
 Code source de MyChurch : https://github.com/capmaster2023/Verselight
 Code source d'OBS Studio 33.0.1 : https://github.com/obsproject/obs-studio/tree/33.0.1
 Le dossier « obs » contient aussi le runtime Microsoft Visual C++ (fichiers redistribuables) dont libobs a besoin.
+Le dossier « ffmpeg » contient ffmpeg.exe 8.0.1 (build « essentials » de gyan.dev), un programme séparé sous licence GNU GPL version 3 : texte dans ffmpeg\LICENSE.txt, sources sur https://ffmpeg.org/releases/
