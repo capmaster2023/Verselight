@@ -442,6 +442,34 @@
         </Setter>
     </Style>
 
+    <!-- ===================== bouton radio (un choix parmi plusieurs) ===================== -->
+    <Style TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{StaticResource Blanc}" />
+        <Setter Property="FontFamily" Value="{StaticResource Ui}" />
+        <Setter Property="FontSize" Value="14.5" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusOr}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <StackPanel Orientation="Horizontal" Background="Transparent">
+                        <Border x:Name="Rond" Width="20" Height="20" CornerRadius="10" BorderThickness="2" BorderBrush="{StaticResource Brume2}" Background="{StaticResource Encre}" VerticalAlignment="Center">
+                            <Ellipse x:Name="Point" Width="8" Height="8" Fill="{StaticResource SurOr}" Visibility="Collapsed" />
+                        </Border>
+                        <ContentPresenter Margin="10,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="False" />
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Rond" Property="Background" Value="{StaticResource OrVif}" />
+                            <Setter TargetName="Rond" Property="BorderBrush" Value="{StaticResource OrVif}" />
+                            <Setter TargetName="Point" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ===================== interrupteur (filtres activés) ===================== -->
     <Style x:Key="Interrupteur" TargetType="CheckBox">
         <Setter Property="Cursor" Value="Hand" />
@@ -578,6 +606,52 @@
                             </Track.DecreaseRepeatButton>
                             <Track.Thumb>
                                 <Thumb Style="{StaticResource PouceCurseur}" />
+                            </Track.Thumb>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="Slider.IncreaseLarge" Style="{StaticResource PageDefil}" />
+                            </Track.IncreaseRepeatButton>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ===================== fader vertical du mélangeur (comme OBS) ===================== -->
+    <Style x:Key="PouceFader" TargetType="Thumb">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border Width="26" Height="14" CornerRadius="4" Background="{StaticResource Encre}" BorderBrush="{StaticResource Blanc}" BorderThickness="2">
+                        <Border Height="2" Margin="5,0" Background="{StaticResource Blanc}" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="CurseurVertical" TargetType="Slider">
+        <Setter Property="Orientation" Value="Vertical" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Slider">
+                    <Grid Width="28" Background="Transparent">
+                        <Border Width="6" CornerRadius="3" Background="{StaticResource Trait}" HorizontalAlignment="Center" Margin="0,7" />
+                        <Track x:Name="PART_Track" Orientation="Vertical">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="Slider.DecreaseLarge" Focusable="False">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Grid Background="Transparent">
+                                                <Border Width="6" CornerRadius="3" Background="{StaticResource Or}" HorizontalAlignment="Center" />
+                                            </Grid>
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.DecreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource PouceFader}" />
                             </Track.Thumb>
                             <Track.IncreaseRepeatButton>
                                 <RepeatButton Command="Slider.IncreaseLarge" Style="{StaticResource PageDefil}" />

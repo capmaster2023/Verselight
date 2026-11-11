@@ -4,19 +4,19 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using MyVerse.Audio;
-using NAudio.CoreAudioApi;
 
 namespace MyVerse.Ui.Audio;
 
 /// <summary>
-/// Les sections audio des Paramètres (MyChurch 3.0) : périphériques et moteur OBS, MyVirtualSound (VB-CABLE),
-/// enregistrement, code source et licences (exigé par la licence GNU GPL de libobs).
+/// Les sections audio des Paramètres (MyChurch 3.0.1) : périphériques et moteur OBS, MyVirtualSound (installation de VB-CABLE, sur clic),
+/// enregistrements (dossier, ffmpeg), code source et licences (exigé par la licence GNU GPL de libobs et de FFmpeg).
 /// </summary>
 public sealed class AudioSettingsPanel : StackPanel
 {
     public const string DepotMyChurch = "https://github.com/capmaster2023/Verselight";
     public const string DepotObs = "https://github.com/obsproject/obs-studio/tree/33.0.1";
     public const string SiteVbCable = "https://www.vb-cable.com";
+    public const string SourcesFfmpeg = "https://ffmpeg.org/releases/";
     const string LicenceGplEnLigne = "https://www.gnu.org/licenses/old-licenses/gpl-2.0.html";
 
     static ChurchAudioService A => App.Audio;
@@ -25,7 +25,6 @@ public sealed class AudioSettingsPanel : StackPanel
     static Style S(string cle) => MainWindow.Style_(cle);
 
     readonly TextBlock cable = new() { FontSize = 14, TextWrapping = TextWrapping.Wrap };
-    readonly TextBlock vsEtat = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0) };
     readonly TextBlock progression = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0), Visibility = Visibility.Collapsed };
     readonly Button installer = new() { Content = "Installer VB-CABLE", Height = 40, Padding = new Thickness(16, 0, 16, 0), FontSize = 14, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 10, 0, 0) };
 
@@ -123,7 +122,7 @@ public sealed class AudioSettingsPanel : StackPanel
         var micro = Liste(A.Microphones(), C.MicrophoneId, C.MicrophoneName, (id, nom) => { C.MicrophoneId = id; C.MicrophoneName = nom; A.Apply(); });
         var sortie = Liste(A.Outputs(), C.OutputId, C.OutputName, (id, nom) => { C.OutputId = id; C.OutputName = nom; A.Apply(); });
         var casque = Liste(A.MonitoringDevices(), C.MonitorDeviceId, C.MonitorDeviceName, (id, nom) => { C.MonitorDeviceId = id; C.MonitorDeviceName = nom; A.Apply(); });
-        var format = new TextBlock { Text = "48 kHz · stéréo · 6 pistes", FontSize = 14, Height = 40, Padding = new Thickness(0, 10, 0, 0) };
+        var format = new TextBlock { Text = "48 kHz · stéréo · 6 mélanges", FontSize = 14, Height = 40, Padding = new Thickness(0, 10, 0, 0) };
         corps.Children.Add(DeuxColonnes(
             Champ("Microphone par défaut", micro),
             Champ("Sortie audio capturée", sortie),
@@ -134,55 +133,12 @@ public sealed class AudioSettingsPanel : StackPanel
     }
 
     // ------------------------------------------------------------ MyVirtualSound
-    /// <summary>Sorties Windows (identifiants NAudio, pas ceux d'OBS) pour MyVirtualSound.</summary>
-    static List<AudioDevice> SortiesWindows()
-    {
-        var liste = new List<AudioDevice>();
-        try
-        {
-            using var enumerateur = new MMDeviceEnumerator();
-            foreach (var d in enumerateur.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
-                using (d) liste.Add(new AudioDevice(d.ID, d.FriendlyName));
-        }
-        catch (Exception e) { Journal.Erreur("liste des sorties Windows", e); }
-        return liste;
-    }
+    readonly StackPanel sortiesListe = new() { Margin = new Thickness(0, 12, 0, 0) };
 
     Border SectionVirtualSound()
     {
-        var v = C.VirtualSound;
-        var (cadre, corps) = Section("MyVirtualSound", "Le mix d'une piste d'OBS, envoyé vers un câble audio virtuel : Zoom, Teams, OBS ou un navigateur le reçoivent comme un micro.");
-        var actif = new CheckBox { Content = "Activer MyVirtualSound", FontSize = 14.5, IsChecked = v.Enabled, Margin = new Thickness(0, 14, 0, 0) };
-        actif.Click += (_, _) => { v.Enabled = actif.IsChecked == true; A.Apply(); MajVs(); };
-        corps.Children.Add(actif);
-
-        var sortie = new ComboBox { MinHeight = 40 };
-        sortie.Items.Add(new ComboBoxItem { Content = "Automatique : câble virtuel installé", Tag = "" });
-        sortie.Items.Add(new ComboBoxItem { Content = "Sortie Windows par défaut", Tag = "default" });
-        var sorties = SortiesWindows();
-        foreach (var d in sorties) sortie.Items.Add(new ComboBoxItem { Content = d.Name, Tag = d.Id });
-        if (v.DeviceId.Length > 0 && v.DeviceId != "default" && sorties.All(d => d.Id != v.DeviceId))
-            sortie.Items.Add(new ComboBoxItem { Content = (v.DeviceName.Length > 0 ? v.DeviceName : "Sortie enregistrée") + " (absente)", Tag = v.DeviceId });
-        sortie.SelectedItem = sortie.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == v.DeviceId) ?? sortie.Items[0];
-        sortie.SelectionChanged += (_, _) =>
-        {
-            if (sortie.SelectedItem is not ComboBoxItem { Tag: string id } item) return;
-            v.DeviceId = id;
-            v.DeviceName = id.Length == 0 || id == "default" ? "" : (item.Content as string ?? "").Replace(" (absente)", "");
-            A.Apply();
-            MajVs();
-        };
-        var piste = new ComboBox { MinHeight = 40 };
-        for (int i = 1; i <= AudioConfiguration.Pistes; i++) piste.Items.Add(new ComboBoxItem { Content = "Piste " + i, Tag = i });
-        piste.SelectedIndex = Math.Clamp(v.Track, 1, AudioConfiguration.Pistes) - 1;
-        piste.SelectionChanged += (_, _) =>
-        {
-            if (piste.SelectedItem is not ComboBoxItem { Tag: int n }) return;
-            v.Track = n;
-            A.Apply();
-            MajVs();
-        };
-        corps.Children.Add(DeuxColonnes(Champ("Sortie", sortie), Champ("Piste envoyée", piste)));
+        var (cadre, corps) = Section("MyVirtualSound", "Des sorties qui envoient chacune le mélange de leurs sources vers un câble audio virtuel : Zoom, Teams, OBS ou un navigateur les reçoivent comme un micro. Elles se créent dans le panneau Audio de Display (« + Créer une sortie »), 4 au plus, actives en même temps si besoin.");
+        corps.Children.Add(sortiesListe);
 
         var detection = new Border { Background = P("Nuit2"), BorderBrush = P("Trait"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(14, 12, 14, 12), Margin = new Thickness(0, 14, 0, 0) };
         var pile = new StackPanel();
@@ -199,16 +155,14 @@ public sealed class AudioSettingsPanel : StackPanel
             finally
             {
                 installer.IsEnabled = true;
-                A.VirtualSound.Reset();
+                A.Sorties.Reset();
                 A.Apply();
                 MajCable();
-                MajVs();
+                MajSorties();
             }
         };
         pile.Children.Add(installer);
         pile.Children.Add(progression);
-        vsEtat.Foreground = P("Encre2");
-        pile.Children.Add(vsEtat);
         detection.Child = pile;
         corps.Children.Add(detection);
 
@@ -218,7 +172,7 @@ public sealed class AudioSettingsPanel : StackPanel
         site.Margin = new Thickness(0, 2, 0, 0);
         corps.Children.Add(site);
         MajCable();
-        MajVs();
+        MajSorties();
         return cadre;
     }
 
@@ -229,79 +183,75 @@ public sealed class AudioSettingsPanel : StackPanel
         installer.Visibility = VbCable.Installe ? Visibility.Collapsed : Visibility.Visible;
     }
 
-    void MajVs() => vsEtat.Text = "État : " + A.VirtualSound.Status;
+    void MajSorties()
+    {
+        sortiesListe.Children.Clear();
+        if (C.VirtualSounds.Count == 0)
+        {
+            sortiesListe.Children.Add(Note("Aucune sortie pour l'instant : « + Créer une sortie » dans le panneau Audio.", 0));
+            return;
+        }
+        for (int i = 0; i < C.VirtualSounds.Count; i++)
+        {
+            var v = C.VirtualSounds[i];
+            var t = new TextBlock { FontSize = 13.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 4) };
+            t.Inlines.Add(new Bold(new Run(AudioPanel.MarqueSortie(i) + " · " + v.Name)));
+            t.Inlines.Add(new Run(" : " + (v.Enabled ? A.Sorties.Status(v.Id) : "désactivée")) { Foreground = P("Brume") });
+            sortiesListe.Children.Add(t);
+        }
+    }
 
-    // ------------------------------------------------------------ enregistrement
+    // ------------------------------------------------------------ enregistrements
     Border SectionEnregistrement()
     {
-        if (C.Profiles.Count == 0) C.Normalize();
-        var p = C.Profiles[0];
-        var (cadre, corps) = Section("Enregistrement", "Le bouton « ● Enregistrer » du panneau Audio enregistre la piste choisie ici.");
+        var (cadre, corps) = Section("Enregistrements", "Ils se créent dans le panneau Audio de Display (« + Créer un enregistrement ») : chacun garde les sources audio choisies et, avec des sources Display, fait une vidéo MKV. 5 au plus, qui peuvent tourner en même temps.");
 
-        var dossier = new TextBox { Style = S("Champ"), Text = p.Directory, IsReadOnly = true, FontSize = 14 };
-        var choisirDossier = new Button { Style = S("Btn"), Content = "Choisir…", Height = 40, Padding = new Thickness(14, 0, 14, 0), FontSize = 14, Margin = new Thickness(8, 0, 0, 0) };
-        choisirDossier.Click += (_, _) =>
+        var dossier = new TextBox { Style = S("Champ"), Text = AudioConfiguration.DossierEnregistrements, IsReadOnly = true, FontSize = 14 };
+        var ouvrir = new Button { Style = S("Btn"), Content = "Ouvrir", Height = 40, Padding = new Thickness(14, 0, 14, 0), FontSize = 14, Margin = new Thickness(8, 0, 0, 0) };
+        ouvrir.Click += (_, _) =>
         {
-            var d = new Microsoft.Win32.OpenFolderDialog { Title = "Dossier des enregistrements" };
-            if (Directory.Exists(p.Directory)) d.InitialDirectory = p.Directory;
-            bool? ok = Fenetre != null ? d.ShowDialog(Fenetre) : d.ShowDialog();
-            if (ok != true) return;
-            p.Directory = d.FolderName;
-            dossier.Text = p.Directory;
-            A.Apply();
+            try { Directory.CreateDirectory(AudioConfiguration.DossierEnregistrements); } catch (Exception) { }
+            Ouvrir(AudioConfiguration.DossierEnregistrements);
         };
         var ligneDossier = new DockPanel();
-        DockPanel.SetDock(choisirDossier, Dock.Right);
-        ligneDossier.Children.Add(choisirDossier);
+        DockPanel.SetDock(ouvrir, Dock.Right);
+        ligneDossier.Children.Add(ouvrir);
         ligneDossier.Children.Add(dossier);
+        var champDossier = Champ("Dossier par défaut (un sous-dossier par enregistrement)", ligneDossier);
+        champDossier.Margin = new Thickness(0, 14, 0, 0);
+        corps.Children.Add(champDossier);
 
-        var format = new ComboBox { MinHeight = 40 };
-        format.Items.Add(new ComboBoxItem { Content = "WAV (24 bits, sans perte)", Tag = "wav" });
-        format.Items.Add(new ComboBoxItem { Content = "FLAC (compressé, sans perte)", Tag = "flac" });
-        format.SelectedIndex = p.Format == "flac" ? 1 : 0;
-
-        var piste = new ComboBox { MinHeight = 40 };
-        for (int i = 1; i <= AudioConfiguration.Pistes; i++) piste.Items.Add(new ComboBoxItem { Content = "Piste " + i, Tag = i });
-        piste.SelectedIndex = Math.Clamp(p.Track, 1, AudioConfiguration.Pistes) - 1;
-        piste.SelectionChanged += (_, _) =>
+        // ffmpeg : livré avec MyChurch (FLAC et vidéo) ; un autre ffmpeg.exe peut le remplacer
+        var etat = new TextBlock { FontSize = 14, TextWrapping = TextWrapping.Wrap };
+        var autre = new Button { Style = S("Btn"), Content = "Choisir un autre ffmpeg.exe…", Height = 38, Padding = new Thickness(14, 0, 14, 0), FontSize = 13.5 };
+        var inclus = new Button { Style = S("BtnLien"), Content = "Revenir à celui de MyChurch", Margin = new Thickness(12, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        void MajFfmpeg()
         {
-            if (piste.SelectedItem is not ComboBoxItem { Tag: int n }) return;
-            p.Track = n;
-            A.Apply();
-        };
-
-        var ffmpeg = new TextBox { Style = S("Champ"), Text = C.FfmpegPath, IsReadOnly = true, FontSize = 14 };
-        var choisirFfmpeg = new Button { Style = S("Btn"), Content = "Choisir…", Height = 40, Padding = new Thickness(14, 0, 14, 0), FontSize = 14, Margin = new Thickness(8, 0, 0, 0) };
-        choisirFfmpeg.Click += (_, _) =>
+            bool present = File.Exists(ChurchAudioService.FfmpegInclus);
+            if (C.FfmpegPath.Length > 0) etat.Text = "ffmpeg utilisé : " + C.FfmpegPath + (File.Exists(C.FfmpegPath) ? "" : " (introuvable : celui de MyChurch le remplace)");
+            else etat.Text = present ? "ffmpeg 8.0.1 est inclus avec MyChurch : FLAC et vidéo MKV marchent sans rien installer." : "ffmpeg est absent du dossier de MyChurch : réinstallez MyChurch, ou choisissez un ffmpeg.exe.";
+            etat.Foreground = present || File.Exists(C.FfmpegPath) ? P("Blanc") : P("Danger");
+            inclus.Visibility = C.FfmpegPath.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+        autre.Click += (_, _) =>
         {
-            var d = new Microsoft.Win32.OpenFileDialog { Title = "ffmpeg.exe (pour le FLAC)", Filter = "ffmpeg.exe|ffmpeg.exe|Programmes|*.exe" };
+            var d = new Microsoft.Win32.OpenFileDialog { Title = "ffmpeg.exe (FLAC et vidéo)", Filter = "ffmpeg.exe|ffmpeg.exe|Programmes|*.exe" };
             bool? ok = Fenetre != null ? d.ShowDialog(Fenetre) : d.ShowDialog();
             if (ok != true) return;
             C.FfmpegPath = d.FileName;
-            ffmpeg.Text = C.FfmpegPath;
             A.Apply();
+            MajFfmpeg();
         };
-        var ligneFfmpeg = new DockPanel();
-        DockPanel.SetDock(choisirFfmpeg, Dock.Right);
-        ligneFfmpeg.Children.Add(choisirFfmpeg);
-        ligneFfmpeg.Children.Add(ffmpeg);
-        var champFfmpeg = Champ("ffmpeg.exe (seulement pour le FLAC, non fourni : ffmpeg.org)", ligneFfmpeg);
-        champFfmpeg.Margin = new Thickness(0, 14, 0, 0);
-        champFfmpeg.Visibility = p.Format == "flac" ? Visibility.Visible : Visibility.Collapsed;
-        format.SelectionChanged += (_, _) =>
-        {
-            if (format.SelectedItem is not ComboBoxItem { Tag: string f }) return;
-            p.Format = f;
-            p.AudioOnly = true;
-            champFfmpeg.Visibility = f == "flac" ? Visibility.Visible : Visibility.Collapsed;
-            A.Apply();
-        };
-
-        var champDossier = Champ("Dossier", ligneDossier);
-        champDossier.Margin = new Thickness(0, 14, 0, 0);
-        corps.Children.Add(champDossier);
-        corps.Children.Add(DeuxColonnes(Champ("Format", format), Champ("Piste enregistrée", piste)));
-        corps.Children.Add(champFfmpeg);
+        inclus.Click += (_, _) => { C.FfmpegPath = ""; A.Apply(); MajFfmpeg(); };
+        var cadreFfmpeg = new StackPanel { Margin = new Thickness(0, 14, 0, 0) };
+        cadreFfmpeg.Children.Add(etat);
+        var boutons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
+        boutons.Children.Add(autre);
+        boutons.Children.Add(inclus);
+        cadreFfmpeg.Children.Add(boutons);
+        corps.Children.Add(cadreFfmpeg);
+        corps.Children.Add(Note("La vidéo utilise l'encodeur H.264 de la carte graphique (NVIDIA, Intel ou AMD) s'il marche, sinon x264. Le son et l'image suivent la même horloge ; un décalage de caméra se corrige dans chaque enregistrement (« Synchro du son »)."));
+        MajFfmpeg();
         return cadre;
     }
 
@@ -316,6 +266,7 @@ public sealed class AudioSettingsPanel : StackPanel
         corps.Children.Add(texte);
         corps.Children.Add(LigneDepot("Code source de MyChurch", DepotMyChurch));
         corps.Children.Add(LigneDepot("Code source d'OBS Studio 33.0.1 (libobs)", DepotObs));
+        corps.Children.Add(LigneDepot("Code source de FFmpeg (ffmpeg.exe 8.0.1, build gyan.dev)", SourcesFfmpeg));
 
         var licence = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 14, 0, 0) };
         var lire = new Button { Style = S("BtnContour"), Content = "Lire la licence GNU GPL", Height = 36, Padding = new Thickness(14, 0, 14, 0), FontSize = 13.5 };
@@ -327,7 +278,8 @@ public sealed class AudioSettingsPanel : StackPanel
         licence.Children.Add(lire);
         licence.Children.Add(new TextBlock { Text = "Le texte complet de la licence est installé avec MyChurch (COPYING.txt).", FontSize = 12.5, Foreground = P("Brume"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0), TextWrapping = TextWrapping.Wrap });
         corps.Children.Add(licence);
-        corps.Children.Add(Note(VbCable.Mention + " Il n'est pas inclus dans MyChurch : il s'installe à la demande depuis le site officiel.", 14));
+        corps.Children.Add(Note("FFmpeg (www.ffmpeg.org), livré dans le dossier « ffmpeg » de MyChurch pour le FLAC et la vidéo, est un programme libre sous licence GNU GPL version 3 : son texte est dans ffmpeg\\LICENSE.txt. Build « essentials » de gyan.dev (www.gyan.dev/ffmpeg/builds).", 14));
+        corps.Children.Add(Note(VbCable.Mention + " Il n'est pas inclus dans MyChurch : il s'installe à la demande depuis le site officiel.", 8));
         corps.Children.Add(Note("Polices Inter, Space Grotesk, Literata, Atkinson Hyperlegible Next et Unbounded : licence SIL Open Font License 1.1.", 6));
         return cadre;
     }
