@@ -282,7 +282,8 @@ public partial class MainWindow
         var s = R.Prochaine();
         SuivantLab.Text = s?.Label ?? "—";
         SuivantLab.ToolTip = s?.Label;
-        SuivantTexte.Text = s != null && s.Texte.Length > 0 ? s.Texte.Replace("\r", "").Replace("\n", " ") : s == null ? "Rien après." : "";
+        SuivantTexte.Text = s == null ? "Rien après." : "";
+        SuivantApercu.ToolTip = s != null && s.Texte.Length > 0 ? s.Label + " : " + s.Texte.Replace("\r", "").Replace("\n", " ") : "La diapositive qui vient avec Suivant";
         EtatEcran? e = null;
         try { e = s != null ? R.EtatCible(s.Cible, R.ElementCourant) : null; }
         catch (Exception x) { Journal.Erreur("aperçu suivant", x); }

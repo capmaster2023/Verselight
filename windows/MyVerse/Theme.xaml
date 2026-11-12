@@ -70,7 +70,8 @@
     <Geometry x:Key="IconeLune">M20,14.5 A8,8 0 0 1 9.5,4 A8,8 0 1 0 20,14.5 Z</Geometry>
     <Geometry x:Key="IconeSoleil">M12,8 A4,4 0 1 1 11.99,8 Z M12,2 V4 M12,20 V22 M4.9,4.9 L6.3,6.3 M17.7,17.7 L19.1,19.1 M2,12 H4 M20,12 H22 M4.9,19.1 L6.3,17.7 M17.7,6.3 L19.1,4.9</Geometry>
 
-    <!-- ===================== polices (incluses dans MyChurch) : projection (Literata, Atkinson, Unbounded), interface (Manrope, design « Pupitre ») ===================== -->
+    <!-- ===================== polices (incluses dans MyChurch) : projection (Literata, Atkinson, Unbounded), interface (Manrope, design « Pupitre ») =====================
+         Manrope : poids fixes 400 à 800 tirés de la police variable de Google Fonts, avec les espaces fines U+2009, U+200A et U+202F ajoutées (licence OFL). -->
     <FontFamily x:Key="Serif">./Polices/#Literata, Georgia</FontFamily>
     <FontFamily x:Key="Sans">./Polices/#Atkinson Hyperlegible Next, Segoe UI</FontFamily>
     <FontFamily x:Key="Titre">./Polices/#Unbounded, Segoe UI</FontFamily>

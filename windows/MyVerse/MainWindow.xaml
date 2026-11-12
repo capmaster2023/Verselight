@@ -215,7 +215,7 @@
                 <DockPanel>
                     <local:Capitales DockPanel.Dock="Top" Libelle="Recueil" Margin="0,0,0,8" />
                     <DockPanel DockPanel.Dock="Top">
-                        <Button x:Name="SupprimerRecueil" DockPanel.Dock="Right" Style="{StaticResource BtnDanger}" Content="Supprimer" Margin="8,0,0,0" ToolTip="Supprimer ce recueil et ses chants" />
+                        <Button x:Name="SupprimerRecueil" DockPanel.Dock="Right" Style="{StaticResource BtnDanger}" Content="Supprimer" FontSize="12" Padding="7,5" Margin="6,0,0,0" ToolTip="Supprimer ce recueil et ses chants" />
                         <ComboBox x:Name="Recueil" ToolTip="Recueil" MaxDropDownHeight="520" />
                     </DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="0,10,0,8">
@@ -297,18 +297,23 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <StackPanel VerticalAlignment="Bottom">
+                <StackPanel VerticalAlignment="Top">
                     <local:Capitales x:Name="Surtitre" Libelle="Toutes les diapositives du culte" Margin="0" TextTrimming="CharacterEllipsis" />
                     <!-- Culte : l'élément choisi dans le déroulé -->
                     <TextBlock x:Name="ElemTitre" Style="{StaticResource GrandTitre}" TextTrimming="CharacterEllipsis" Margin="0,3,0,0" Text="Préparez le culte" />
                     <!-- Bible : le chapitre -->
-                    <DockPanel x:Name="TeteBible" Margin="0,3,0,0" LastChildFill="False">
-                        <Button x:Name="ChapPrec" DockPanel.Dock="Left" Style="{StaticResource BtnPetit}" Content="‹" ToolTip="Chapitre précédent" Visibility="Collapsed" VerticalAlignment="Center" />
-                        <TextBlock x:Name="TitreChap" DockPanel.Dock="Left" Style="{StaticResource GrandTitre}" Margin="10,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                        <Button x:Name="ChapSuiv" DockPanel.Dock="Left" Style="{StaticResource BtnPetit}" Content="›" ToolTip="Chapitre suivant" Visibility="Collapsed" VerticalAlignment="Center" />
-                        <Button x:Name="AgendaAjoutBible" DockPanel.Dock="Left" Style="{StaticResource BtnPetit}" Content="+ Déroulé" Margin="14,0,0,0" ToolTip="Ajouter les versets choisis (ou le chapitre) au déroulé" VerticalAlignment="Center" />
-                        <TextBlock x:Name="VersionsLab" DockPanel.Dock="Left" Style="{StaticResource Muet}" VerticalAlignment="Center" Text="Version : LSG" Margin="12,0,0,0" TextWrapping="NoWrap" />
-                    </DockPanel>
+                    <StackPanel x:Name="TeteBible" Margin="0,3,0,0">
+                        <!-- chacun prend la place qui reste : le titre se coupe (…) avant de pousser « › » hors de vue -->
+                        <DockPanel LastChildFill="False">
+                            <Button x:Name="ChapPrec" DockPanel.Dock="Left" Style="{StaticResource BtnPetit}" Content="‹" ToolTip="Chapitre précédent" Visibility="Collapsed" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <TextBlock x:Name="TitreChap" DockPanel.Dock="Left" Style="{StaticResource GrandTitre}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            <Button x:Name="ChapSuiv" DockPanel.Dock="Left" Style="{StaticResource BtnPetit}" Content="›" ToolTip="Chapitre suivant" Visibility="Collapsed" VerticalAlignment="Center" Margin="10,0,0,0" />
+                        </DockPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button x:Name="AgendaAjoutBible" Style="{StaticResource BtnPetit}" Content="+ Déroulé" ToolTip="Ajouter les versets choisis (ou le chapitre) au déroulé" VerticalAlignment="Center" />
+                            <TextBlock x:Name="VersionsLab" Style="{StaticResource Muet}" VerticalAlignment="Center" Text="Version : LSG" Margin="12,0,0,0" TextWrapping="NoWrap" />
+                        </StackPanel>
+                    </StackPanel>
                     <!-- Chants : le chant ouvert -->
                     <StackPanel x:Name="TeteChants" Margin="0,3,0,0">
                         <TextBlock x:Name="ChantTitre" Style="{StaticResource GrandTitre}" Text="Aucun chant choisi" TextTrimming="CharacterEllipsis" />
@@ -328,7 +333,7 @@
                 </StackPanel>
 
                 <!-- recherche : culte (versets et chants, Ctrl K), Bible ou chants selon la page -->
-                <Grid x:Name="Recherches" Grid.Column="1" Width="330" Margin="18,0,0,2" VerticalAlignment="Bottom">
+                <Grid x:Name="Recherches" Grid.Column="1" Width="330" Margin="18,14,0,0" VerticalAlignment="Top">
                     <Border x:Name="RechercheCulte" Background="{StaticResource Encre}" BorderBrush="{StaticResource Nuit3}" BorderThickness="1" CornerRadius="12" Padding="12,0,8,0" Visibility="Collapsed" ToolTip="Ctrl K : chercher un verset ou un chant">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -486,11 +491,11 @@
                                 <local:Rendu x:Name="SuivantRendu" Width="1920" Height="1080" Transitions="False" IsHitTestVisible="False" />
                             </Viewbox>
                         </Border>
-                        <DockPanel Grid.Column="1" Margin="10,0,0,0">
-                            <Button x:Name="Decouper" DockPanel.Dock="Bottom" Style="{StaticResource BtnPetit}" Content="Découper" FontSize="12" Padding="9,4" IsEnabled="False" HorizontalAlignment="Left"
+                        <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Bottom">
+                            <TextBlock x:Name="SuivantTexte" FontSize="12" Foreground="{StaticResource Brume}" TextWrapping="Wrap" Margin="0,0,0,6" />
+                            <Button x:Name="Decouper" Style="{StaticResource BtnPetit}" Content="Découper" FontSize="12" Padding="9,4" IsEnabled="False" HorizontalAlignment="Left"
                                     ToolTip="Couper la diapositive suivante en plusieurs (Entrée devant une ligne)" />
-                            <TextBlock x:Name="SuivantTexte" FontSize="12" LineHeight="16" Foreground="{StaticResource Brume}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" Margin="0,0,0,6" />
-                        </DockPanel>
+                        </StackPanel>
                     </Grid>
 
                     <Button x:Name="Afficher" Style="{StaticResource BtnContour}" Content="Afficher la sélection (Entrée)" Height="44" Padding="0" Margin="0,14,0,0" ToolTip="Entrée" />

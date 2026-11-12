@@ -230,6 +230,17 @@ public static class AutoTest
         catch (Exception) { return 0; }
     }
 
+    /// <summary>La police a-t-elle l'espace très fine (U+200A) que Capitales glisse entre les lettres ?</summary>
+    static bool EspaceFine(string cle)
+    {
+        try
+        {
+            var f = (FontFamily)Application.Current.FindResource(cle);
+            return new Typeface(f, FontStyles.Normal, FontWeights.Bold, FontStretches.Normal).TryGetGlyphTypeface(out var g) && g.CharacterToGlyphMap.ContainsKey(0x200A);
+        }
+        catch (Exception) { return false; }
+    }
+
     public static async void Lancer(MainWindow w, string sortie)
     {
         dossier = sortie;
@@ -244,6 +255,7 @@ public static class AutoTest
             int p5 = Poids("Ui", FontWeights.Medium), p6 = Poids("Ui", FontWeights.SemiBold), p7 = Poids("Ui", FontWeights.Bold), p8 = Poids("Ui", FontWeights.ExtraBold);
             Ok(p5 == 500 && p6 == 600 && p7 == 700 && p8 == 800, $"Manrope : les vrais poids 500, 600, 700, 800 ({p5}, {p6}, {p7}, {p8})");
             Ok(Police("Mono").Contains("IBM Plex Mono"), "police IBM Plex Mono incluse (heures et chronos)");
+            Ok(EspaceFine("Ui"), "Manrope : espace très fine U+200A des étiquettes en capitales espacées");
             Ok(Police("Serif").Contains("Literata"), "police Literata incluse");
             Ok(Police("Sans").Contains("Atkinson"), "police Atkinson incluse");
             await Attendre(1500);
