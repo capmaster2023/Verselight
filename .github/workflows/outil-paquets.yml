@@ -2,8 +2,11 @@ name: Outil temporaire (paquets NuGet)
 on:
   push:
     branches: [outil-paquets]
+permissions:
+  contents: write
 jobs:
   paquets:
+    if: "!contains(github.event.head_commit.message, '[paquets]')"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -12,9 +15,17 @@ jobs:
           dotnet-version: '8.0.x'
       - run: dotnet restore outil/Telechargement.csproj
       - run: dotnet restore windows/MyVerse/MyVerse.csproj -p:RuntimeIdentifier= -p:SelfContained=false -p:EnableWindowsTargeting=true
-      - run: tar -C ~/.nuget -czf paquets.tgz packages && ls -la paquets.tgz && ls ~/.nuget/packages
-      - uses: actions/upload-artifact@v4
-        with:
-          name: paquets
-          path: paquets.tgz
-          retention-days: 1
+      - run: du -sh ~/.nuget/packages/* | sort -h | tail -15
+      - name: Paquets dans la branche (sans les bibliothèques natives d'OpenCV)
+        run: |
+          cd ~/.nuget
+          tar --exclude='packages/opencvsharp4.runtime.win' -czf "$GITHUB_WORKSPACE/outil/paquets.tgz" packages
+          cd "$GITHUB_WORKSPACE"
+          ls -la outil/paquets.tgz
+          split -b 45m outil/paquets.tgz outil/paquets.tgz.part-
+          rm outil/paquets.tgz
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add outil
+          git commit -m "[paquets] paquets NuGet (outil temporaire)"
+          git push
