@@ -13,19 +13,17 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - run: dotnet restore outil/Telechargement.csproj
-      - run: dotnet restore windows/MyVerse/MyVerse.csproj -p:RuntimeIdentifier= -p:SelfContained=false -p:EnableWindowsTargeting=true
-      - run: du -sh ~/.nuget/packages/* | sort -h | tail -15
-      - name: Paquets dans la branche (sans les bibliothèques natives d'OpenCV)
+      - name: SDK WPF (Microsoft.NET.Sdk.WindowsDesktop) dans la branche
         run: |
-          cd ~/.nuget
-          tar --exclude='packages/opencvsharp4.runtime.win' -czf "$GITHUB_WORKSPACE/outil/paquets.tgz" packages
-          cd "$GITHUB_WORKSPACE"
-          ls -la outil/paquets.tgz
-          split -b 45m outil/paquets.tgz outil/paquets.tgz.part-
-          rm outil/paquets.tgz
+          dotnet --list-sdks
+          SDK=$(dotnet --list-sdks | grep '^8\.' | tail -1 | sed -E 's/^([^ ]+) \[(.*)\]$/\2\/\1/')
+          echo "$SDK"
+          ls "$SDK/Sdks"
+          rm -f outil/paquets.tgz.part-*
+          tar -C "$SDK/Sdks" -czf outil/sdk-wpf.tgz Microsoft.NET.Sdk.WindowsDesktop
+          ls -la outil/sdk-wpf.tgz
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git add outil
-          git commit -m "[paquets] paquets NuGet (outil temporaire)"
+          git add -A outil
+          git commit -m "[paquets] SDK WPF (outil temporaire)"
           git push
