@@ -72,7 +72,7 @@ public sealed partial class Regie
         donnees.SauverDuos();
         if (donnees.Annonces.RemoveAll(a => a.Source is { Type: "duo" } s && s.Chemin == id) > 0) AnnoncesModifiees();
         DuosChange?.Invoke();
-        if (Etat.Duo is { Place: "libre" } e && e.Dossier == id) Effacer();
+        if (Etat.Duo is { Place: "libre" } e && e.Dossier == id) Vider();
     }
 
     /// <summary>Met le dossier dans Display (bibliothèque et grille) : un clic l'envoie en direct.</summary>

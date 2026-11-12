@@ -90,6 +90,9 @@ public sealed partial class Regie
                     return Neutre() with { Mode = "media", Media = s, Ref = ed.Titre };
                 }
                 return donnees.Annonces.FirstOrDefault(a => a.Id == cd.Id) is { } ad ? EtatAnnonce(ad) : null;
+            case CibleDefaut cf:
+                if (cf.Id == "fond") return EtatFond(Neutre());
+                return (e?.Id == cf.Id ? e : ElementDuDeroule(cf.Id)) is { Type: "principal" } ep ? EtatPrincipal(ep, Neutre()) : null;
         }
         return null;
     }

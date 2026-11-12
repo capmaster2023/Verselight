@@ -395,7 +395,8 @@ public sealed class Telephone : IDisposable
     /// <summary>Ce que voit l'assemblée (fil de l'interface) : texte, référence, 2e version.</summary>
     string EtatPublicCorps()
     {
-        var e = regie.Etat;
+        // l'écran par défaut (3.3) est pour la salle : la page publique reste vide
+        var e = regie.EtatDiffusion(regie.Etat);
         var titre = regie.Cible is CibleChant cc && regie.Trouver(cc.Id) is { } s ? s.Title : regie.ElementCourant?.Titre ?? "";
         var bib = regie.Bibles;
         var p = bib.InfoDe(bib.IdPrincipale)?.Court ?? "";
@@ -927,7 +928,8 @@ boucle();
         return new JsonObject
         {
             ["t"] = "state",
-            ["mode"] = e.Mode,
+            // « fond » (écran par défaut, 3.3) : l'application Android ne connaît pas ce mode, il part comme un écran vide
+            ["mode"] = e.Mode == "fond" ? "vide" : e.Mode,
             ["lignes"] = new JsonArray(e.Lignes.Select(l => (JsonNode?)l).ToArray()),
             ["ref"] = e.Ref,
             ["titre"] = e.Mode == "media" ? e.Ref : titre,

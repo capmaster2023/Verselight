@@ -8,7 +8,7 @@ public sealed class ElementAgenda
 {
     [JsonPropertyName("source"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public SourceDisplay? Source { get; set; }
     [JsonPropertyName("id")] public string Id { get; set; } = Chant.NouvelId();
-    [JsonPropertyName("type")] public string Type { get; set; } = "texte"; // chant, bible, texte
+    [JsonPropertyName("type")] public string Type { get; set; } = "texte"; // chant, bible, texte, display, compte, principal (écran principal, MyChurch 3.3)
     [JsonPropertyName("titre")] public string Titre { get; set; } = "";
     [JsonPropertyName("chant"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? ChantId { get; set; }
     /// <summary>Livre, chapitre, premier et dernier verset (0, 0 : chapitre entier).</summary>
@@ -57,6 +57,11 @@ public sealed record CibleTexte(string Element, int I) : Cible;
 
 /// <summary>Le compte à rebours d'accueil (« Le culte commence dans 05:00 »).</summary>
 public sealed record CibleCompte(string Element) : Cible;
+
+/// <summary>
+/// L'écran par défaut est à l'écran (MyChurch 3.3) : un écran principal du déroulé (Id = l'élément) ou le fond seul (Id = « fond »).
+/// </summary>
+public sealed record CibleDefaut(string Id) : Cible;
 
 /// <summary>Une diapositive d'un élément de l'agenda.</summary>
 public sealed record DiapoAgenda(string Label, string Texte, Cible Cible);
@@ -114,6 +119,7 @@ public sealed partial class Regie
     public void ChoisirAgenda(string id)
     {
         if (donnees.Agendas.All(a => a.Id != id)) return;
+        OublierReprise();
         donnees.Reglages.Agenda = id;
         donnees.SauverReglages();
         AgendaModifie();
@@ -188,6 +194,7 @@ public sealed partial class Regie
         if (e == null) return;
         l.Remove(e);
         if (ElementCourant == e) ElementCourant = null;
+        if (elementRetire == e) OublierReprise();
         AgendaModifie();
     }
 
@@ -204,6 +211,7 @@ public sealed partial class Regie
     {
         Agenda.Elements.Clear();
         ElementCourant = null;
+        OublierReprise();
         AgendaModifie();
     }
 
@@ -214,6 +222,7 @@ public sealed partial class Regie
         "chant" => ("CHANT", Trouver(e.ChantId) is { } c ? (c.Author.Length > 0 ? c.Author : "Sans recueil") + $" · {c.Sections.Count} strophe{(c.Sections.Count > 1 ? "s" : "")}" : "chant supprimé"),
         "bible" => ("BIBLE", BorneRef(e) is { } r ? $"{r.V2 - r.V1 + 1} verset{(r.V2 > r.V1 ? "s" : "")} · {Bibles.Etiquette()}" : "absent de cette Bible"),
         "compte" => ("ACCUEIL", $"Compte à rebours · {e.Minutes ?? 5} min"),
+        "principal" => ("ÉCRAN PRINCIPAL", SortePrincipal(e) + " · reste à l'écran"),
         _ => ("TEXTE", $"{BlocsTexte(e.Texte).Count} diapo{(BlocsTexte(e.Texte).Count > 1 ? "s" : "")}"),
     };
 
@@ -263,6 +272,9 @@ public sealed partial class Regie
             case "compte":
                 l.Add(new DiapoAgenda("Compte à rebours", $"{MessageCompte(e)}\n{e.Minutes ?? 5:00}:00", new CibleCompte(e.Id)));
                 break;
+            case "principal":
+                l.Add(new DiapoAgenda(e.Titre, e.Source == null ? BlocsTexte(e.Texte).FirstOrDefault() ?? "" : e.Titre, new CibleDefaut(e.Id)));
+                break;
             default:
                 var b = BlocsTexte(e.Texte);
                 for (int i = 0; i < b.Count; i++) l.Add(new DiapoAgenda(b.Count > 1 ? $"{e.Titre} · {i + 1}/{b.Count}" : e.Titre, b[i], new CibleTexte(e.Id, i)));
@@ -278,20 +290,21 @@ public sealed partial class Regie
         if (c == null) return null;
         var d = Diapos(e);
         for (int i = 0; i < d.Count; i++)
-        {
-            bool ok = (d[i].Cible, c) switch
-            {
-                (CibleChant a, CibleChant b) => a.Id == b.Id && a.I == b.I,
-                (CibleVerset a, CibleVerset b) => a.B == b.B && a.C == b.C && a.V1 == b.V1 && b.V1 == b.V2 && a.Part == b.Part,
-                (CibleTexte a, CibleTexte b) => a.Element == b.Element && a.I == b.I,
-                (CibleCompte a, CibleCompte b) => a.Element == b.Element,
-                (CibleDisplay a, CibleDisplay b) => a.Id == b.Id,
-                _ => false,
-            };
-            if (ok) return i;
-        }
+            if (MemeCible(d[i].Cible, c)) return i;
         return null;
     }
+
+    /// <summary>La diapositive <paramref name="d"/> d'un élément est ce que montre <paramref name="c"/>.</summary>
+    static bool MemeCible(Cible d, Cible c) => (d, c) switch
+    {
+        (CibleChant a, CibleChant b) => a.Id == b.Id && a.I == b.I,
+        (CibleVerset a, CibleVerset b) => a.B == b.B && a.C == b.C && a.V1 == b.V1 && b.V1 == b.V2 && a.Part == b.Part,
+        (CibleTexte a, CibleTexte b) => a.Element == b.Element && a.I == b.I,
+        (CibleCompte a, CibleCompte b) => a.Element == b.Element,
+        (CibleDisplay a, CibleDisplay b) => a.Id == b.Id,
+        (CibleDefaut a, CibleDefaut b) => a.Id == b.Id,
+        _ => false,
+    };
 
     /// <summary>Affiche la diapositive i d'un élément de l'agenda.</summary>
     public void AfficherElement(ElementAgenda e, int i = 0)
@@ -317,6 +330,7 @@ public sealed partial class Regie
                 case CibleTexte ct: AfficherTexte(e, ct.I); break;
                 case CibleCompte: AfficherCompte(e); break;
                 case CibleDisplay: AfficherSource(e.Id, e.Titre, e.Source); break;
+                case CibleDefaut: AfficherPrincipal(e); break;
             }
         }
         finally { depuisAgenda = false; }

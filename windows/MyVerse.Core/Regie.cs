@@ -181,7 +181,7 @@ public sealed partial class Regie
             libelle = e.Ref.Length > 0 ? e.Ref : e.Lignes.FirstOrDefault(l => l.Trim().Length > 0)?.Trim() ?? "Source";
         var r = donnees.Reglages;
         Etat = Etat with { Duo = new DuoEcran(e, libelle.Trim(), PlaceValide(r.DuoPlace), PartValide(r.DuoPart)) };
-        Effacer();
+        Vider();
         return true;
     }
 
@@ -208,8 +208,29 @@ public sealed partial class Regie
     }
 
     // ------------------------------------------------------------ retirer, suivant, précédent
-    /// <summary>Vide l'écran principal. Le contenu épinglé (Duo) reste : « Retirer le duo » l'enlève.</summary>
+    /// <summary>
+    /// « Retirer de l'écran » (Échap) : l'écran principal revient direct sur l'écran par défaut (MyChurch 3.3), choisi dans la colonne
+    /// de l'écran en direct : un écran principal du déroulé, le fond seul, ou noir (l'écran se vide, comme avant).
+    /// Sur l'écran par défaut, Suivant reprend après ce qui a été retiré et Précédent le remet.
+    /// Le contenu épinglé (Duo) reste : « Retirer le duo » l'enlève.
+    /// </summary>
     public void Effacer()
+    {
+        var avant = Cible;
+        var elementAvant = ElementCourant;
+        bool dejaDefaut = SurDefautApresRetrait;
+        Vider(false);
+        if (!MontrerDefaut()) OublierReprise();
+        else if (!dejaDefaut)
+        {
+            cibleRetiree = avant;
+            elementRetire = avant != null ? elementAvant : null;
+        }
+        Signaler();
+    }
+
+    /// <summary>Vide l'écran principal, sans écran par défaut (Épingler, dossier Duo supprimé). Le contenu épinglé (Duo) reste.</summary>
+    void Vider(bool signaler = true)
     {
         // avec un Duo, il reste quelque chose à montrer : la source OBS reste visible
         // un dossier Duo part en entier ; un contenu épinglé reste
@@ -218,7 +239,8 @@ public sealed partial class Regie
         Etat = Etat with { Mode = "vide", Media = null, Lignes = Array.Empty<string>(), Ref = "", Second = null, Duo = garde };
         Cible = null;
         ElementCourant = null;
-        Signaler();
+        defautApresRetrait = false;
+        if (signaler) Signaler();
     }
 
     /// <summary>Vrai pendant Suivant / Précédent : le dossier Duo à l'écran reste, son premier élément avance.</summary>
@@ -230,6 +252,12 @@ public sealed partial class Regie
     }
 
     void BougerSeul(int d)
+    {
+        if (Reprise(d)) return;
+        BougerDepuis(d);
+    }
+
+    void BougerDepuis(int d)
     {
         if (BougerAgenda(d) || BougerAnnonce(d)) return;
         if (Cible is CibleChant cc)
@@ -260,7 +288,11 @@ public sealed partial class Regie
         if (OngletBible && Selection is Ref s && s.V1 > 0) AfficherVerset(s);
     }
 
-    public Suivante? Prochaine()
+    /// <summary>La diapositive qui viendra avec Suivant (sur l'écran par défaut après « Retirer » : celle d'après ce qui a été retiré).</summary>
+    public Suivante? Prochaine() =>
+        EnReprise(out var c, out var el) ? AvecPosition(c, el, ProchaineDepuis) : ProchaineDepuis();
+
+    Suivante? ProchaineDepuis()
     {
         var (agenda, sa) = ProchaineAgenda();
         if (agenda) return sa;

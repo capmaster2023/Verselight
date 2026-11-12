@@ -799,6 +799,120 @@ if (Actif())
     Ok(rg.Commande("romains").Any(x => x.Type == "BIBLE" && x.Titre == "Romains 1"), "commande : nom d'un livre");
 }
 
+Groupe("Ecran par defaut 3.3");
+if (Actif())
+{
+    var don = Donnees.Charger(Temp(), res);
+    var rg = new Regie(don, new Bibles(don));
+    var idChant = rg.EnregistrerChant(null, "Chant de reprise", new List<Section> { new() { Label = "1", Text = "A" }, new() { Label = "2", Text = "B" }, new() { Label = "3", Text = "C" } }, "Recueil R");
+    var logo = rg.NouveauDisplay("Logo MEPC", new SourceDisplay { Type = "image", Chemin = "logo.png" });
+    var bienvenue = rg.NouvelleAnnonce("Bienvenue", "Bienvenue\nMEPC Montréal\n\nDeuxième diapositive");
+    var vide = rg.NouvelleAnnonce("Vide", "");
+    var eP = rg.AjouterPrincipalAgenda(logo.Id)!;
+    var eC = rg.AjouterChantAgenda(idChant)!;
+    var eT = rg.AjouterPrincipalAgenda(bienvenue.Id)!;
+    var eF = rg.AjouterPrincipalAgenda(null)!;
+    Ok(eP.Type == "principal" && eP.Source?.Chemin == "logo.png" && eT.Texte!.StartsWith("Bienvenue") && eF.Titre == "Fond seul", "écrans principaux ajoutés au déroulé (image, texte, fond seul)");
+    Ok(rg.AjouterPrincipalAgenda(vide.Id) == null && rg.AjouterPrincipalAgenda("absent") == null, "un texte vide ou une source absente : rien n'est ajouté");
+    Egal(rg.Description(eP).Type, "ÉCRAN PRINCIPAL", "type affiché dans le déroulé");
+    Egal(rg.Description(eT).Sous, "Texte · reste à l'écran", "détail affiché dans le déroulé");
+    Egal(rg.Diapos(eP).Count, 1, "un écran principal = une diapositive");
+    Egal(string.Join("|", rg.EcransPrincipaux.Select(e => e.Titre)), "Logo MEPC|Bienvenue|Fond seul", "écrans principaux du déroulé, dans l'ordre");
+    Egal(rg.EcranDefaut, "noir", "écran par défaut au départ : noir (comme avant)");
+
+    rg.AfficherElement(eC, 1);
+    rg.Effacer();
+    Ok(rg.Etat.Vide && rg.Cible == null && rg.ElementCourant == null, "écran par défaut noir : Retirer vide l'écran comme avant");
+
+    int oeil = -1;
+    rg.Oeil += v => oeil = v ? 1 : 0;
+    rg.AfficherElement(eP, 0);
+    Ok(rg.Etat.Mode == "media" && rg.Etat.Media?.Chemin == "logo.png" && rg.ElementCourant == eP && rg.Cible is CibleDefaut, "écran principal à l'écran (déroulé)");
+    Egal(rg.EcranDefaut, eP.Id, "il devient l'écran par défaut");
+    Egal(rg.LibelleEcranDefaut, "Logo MEPC", "libellé de l'écran par défaut");
+    Egal(oeil, 0, "OBS : la source reste cachée pour un écran principal");
+    Ok(rg.EtatDiffusion(rg.Etat).Vide && !rg.Etat.Vide, "OBS, caméra virtuelle et page publique : rien, la salle voit l'écran principal");
+    Egal(rg.PositionAgenda(eP), 0, "l'écran principal est l'élément en direct");
+
+    rg.Bouger(1);
+    Ok(rg.ElementCourant == eC && rg.Etat.Lignes[0] == "A", "Suivant : le chant après l'écran principal");
+    rg.Bouger(1);
+    rg.Effacer();
+    Ok(rg.Etat.Mode == "media" && rg.Etat.Media?.Chemin == "logo.png" && rg.Cible is CibleDefaut { } cd1 && cd1.Id == eP.Id && rg.ElementCourant == null,
+        "Retirer : retour direct sur l'écran par défaut");
+    Ok(rg.EtatDiffusion(rg.Etat).Vide, "Retirer : OBS reste vide comme avant");
+    Egal(rg.Prochaine()?.Label, "3", "Suivant annoncé : la strophe après celle retirée");
+    Ok(rg.SuivanteDeroule() is { } sd && sd.E == eC && sd.I == 2, "vignette SUIVANT : la strophe après celle retirée");
+    rg.Effacer();
+    Ok(rg.Cible is CibleDefaut && rg.Prochaine()?.Label == "3", "Retirer deux fois : on reste sur l'écran par défaut, la reprise est gardée");
+    rg.Bouger(1);
+    Ok(rg.ElementCourant == eC && rg.Etat.Lignes[0] == "C", "Suivant reprend après la strophe retirée");
+    rg.Effacer();
+    rg.Bouger(-1);
+    Ok(rg.ElementCourant == eC && rg.Etat.Lignes[0] == "C", "Précédent remet la strophe retirée");
+
+    rg.Bouger(1);
+    Ok(rg.ElementCourant == eT && rg.Etat.Mode == "chant" && string.Join("|", rg.Etat.Lignes) == "Bienvenue|MEPC Montréal" && rg.EcranDefaut == eT.Id,
+        "écran principal texte : sa première diapositive, et il devient l'écran par défaut");
+    rg.Effacer();
+    Ok(rg.Cible is CibleDefaut { } cd2 && cd2.Id == eT.Id && rg.ElementCourant == null, "Retirer sur un écran principal : il reste");
+    rg.Bouger(1);
+    Ok(rg.ElementCourant == eF && rg.Etat.Mode == "fond", "Suivant après Retirer sur un écran principal : l'élément d'après");
+    rg.Bouger(1);
+    Ok(rg.ElementCourant == eF && rg.Etat.Mode == "fond", "fin du déroulé : on reste");
+
+    rg.ChoisirEcranDefaut(eT.Id);
+    Ok(rg.ElementCourant == eF && rg.Etat.Mode == "fond" && rg.EcranDefaut == eT.Id, "choisir l'écran par défaut ne remplace pas un écran principal affiché depuis le déroulé");
+    rg.AfficherElement(eC, 1);
+    rg.ChoisirEcranDefaut("fond");
+    Ok(rg.Etat.Lignes.FirstOrDefault() == "B" && rg.EcranDefaut == "fond", "choisir l'écran par défaut ne touche pas aux paroles à l'écran");
+    rg.Effacer();
+    Ok(rg.Etat.Mode == "fond" && !rg.Etat.Vide && rg.Etat.Lignes.Count == 0 && rg.Cible is CibleDefaut { Id: "fond" }, "fond seul : l'habillage sans texte");
+    rg.ChoisirEcranDefaut(eP.Id);
+    Ok(rg.Etat.Mode == "media" && rg.Cible is CibleDefaut { } cd3 && cd3.Id == eP.Id, "changer d'écran par défaut pendant qu'il est à l'écran : il est remplacé tout de suite");
+    Egal(rg.Prochaine()?.Label, "3", "… et Suivant reprend toujours après les paroles retirées");
+    rg.ChoisirEcranDefaut("absent");
+    Egal(rg.EcranDefaut, eP.Id, "choix inconnu : ignoré");
+    Egal(Donnees.Charger(don.Dossier, res).Reglages.EcranDefaut, eP.Id, "écran par défaut enregistré");
+
+    rg.ChoisirEcranDefaut("noir");
+    Ok(rg.Etat.Vide && rg.Cible == null, "écran par défaut noir pendant qu'il est à l'écran : l'écran se vide");
+    rg.ChoisirEcranDefaut("fond");
+    Ok(rg.Etat.Mode == "fond" && rg.Cible is CibleDefaut, "écran vide : le nouvel écran par défaut s'affiche tout de suite");
+
+    Ok(rg.EtatCible(rg.Diapos(eT)[0].Cible, eT) is { Mode: "chant" } vt && vt.Lignes[0] == "Bienvenue", "vignette d'un écran principal texte");
+    Ok(rg.EtatCible(rg.Diapos(eP)[0].Cible) is { Mode: "media" } vp && vp.Media?.Chemin == "logo.png", "vignette d'un écran principal image");
+    Ok(rg.EtatCible(rg.Diapos(eF)[0].Cible, eF) is { Mode: "fond" } && rg.EtatCible(new CibleDefaut("fond")) is { Mode: "fond" }, "vignette du fond seul");
+
+    rg.AfficherElement(eC, 0);
+    rg.Epingler();
+    Ok(rg.Etat.Vide && rg.Etat.Duo != null && rg.Cible == null, "Épingler libère l'écran sans écran par défaut (comme avant)");
+    rg.Effacer();
+    Ok(rg.Etat.Mode == "fond" && rg.Etat.Duo != null, "Retirer avec un contenu épinglé : le fond par défaut, l'épinglé reste");
+    Ok(rg.EtatDiffusion(rg.Etat) is { Mode: "vide" } dd && dd.Duo != null, "OBS : seulement le contenu épinglé");
+    rg.Bouger(1);
+    Ok(rg.Cible is CibleDefaut, "rien n'a été retiré : Suivant ne reprend rien");
+    rg.Desepingler();
+
+    rg.AfficherVerset(42, 3, 16, 16);
+    rg.Effacer();
+    rg.Bouger(1);
+    Ok(rg.Etat.Ref.StartsWith("Jean 3:17") && rg.ElementCourant == null, "Bible : Suivant après Retirer passe au verset suivant");
+    rg.Effacer();
+    rg.Bouger(-1);
+    Ok(rg.Etat.Ref.StartsWith("Jean 3:17"), "Bible : Précédent remet le verset retiré");
+
+    rg.AfficherSection(idChant, 0);
+    rg.Effacer();
+    rg.RetirerAgenda(eF.Id);
+    rg.ChoisirAgenda(rg.NouvelAgenda("Autre culte").Id);
+    Egal(rg.EcranDefaut, "fond", "autre culte : fond seul garde son sens");
+    rg.ChoisirEcranDefaut(eP.Id);
+    Egal(rg.EcranDefaut, "fond", "un écran principal d'un autre culte : refusé");
+    don.Reglages.EcranDefaut = eP.Id;
+    Egal(rg.EcranDefaut, "noir", "écran principal absent du culte choisi : noir");
+}
+
 Groupe("Display 6.0");
 if (Actif())
 {
