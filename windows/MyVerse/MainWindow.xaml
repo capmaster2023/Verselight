@@ -165,7 +165,7 @@
                               Width="34" Height="34" Stretch="Uniform" VerticalAlignment="Center" />
                         <StackPanel Margin="11,0,0,0" VerticalAlignment="Center">
                             <TextBlock FontSize="18" FontWeight="ExtraBold" Foreground="{StaticResource Blanc}"><Run Text="My" /><Run Text="Church" Foreground="{StaticResource Or}" /></TextBlock>
-                            <TextBlock Text="Bible et chants à l'écran" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource Brume}" />
+                            <TextBlock Text="Bible et chants" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource Brume}" />
                         </StackPanel>
                     </StackPanel>
                     <Border x:Name="LogoCompact" Width="42" Height="42" CornerRadius="12" Background="{StaticResource OrLeger}" BorderBrush="{StaticResource OrBord}" BorderThickness="1" HorizontalAlignment="Center" ToolTip="MyChurch">
