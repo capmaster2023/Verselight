@@ -192,7 +192,7 @@ public sealed partial class Regie
 
     public Annonce NouveauDisplay(string titre, SourceDisplay source)
     {
-        if (source.Type is not ("image" or "camera" or "fenetre" or "video")) throw new ArgumentException("Source inconnue.");
+        if (source.Type is not ("image" or "camera" or "mycam" or "fenetre" or "video")) throw new ArgumentException("Source inconnue.");
         var a = new Annonce { Titre = titre.Trim(), Source = source };
         donnees.Annonces.Add(a);
         AnnoncesModifiees();

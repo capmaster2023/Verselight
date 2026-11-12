@@ -138,10 +138,10 @@ public partial class MainWindow
             if (etat.Duo?.Etat is { Mode: "media", Media: { Type: "image" } m2 }) rendu.ImageDuo(ImageFichier(m2.Chemin, 480));
             ecran.Children.Add(new Viewbox { Stretch = Stretch.Uniform, Child = rendu });
             if (etat.Theme == "transparent") ecran.Background = Pinceau("Damier");
-            if (etat is { Mode: "media", Media.Type: "camera" or "fenetre" or "video" } && etat.Media is { } mv)
+            if (etat is { Mode: "media", Media.Type: "camera" or "mycam" or "fenetre" or "video" } && etat.Media is { } mv)
                 ecran.Children.Add(new TextBlock
                 {
-                    Text = mv.Type switch { "camera" => "Caméra", "fenetre" => "Fenêtre", _ => "Vidéo" }, FontSize = 14, FontWeight = FontWeights.SemiBold,
+                    Text = mv.Type switch { "camera" => "Caméra", "mycam" => "MyCam", "fenetre" => "Fenêtre", _ => "Vidéo" }, FontSize = 14, FontWeight = FontWeights.SemiBold,
                     Foreground = Pinceau("TuileTexte"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
                 });
         }

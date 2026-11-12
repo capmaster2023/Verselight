@@ -72,6 +72,52 @@ public sealed class SourcesDisplay : IDisposable
                         await Task.Delay(15, token.Token);
                     }
                 }
+                else if (nouvelle.Type == "mycam")
+                {
+                    // MyCam : les images JPEG du téléphone arrivent par sa connexion ; on montre toujours la plus récente
+                    var cams = App.Telephone?.Cameras ?? throw new IOException("MyCam indisponible : la connexion des téléphones est fermée.");
+                    var signal = new SemaphoreSlim(0, 1);
+                    void Recue(string id)
+                    {
+                        if (id != nouvelle.Peripherique) return;
+                        try { signal.Release(); } catch (SemaphoreFullException) { } catch (ObjectDisposedException) { }
+                    }
+                    cams.NouveauCadre += Recue;
+                    try
+                    {
+                        long dernier = -1;
+                        bool attente = false;
+                        var depuis = Stopwatch.StartNew();
+                        while (!token.IsCancellationRequested)
+                        {
+                            if (cams.Dernier(nouvelle.Peripherique) is { } c && c.Numero != dernier)
+                            {
+                                dernier = c.Numero;
+                                if (DecoderMyCam(c) is { } b) { await Publier(b, g, token.Token); attente = false; }
+                                depuis.Restart();
+                            }
+                            else if (!attente && depuis.ElapsedMilliseconds > (dernier < 0 ? 300 : 2500))
+                            {
+                                attente = true;
+                                var info = cams.InfoDe(nouvelle.Peripherique);
+                                var texte = info == null ? "En attente de MyCam : sur le téléphone, MyChurch › MyCam › Diffuser."
+                                    : !info.Diffuse ? $"« {info.Nom} » ne diffuse pas : touchez Diffuser dans MyCam sur le téléphone."
+                                    : $"« {info.Nom} » : images interrompues (Wi-Fi ?). Reprise automatique.";
+                                await Application.Current.Dispatcher.InvokeAsync(() =>
+                                {
+                                    if (g != generation) return;
+                                    Statut = texte; Change?.Invoke();
+                                });
+                            }
+                            await signal.WaitAsync(500, token.Token);
+                        }
+                    }
+                    finally
+                    {
+                        cams.NouveauCadre -= Recue;
+                        signal.Dispose();
+                    }
+                }
                 else if (nouvelle.Type == "video")
                 {
                     using var video = new VideoCapture(nouvelle.Chemin);
@@ -116,6 +162,30 @@ public sealed class SourcesDisplay : IDisposable
             }
             finally { token.Dispose(); }
         });
+    }
+
+    /// <summary>Image MyCam : le JPEG décodé, tourné d'un quart de tour au besoin (téléphone en hauteur ou à l'horizontale), en miroir au besoin.</summary>
+    public static BitmapSource? DecoderMyCam(MyCams.Cadre c, int largeur = 0)
+    {
+        try
+        {
+            using var flux = new MemoryStream(c.Jpeg, false);
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.StreamSource = flux;
+            if (largeur > 0) image.DecodePixelWidth = largeur;
+            image.Rotation = c.Rotation switch { 1 => Rotation.Rotate90, 2 => Rotation.Rotate180, 3 => Rotation.Rotate270, _ => Rotation.Rotate0 };
+            image.EndInit();
+            BitmapSource b = image;
+            if (c.Miroir) b = new TransformedBitmap(b, new ScaleTransform(-1, 1));
+            b.Freeze();
+            return b;
+        }
+        catch (Exception e) when (e is NotSupportedException or FileFormatException or IOException or InvalidOperationException or ArgumentException)
+        {
+            return null;
+        }
     }
 
     async Task Publier(BitmapSource b, int g, CancellationToken token)

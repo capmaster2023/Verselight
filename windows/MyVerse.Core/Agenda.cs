@@ -41,7 +41,7 @@ public sealed class Annonce
     [JsonPropertyName("source"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public SourceDisplay? Source { get; set; }
     /// <summary>Dans la grille de Display (un clic = en direct).</summary>
     [JsonPropertyName("grille")] public bool Grille { get; set; }
-    [JsonIgnore] public string Description => Source?.Type switch { "duo" => "Duo · 2 éléments ensemble", "camera" => "Périphérique de capture vidéo · " + Source.Peripherique, "fenetre" => "Capture de fenêtre · " + Titre, "image" => "Image · " + Path.GetFileName(Source.Chemin), "video" => "Vidéo · " + Path.GetFileName(Source.Chemin), _ => Texte };
+    [JsonIgnore] public string Description => Source?.Type switch { "duo" => "Duo · 2 éléments ensemble", "camera" => "Périphérique de capture vidéo · " + Source.Peripherique, "mycam" => "Téléphone MyCam", "fenetre" => "Capture de fenêtre · " + Titre, "image" => "Image · " + Path.GetFileName(Source.Chemin), "video" => "Vidéo · " + Path.GetFileName(Source.Chemin), _ => Texte };
 }
 
 /// <summary>Un agenda (comme dans VideoPsalm) : la liste préparée d'un culte.</summary>
@@ -218,7 +218,7 @@ public sealed partial class Regie
     /// <summary>« CHANT », « BIBLE », « TEXTE » et de quoi il s'agit (recueil, versets…).</summary>
     public (string Type, string Sous) Description(ElementAgenda e) => e.Type switch
     {
-        "display" => ("DISPLAY", e.Source?.Type == "camera" ? "Périphérique vidéo" : e.Source?.Type == "fenetre" ? "Capture de fenêtre" : "Image"),
+        "display" => ("DISPLAY", e.Source?.Type switch { "camera" => "Périphérique vidéo", "mycam" => "Téléphone MyCam", "fenetre" => "Capture de fenêtre", "video" => "Vidéo", _ => "Image" }),
         "chant" => ("CHANT", Trouver(e.ChantId) is { } c ? (c.Author.Length > 0 ? c.Author : "Sans recueil") + $" · {c.Sections.Count} strophe{(c.Sections.Count > 1 ? "s" : "")}" : "chant supprimé"),
         "bible" => ("BIBLE", BorneRef(e) is { } r ? $"{r.V2 - r.V1 + 1} verset{(r.V2 > r.V1 ? "s" : "")} · {Bibles.Etiquette()}" : "absent de cette Bible"),
         "compte" => ("ACCUEIL", $"Compte à rebours · {e.Minutes ?? 5} min"),

@@ -14,6 +14,8 @@ namespace MyVerse.Ui;
 public partial class MainWindow
 {
     readonly List<(Border Tuile, string Id, int I, Image? Vue, TextBlock Direct)> tuiles = new();
+    /// <summary>Tuiles MyCam : l'image, le téléphone, la source (aperçu vivant même hors de l'écran).</summary>
+    readonly List<(Image Vue, string Telephone, string Annonce)> tuilesMyCam = new();
     readonly System.Windows.Threading.DispatcherTimer minuterieGrille = new() { Interval = TimeSpan.FromMilliseconds(350) };
 
     // vignettes : fond de l'écran projeté (sombre dans les deux thèmes), couleurs de la palette
@@ -88,6 +90,7 @@ public partial class MainWindow
                     Toast($"« {el.Titre} » ajouté au déroulé comme écran principal : il reste à l'écran quand il passe. Choisissez-le aussi dans « Écran par défaut ».");
             }));
         if (a.Source?.Type is "camera" or "fenetre") m.Items.Add(Article("Reconnecter la source", ReconnecterSources));
+        if (a.Source?.Type == "mycam") m.Items.Add(MenuMessageCam(a));
         m.Items.Add(new Separator());
         m.Items.Add(Article("Supprimer", () => SupprimerDisplay(a)));
         Ouvrir(m, cible, PlacementMode.MousePoint);
@@ -98,6 +101,7 @@ public partial class MainWindow
     {
         GrilleSources.Children.Clear();
         tuiles.Clear();
+        tuilesMyCam.Clear();
         int n = 0;
         foreach (var a in R.Annonces.Where(x => x.Grille))
         {
@@ -141,11 +145,12 @@ public partial class MainWindow
         {
             vue.Children.Add(new TextBlock
             {
-                Text = type == "camera" ? "Caméra" : type == "fenetre" ? "Fenêtre" : type == "video" ? "Vidéo" : "Image", FontSize = 15,
+                Text = type == "camera" ? "Caméra" : type == "mycam" ? "MyCam · en attente du téléphone" : type == "fenetre" ? "Fenêtre" : type == "video" ? "Vidéo" : "Image", FontSize = 15,
                 Foreground = TexteTuile, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
             });
             image = new Image { Stretch = Stretch.Uniform };
             if (type == "image" && a.Source?.Chemin is { Length: > 0 } chemin) image.Source = ImageFichier(chemin, 360);
+            if (type == "mycam" && a.Source is { } sm) tuilesMyCam.Add((image, sm.Peripherique, a.Id));
             vue.Children.Add(image);
         }
         var direct = new TextBlock { Text = "EN DIRECT", FontSize = 10.5, FontWeight = FontWeights.Bold, Foreground = Pinceau("Direct"), VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed, Margin = new Thickness(6, 0, 0, 0) };
@@ -162,13 +167,13 @@ public partial class MainWindow
         var tete = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12, 9, 12, 7) };
         tete.Children.Add(new System.Windows.Shapes.Path
         {
-            Data = (Geometry)FindResource(type switch { "texte" => "IconeTexte", "duo" => "IconeDuo", "camera" or "fenetre" or "video" => "IconeEcran", _ => "IconeDisplay" }),
+            Data = (Geometry)FindResource(type switch { "texte" => "IconeTexte", "duo" => "IconeDuo", "camera" or "mycam" or "fenetre" or "video" => "IconeEcran", _ => "IconeDisplay" }),
             Stroke = Pinceau("Brume"), StrokeThickness = 1.8, Width = 14, Height = 14, Stretch = Stretch.Uniform, VerticalAlignment = VerticalAlignment.Center,
             StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, StrokeLineJoin = PenLineJoin.Round,
         });
         tete.Children.Add(new TextBlock
         {
-            Text = (type switch { "texte" => "Texte", "camera" => "Caméra", "fenetre" => "Fenêtre", "video" => "Vidéo", "duo" => "Duo", _ => "Image" }).ToUpperInvariant(),
+            Text = (type switch { "texte" => "Texte", "camera" => "Caméra", "mycam" => "MyCam", "fenetre" => "Fenêtre", "video" => "Vidéo", "duo" => "Duo", _ => "Image" }).ToUpperInvariant(),
             FontSize = 10.5, FontWeight = FontWeights.ExtraBold, Foreground = Pinceau("Brume"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(7, 0, 0, 0),
         });
         DockPanel.SetDock(tete, Dock.Top);
@@ -185,7 +190,7 @@ public partial class MainWindow
         };
         tuile.MouseLeftButtonUp += (_, _) => R.AfficherAnnonce(a, i);
         tuile.MouseRightButtonUp += (_, e) => { MenuDisplay(a, tuile, true); e.Handled = true; };
-        tuiles.Add((tuile, a.Id, i, type is "camera" or "fenetre" ? image : null, direct));
+        tuiles.Add((tuile, a.Id, i, type is "camera" or "mycam" or "fenetre" ? image : null, direct));
         return tuile;
     }
 

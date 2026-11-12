@@ -126,6 +126,8 @@ public sealed class AppareilsJumeles
 public sealed class Telephone : IDisposable
 {
     public const int PremierPort = 47900, DernierPort = 47909, PortDecouverte = 47901, Protocole = 1;
+    /// <summary>Fonctions du PC annoncées au téléphone : 2 = MyChurch 3.4 (déroulé, écran par défaut, noir, MyCam).</summary>
+    public const int Fonctions = 2;
 
     readonly Regie regie;
     readonly Func<Func<Task>, Task> surUi;
@@ -145,6 +147,13 @@ public sealed class Telephone : IDisposable
     readonly Dictionary<string, DateTime> suiveurs = new();
     Timer? minuterieEtat;
 
+    /// <summary>Téléphones MyCam : images et état (MyChurch 3.4).</summary>
+    public MyCams Cameras { get; } = new();
+    /// <summary>Le caméraman a vu un message de la régie : (téléphone, texte du message). Thread quelconque.</summary>
+    public event Action<string, string>? MessageVu;
+    int versionAgenda;
+    readonly Dictionary<string, string> messagesCam = new();
+
     public string NomPc { get; }
     public int Port { get; private set; }
     public string PcId => store.PcId;
@@ -158,6 +167,9 @@ public sealed class Telephone : IDisposable
         public required string DeviceId;
         public required string Nom;
         public readonly SemaphoreSlim Envoi = new(1, 1);
+        /// <summary>Ce téléphone sert de caméra (MyCam) : il reçoit son témoin.</summary>
+        public bool Camera;
+        public string Temoin = "";
     }
 
     /// <param name="surUi">Exécute une action sur le fil de l'interface (la régie n'est utilisée que là).</param>
@@ -240,6 +252,14 @@ public sealed class Telephone : IDisposable
         }
         catch (SocketException e) { Journal.Erreur("découverte UDP indisponible : " + e.Message); }
         regie.Change += EtatChange;
+        regie.AgendaChange += AgendaChange;
+    }
+
+    /// <summary>Le déroulé a changé : le numéro part dans l'état, les téléphones redemandent le déroulé.</summary>
+    void AgendaChange()
+    {
+        Interlocked.Increment(ref versionAgenda);
+        EtatChange();
     }
 
     async Task Accepter(TcpListener l)
@@ -596,6 +616,30 @@ boucle();
         catch (JsonException) { return new JsonObject(); }
     }
 
+    /// <summary>Un message entier : JSON (texte) ou image MyCam (binaire, dans <paramref name="flux"/>). Null à la fermeture.</summary>
+    static async Task<(bool Binaire, JsonObject? Json)?> RecevoirTout(WebSocket ws, MemoryStream flux, byte[] tampon, CancellationToken t)
+    {
+        flux.SetLength(0);
+        WebSocketReceiveResult r;
+        do
+        {
+            r = await ws.ReceiveAsync(tampon, t);
+            if (r.MessageType == WebSocketMessageType.Close) return null;
+            flux.Write(tampon, 0, r.Count);
+            if (flux.Length > (r.MessageType == WebSocketMessageType.Binary ? 8 << 20 : 1 << 20)) throw new WebSocketException("message trop long");
+        } while (!r.EndOfMessage);
+        if (r.MessageType == WebSocketMessageType.Binary) return (true, null);
+        try { return (false, JsonNode.Parse(flux.GetBuffer().AsSpan(0, (int)flux.Length)) as JsonObject ?? new JsonObject()); }
+        catch (JsonException) { return (false, new JsonObject()); }
+    }
+
+    /// <summary>Le téléphone envoie des images (ou s'annonce comme caméra) : il reçoit son témoin tout de suite.</summary>
+    void DevientCamera(Connexion p)
+    {
+        p.Camera = true;
+        _ = surUi(() => { Temoins(); return Task.CompletedTask; });
+    }
+
     static async Task EnvoyerBrut(WebSocket ws, string texte, CancellationToken t) =>
         await ws.SendAsync(Encoding.UTF8.GetBytes(texte), WebSocketMessageType.Text, true, t);
 
@@ -704,15 +748,23 @@ boucle();
         lock (phones) phones.Add(p);
         try
         {
-            await Envoyer(p, new JsonObject { ["t"] = "welcome", ["v"] = Protocole, ["pcName"] = NomPc, ["paired"] = jumelage });
+            await Envoyer(p, new JsonObject { ["t"] = "welcome", ["v"] = Protocole, ["pcName"] = NomPc, ["paired"] = jumelage, ["proto"] = Fonctions });
             if (dernierEtat.Length > 0) await Envoyer(p, dernierEtat);
             Prevenir();
 
-            // 4. commandes
+            // 4. commandes (texte JSON) et images MyCam (binaire)
+            var tampon = new byte[64 * 1024];
+            using var flux = new MemoryStream();
             while (ws.State == WebSocketState.Open && !fin.IsCancellationRequested)
             {
-                var m = await Recevoir(ws, fin.Token);
-                if (m == null) break;
+                var recu = await RecevoirTout(ws, flux, tampon, fin.Token);
+                if (recu == null) break;
+                if (recu.Value.Binaire)
+                {
+                    if (Cameras.Recevoir(deviceId, nom, flux.GetBuffer(), (int)flux.Length) && !p.Camera) DevientCamera(p);
+                    continue;
+                }
+                var m = recu.Value.Json!;
                 var t = Champ(m, "t");
                 if (t.Length == 0) continue;
                 if (t == "ping") { await Envoyer(p, new JsonObject { ["t"] = "pong" }); continue; }
@@ -721,7 +773,13 @@ boucle();
         }
         finally
         {
-            lock (phones) phones.Remove(p);
+            bool reste;
+            lock (phones)
+            {
+                phones.Remove(p);
+                reste = phones.Any(x => x.DeviceId == deviceId);
+            }
+            if (p.Camera && !reste) Cameras.Deconnecte(deviceId);
             Journal.Info($"téléphone déconnecté : {qui}");
             Prevenir();
         }
@@ -832,7 +890,7 @@ boucle();
                     await surUi(() =>
                     {
                         foreach (var a in regie.Annonces)
-                            liste.Add(new JsonObject { ["id"] = a.Id, ["titre"] = a.Titre, ["type"] = a.Source?.Type ?? "texte", ["description"] = a.Source?.Type == "camera" ? "Périphérique de capture vidéo" : a.Source?.Type == "fenetre" ? "Capture de fenêtre" : a.Source?.Type == "image" ? "Image" : a.Texte, ["diapos"] = regie.DiaposAnnonce(a) });
+                            liste.Add(new JsonObject { ["id"] = a.Id, ["titre"] = a.Titre, ["type"] = a.Source?.Type ?? "texte", ["description"] = a.Source?.Type == "camera" ? "Périphérique de capture vidéo" : a.Source?.Type == "mycam" ? "Téléphone MyCam" : a.Source?.Type == "fenetre" ? "Capture de fenêtre" : a.Source?.Type == "image" ? "Image" : a.Texte, ["diapos"] = regie.DiaposAnnonce(a) });
                         return Task.CompletedTask;
                     });
                     await Rep(new JsonObject { ["t"] = "displays", ["liste"] = liste });
@@ -847,6 +905,63 @@ boucle();
                         return Task.CompletedTask;
                     });
                     if (!ok) await Erreur("Source Display introuvable. Actualisez la liste.");
+                    break;
+                }
+                // ---- MyChurch 3.4 : déroulé, écran par défaut, noir, MyCam
+                case "noir":
+                {
+                    bool ok = false;
+                    await surUi(() => { if (regie.BasculerNoir is { } b) { b(); ok = true; } return Task.CompletedTask; });
+                    if (!ok) await Erreur("Écran noir indisponible.");
+                    break;
+                }
+                case "default.set":
+                    await surUi(() => { regie.ChoisirEcranDefaut(Ch("id")); return Task.CompletedTask; });
+                    break;
+                case "agenda.get":
+                {
+                    JsonObject? r = null;
+                    await surUi(() => { r = AgendaTelephone(); return Task.CompletedTask; });
+                    await Rep(r!);
+                    break;
+                }
+                case "agenda.show":
+                {
+                    bool ok = false;
+                    int i = d["i"] is JsonValue iv && iv.TryGetValue<int>(out var ii) ? ii : 0;
+                    await surUi(() =>
+                    {
+                        if (regie.Agenda.Elements.FirstOrDefault(x => x.Id == Ch("id")) is { } e) { regie.AfficherElement(e, i); ok = true; }
+                        return Task.CompletedTask;
+                    });
+                    if (!ok) await Erreur("Cet élément n'est plus dans le déroulé.");
+                    break;
+                }
+                case "agenda.add":
+                {
+                    string? erreur = null;
+                    await surUi(() =>
+                    {
+                        if (Ch("type") == "chant")
+                        {
+                            if (regie.AjouterChantAgenda(Ch("id")) == null) erreur = "Chant introuvable.";
+                        }
+                        else if (regie.LireRef(Ch("ref")) is { } lr) regie.AjouterBibleAgenda(lr.R);
+                        else erreur = $"Référence introuvable : « {Ch("ref")} »";
+                        return Task.CompletedTask;
+                    });
+                    if (erreur != null) await Erreur(erreur);
+                    break;
+                }
+                case "cam.info":
+                    Cameras.Infos(p.DeviceId, p.Nom, d);
+                    if (!p.Camera) DevientCamera(p);
+                    break;
+                case "cam.ack":
+                {
+                    string? texte;
+                    lock (messagesCam) messagesCam.TryGetValue(Ch("id"), out texte);
+                    if (texte != null) MessageVu?.Invoke(p.DeviceId, texte);
                     break;
                 }
                 case "next": await surUi(() => { regie.Bouger(1); return Task.CompletedTask; }); break;
@@ -943,13 +1058,114 @@ boucle();
             ["ecranOuvert"] = regie.EcranOuvert(),
             ["obsActif"] = false,
             ["obsConnecte"] = false,
+            // MyChurch 3.4 : le vrai mode (« fond » compris), noir, écran par défaut, déroulé
+            ["ecran"] = e.Mode,
+            ["theme"] = e.Theme,
+            ["sous"] = SousTitre(e, c),
+            ["noir"] = regie.EstNoir(),
+            ["surDefaut"] = c is CibleDefaut,
+            ["defaut"] = new JsonObject { ["id"] = regie.EcranDefaut, ["nom"] = regie.LibelleEcranDefaut },
+            ["defauts"] = EcransDefaut(),
+            ["element"] = regie.ElementCourant?.Id ?? "",
+            ["agendaV"] = Volatile.Read(ref versionAgenda),
+            ["suivantType"] = n?.Cible switch { CibleVerset => "verset", CibleChant => "chant", _ => "" },
         }.ToJsonString();
+    }
+
+    /// <summary>« LSG », « Refrain · 2 sur 4 », « MyCam »… sous le titre de ce qui est à l'écran.</summary>
+    string SousTitre(EtatEcran e, Cible? c)
+    {
+        if (c is CibleDefaut) return "Écran par défaut · Retirer revient ici";
+        switch (e.Mode)
+        {
+            case "verset": return regie.Bibles.Etiquette();
+            case "chant" when c is CibleChant cc && regie.Trouver(cc.Id) is { } s:
+                var lab = cc.I >= 0 && cc.I < s.Sections.Count && s.Sections[cc.I].Label.Length > 0 ? s.Sections[cc.I].Label : $"Strophe {cc.I + 1}";
+                return $"{lab} · {cc.I + 1} sur {s.Sections.Count}";
+            case "media":
+                return e.Media?.Type switch
+                {
+                    "mycam" => Cameras.InfoDe(e.Media.Peripherique) is { } i ? "MyCam · " + (i.EnDirect ? i.Resume : "en attente du téléphone") : "MyCam",
+                    "camera" => "Caméra",
+                    "fenetre" => "Capture de fenêtre",
+                    "video" => "Vidéo",
+                    _ => "Image",
+                };
+            case "fond": return "Fond seul";
+        }
+        return c is CibleCompte ? "Compte à rebours" : c is CibleTexte ? "Texte" : "";
+    }
+
+    /// <summary>Noir, fond seul et les écrans principaux du déroulé (choix de l'écran par défaut sur le téléphone).</summary>
+    JsonArray EcransDefaut()
+    {
+        var a = new JsonArray
+        {
+            new JsonObject { ["id"] = "noir", ["nom"] = "Noir", ["sorte"] = "noir" },
+            new JsonObject { ["id"] = "fond", ["nom"] = "Fond seul", ["sorte"] = "fond" },
+        };
+        foreach (var e in regie.EcransPrincipaux)
+            a.Add(new JsonObject { ["id"] = e.Id, ["nom"] = e.Titre, ["sorte"] = e.Source?.Type ?? (string.IsNullOrWhiteSpace(e.Texte) ? "fond" : "texte") });
+        return a;
+    }
+
+    /// <summary>Le déroulé du culte pour le téléphone (fil de l'interface).</summary>
+    public JsonObject AgendaTelephone()
+    {
+        var ag = regie.Agenda;
+        var liste = new JsonArray();
+        foreach (var e in ag.Elements)
+        {
+            var (_, sous) = regie.Description(e);
+            liste.Add(new JsonObject
+            {
+                ["id"] = e.Id, ["type"] = e.Type, ["titre"] = e.Titre, ["sous"] = sous, ["heure"] = e.Heure ?? "", ["source"] = e.Source?.Type ?? "",
+            });
+        }
+        return new JsonObject { ["t"] = "agenda", ["id"] = ag.Id, ["nom"] = ag.Nom, ["elements"] = liste };
+    }
+
+    /// <summary>Témoin de chaque téléphone MyCam (fil de l'interface) : envoyé quand il change.</summary>
+    void Temoins()
+    {
+        List<Connexion> a;
+        lock (phones) a = phones.Where(x => x.Camera).ToList();
+        foreach (var p in a)
+        {
+            string t;
+            try { t = regie.TemoinMyCam(p.DeviceId); }
+            catch (Exception e) { Journal.Erreur("témoin MyCam", e); continue; }
+            if (t == p.Temoin) continue;
+            p.Temoin = t;
+            _ = Envoyer(p, new JsonObject { ["t"] = "cam.tally", ["etat"] = t });
+        }
+    }
+
+    /// <summary>Message de la régie au caméraman (« Plan serré sur le pasteur »). Faux si le téléphone n'est pas connecté.</summary>
+    public bool EnvoyerMessageCam(string deviceId, string texte)
+    {
+        texte = texte.Trim();
+        if (texte.Length == 0) return false;
+        List<Connexion> a;
+        lock (phones) a = phones.Where(x => x.DeviceId == deviceId).ToList();
+        if (a.Count == 0) return false;
+        var id = Hasard(6);
+        lock (messagesCam)
+        {
+            if (messagesCam.Count > 50) messagesCam.Clear();
+            messagesCam[id] = texte;
+        }
+        var m = new JsonObject { ["t"] = "cam.msg", ["id"] = id, ["texte"] = texte, ["heure"] = DateTime.Now.ToString("HH:mm") };
+        foreach (var p in a) _ = Envoyer(p, m.ToJsonString());
+        Journal.Info($"message au caméraman ({deviceId}) : {texte}");
+        return true;
     }
 
     /// <summary>La régie a changé (fil de l'interface) : l'état part vers les téléphones (regroupé, sans doublon).</summary>
     void EtatChange()
     {
         EtatPublicChange();
+        Temoins();
         string etat;
         try { etat = EtatTelephone(); }
         catch (Exception e) { Journal.Erreur("état pour les téléphones", e); return; }
@@ -974,6 +1190,7 @@ boucle();
     {
         fin.Cancel();
         regie.Change -= EtatChange;
+        regie.AgendaChange -= AgendaChange;
         try { ecoute?.Stop(); } catch { }
         try { udp?.Dispose(); } catch { }
         List<Connexion> a;

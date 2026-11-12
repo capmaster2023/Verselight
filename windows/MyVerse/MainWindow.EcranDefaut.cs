@@ -138,10 +138,10 @@ public partial class MainWindow
             rendu.Afficher(etat);
             if (etat is { Mode: "media", Media: { Type: "image" } m }) rendu.ImageDisplay(ImageFichier(m.Chemin, 160));
             mini.Children.Add(new Viewbox { Stretch = Stretch.Uniform, Child = rendu });
-            if (etat is { Mode: "media", Media.Type: "camera" or "fenetre" or "video" } && etat.Media is { } mv)
+            if (etat is { Mode: "media", Media.Type: "camera" or "mycam" or "fenetre" or "video" } && etat.Media is { } mv)
                 mini.Children.Add(new TextBlock
                 {
-                    Text = mv.Type switch { "camera" => "Caméra", "fenetre" => "Fenêtre", _ => "Vidéo" }, FontSize = 10, FontWeight = FontWeights.SemiBold,
+                    Text = mv.Type switch { "camera" => "Caméra", "mycam" => "MyCam", "fenetre" => "Fenêtre", _ => "Vidéo" }, FontSize = 10, FontWeight = FontWeights.SemiBold,
                     Foreground = Pinceau("TuileTexte"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
                 });
         }

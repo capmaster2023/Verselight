@@ -86,6 +86,7 @@ public sealed partial class Regie
     {
         "image" => "Image",
         "camera" => "Caméra",
+        "mycam" => "MyCam",
         "fenetre" => "Capture de fenêtre",
         "video" => "Vidéo",
         _ => BlocsTexte(e.Texte).Count > 0 ? "Texte" : "Fond seul",
@@ -95,7 +96,7 @@ public sealed partial class Regie
     /// <summary>L'écran d'un écran principal : son média, la première diapositive de son texte, ou le fond seul.</summary>
     EtatEcran EtatPrincipal(ElementAgenda e, EtatEcran b)
     {
-        if (e.Source is { Type: "image" or "camera" or "fenetre" or "video" } s)
+        if (e.Source is { Type: "image" or "camera" or "mycam" or "fenetre" or "video" } s)
             return b with { Mode = "media", Media = s, Lignes = Array.Empty<string>(), Ref = e.Titre, Second = null };
         var blocs = BlocsTexte(e.Texte);
         if (blocs.Count > 0)

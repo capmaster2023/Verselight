@@ -571,6 +571,8 @@ public partial class MainWindow
         noir = !noir;
         etatNoir = noir ? R.Etat : null;
         MajEcran();
+        // les téléphones voient l'écran noir (bouton Noir, témoin MyCam éteint)
+        App.Telephone.Actualiser();
         Toast(noir ? "Écran noir (touche B) : le texte revient avec B ou la diapositive suivante." : "Écran rallumé.");
     }
 

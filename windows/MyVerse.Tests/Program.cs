@@ -1151,6 +1151,161 @@ if (Actif())
     Ok(relu30.Contains("\"sortiesVirtuelles\"") && relu30.Contains("\"enregistrements\"") && !relu30.Contains("\"virtualSound\""), "enregistré sous les nouveaux noms");
 }
 
+Groupe("MyCam 3.4");
+if (Actif())
+{
+    // images : en-tête « MC », version 1, quarts de tour et miroir, puis le JPEG
+    var img = new byte[] { (byte)'M', (byte)'C', 1, 5, 0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3 };
+    Ok(MyCams.LireEntete(img) is { Rotation: 1, Miroir: true, Debut: 4 }, "en-tête MC : quart de tour et miroir");
+    Ok(MyCams.LireEntete(new byte[] { (byte)'M', (byte)'C', 2, 0, 0xFF, 0xD8, 0, 0 }) == null, "en-tête : autre version refusée");
+    Ok(MyCams.LireEntete(new byte[] { (byte)'M', (byte)'C', 1, 0, 0x89, 0x50, 0, 0 }) == null, "en-tête : pas un JPEG, refusé");
+    var cams = new MyCams();
+    int nCadres = 0;
+    cams.NouveauCadre += _ => nCadres++;
+    Ok(cams.Recevoir("tel-cam", "Pixel", img, img.Length), "image reçue");
+    var c1 = cams.Dernier("tel-cam");
+    Ok(c1 != null && c1.Jpeg.Length == img.Length - 4 && c1.Jpeg[0] == 0xFF && c1.Rotation == 1 && c1.Miroir, "dernière image : le JPEG sans l'en-tête");
+    Ok(nCadres == 1 && cams.InfoDe("tel-cam") is { EnDirect: true }, "le téléphone diffuse");
+    cams.Infos("tel-cam", "Pixel", System.Text.Json.Nodes.JsonNode.Parse("""{"t":"cam.info","nom":"Caméra · Chaire","taille":"1280 × 720","fps":30,"batterie":78,"charge":false,"temperature":34.5,"lien":"wifi","diffuse":true,"depuis":1700000000000}""")!.AsObject());
+    var inf = cams.InfoDe("tel-cam");
+    Ok(inf is { Nom: "Caméra · Chaire", Batterie: 78, Lien: "wifi", Temperature: 34.5, Depuis: 1700000000000 } && inf.Resume.Contains("1280 × 720") && inf.Resume.Contains("78 %"), "cam.info : nom, image, batterie", inf?.Resume);
+    cams.Infos("tel-cam", "Pixel", System.Text.Json.Nodes.JsonNode.Parse("""{"t":"cam.info","diffuse":false}""")!.AsObject());
+    Ok(cams.Dernier("tel-cam") == null && cams.InfoDe("tel-cam") is { EnDirect: false, Nom: "Caméra · Chaire" }, "diffusion arrêtée : plus d'image, le nom reste");
+    Ok(cams.Recevoir("tel-cam", "Pixel", new byte[] { 1, 2, 3 }, 3) == false, "message binaire inconnu ignoré");
+    cams.Deconnecte("tel-cam");
+    Ok(cams.Liste().Count == 1 && !cams.Liste()[0].EnDirect, "déconnecté : le téléphone reste connu");
+    Egal(MyCams.Duree(0), "", "durée vide");
+
+    // source Display MyCam et témoin rouge / orange
+    var don = Donnees.Charger(Temp(), res);
+    var rg = new Regie(don, new Bibles(don));
+    var cam = rg.NouveauDisplay("Caméra · Chaire", new SourceDisplay { Type = "mycam", Peripherique = "tel-cam" });
+    Ok(cam.Description == "Téléphone MyCam", "source Display MyCam");
+    rg.AfficherAnnonce(cam);
+    Ok(rg.Etat is { Mode: "media", Media.Type: "mycam" }, "MyCam à l'écran");
+    Egal(rg.TemoinMyCam("tel-cam"), "live", "témoin rouge : la caméra est à l'écran");
+    Egal(rg.TemoinMyCam("autre"), "off", "témoin éteint pour un autre téléphone");
+    bool noir = true;
+    rg.EstNoir = () => noir;
+    Egal(rg.TemoinMyCam("tel-cam"), "off", "écran noir : témoin éteint");
+    noir = false;
+    rg.Effacer();
+    Egal(rg.TemoinMyCam("tel-cam"), "off", "retirée : témoin éteint");
+    rg.ViderAgenda();
+    var eV = rg.AjouterBibleAgenda(new Ref(43, 3, 16, 16));
+    var eC = rg.AjouterAnnonceAgenda(cam.Id)!;
+    Ok(eC.Type == "display" && rg.Description(eC).Sous == "Téléphone MyCam", "MyCam dans le déroulé");
+    rg.AfficherElement(eV);
+    Egal(rg.TemoinMyCam("tel-cam"), "next", "témoin orange : la caméra vient avec Suivant");
+    rg.Bouger(1);
+    Egal(rg.TemoinMyCam("tel-cam"), "live", "Suivant : la caméra passe à l'écran");
+    var eP = rg.AjouterPrincipalAgenda(cam.Id)!;
+    Ok(eP.Source is { Type: "mycam" } && rg.Description(eP).Sous.StartsWith("MyCam"), "écran principal MyCam");
+    rg.AfficherElement(eP);
+    Ok(rg.Etat.Mode == "media" && rg.TemoinMyCam("tel-cam") == "live", "écran principal MyCam : témoin rouge");
+    rg.Effacer();
+    Egal(rg.TemoinMyCam("tel-cam"), "live", "Retirer revient sur l'écran principal MyCam : témoin rouge");
+    rg.ChoisirEcranDefaut("noir");
+    Ok(rg.Etat.Vide && rg.TemoinMyCam("tel-cam") == "off", "écran par défaut noir : l'écran se vide, témoin éteint");
+
+    // protocole du téléphone : bienvenue 2, images binaires, témoin, messages, déroulé, écran par défaut, noir
+    using var tel = new Telephone(don.Dossier, rg, f => f(), "PC-TEST");
+    tel.Demarrer();
+    bool noirPc = false;
+    rg.EstNoir = () => noirPc;
+    rg.BasculerNoir = () => { noirPc = !noirPc; tel.Actualiser(); };
+    var url = tel.OuvrirJumelage();
+    var q = System.Web.HttpUtility.ParseQueryString(new Uri(url.Replace("verselight://pair", "http://x/pair")).Query);
+    var cle = Telephone.DeriverCle(Telephone.B64Dec(q["secret"]!), tel.PcId, "tel-cam");
+    var ws = new System.Net.WebSockets.ClientWebSocket();
+    await ws.ConnectAsync(new Uri($"ws://127.0.0.1:{tel.Port}/"), CancellationToken.None);
+    async Task Env(object o)
+    {
+        if (ws.State != System.Net.WebSockets.WebSocketState.Open) return;
+        await ws.SendAsync(System.Text.Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(o)), System.Net.WebSockets.WebSocketMessageType.Text, true, CancellationToken.None);
+    }
+    async Task<System.Text.Json.Nodes.JsonObject?> Rec(string? type = null, int ms = 3000, Func<System.Text.Json.Nodes.JsonObject, bool>? si = null)
+    {
+        var fin = DateTime.Now.AddMilliseconds(ms);
+        var buf = new byte[1 << 16];
+        while (DateTime.Now < fin && ws.State == System.Net.WebSockets.WebSocketState.Open)
+        {
+            using var cts = new CancellationTokenSource(fin - DateTime.Now);
+            using var mem = new MemoryStream();
+            try
+            {
+                System.Net.WebSockets.WebSocketReceiveResult r;
+                do { r = await ws.ReceiveAsync(buf, cts.Token); mem.Write(buf, 0, r.Count); } while (!r.EndOfMessage);
+                if (r.MessageType == System.Net.WebSockets.WebSocketMessageType.Close) return null;
+            }
+            catch (Exception ex) when (ex is OperationCanceledException or System.Net.WebSockets.WebSocketException) { return null; }
+            var o = System.Text.Json.Nodes.JsonNode.Parse(mem.ToArray())!.AsObject();
+            if ((type == null || (string?)o["t"] == type) && (si == null || si(o))) return o;
+        }
+        return null;
+    }
+    await Env(new { t = "hello", v = 1, pcId = tel.PcId, deviceId = "tel-cam", deviceName = "Pixel 8", pair = true, cnonce = "cn" });
+    var ch = await Rec("challenge");
+    await Env(new { t = "auth", mac = Telephone.MacClient(cle, (string)ch!["nonce"]!, "tel-cam") });
+    var w = await Rec("welcome");
+    Egal((int?)w?["proto"], 2, "bienvenue : fonctions 3.4 annoncées");
+    await Env(new { t = "state.get" });
+    var st = await Rec("state");
+    Ok(st?["defauts"]?.AsArray().Count >= 2 && (string?)st?["defaut"]?["id"] == "noir" && st?["noir"] is not null && st?["agendaV"] is not null, "état : écran par défaut, noir, déroulé");
+
+    await Env(new { t = "cam.info", nom = "Caméra · Chaire", taille = "1280 × 720", fps = 30, batterie = 81, diffuse = true, lien = "wifi" });
+    var cadre = new byte[] { (byte)'M', (byte)'C', 1, 0, 0xFF, 0xD8, 0xFF, 0xD9 };
+    if (ws.State == System.Net.WebSockets.WebSocketState.Open) await ws.SendAsync(cadre, System.Net.WebSockets.WebSocketMessageType.Binary, true, CancellationToken.None);
+    for (int k = 0; k < 40 && tel.Cameras.Dernier("tel-cam") == null; k++) await Task.Delay(25);
+    Ok(tel.Cameras.Dernier("tel-cam") is { Jpeg.Length: 4 }, "image MyCam reçue par le PC");
+    Ok(tel.Cameras.InfoDe("tel-cam") is { Nom: "Caméra · Chaire", Batterie: 81 }, "infos MyCam reçues par le PC");
+    var t0 = await Rec("cam.tally");
+    Egal((string?)t0?["etat"], "off", "témoin envoyé dès la première image");
+    rg.AfficherAnnonce(cam);
+    var t1 = await Rec("cam.tally");
+    Egal((string?)t1?["etat"], "live", "témoin rouge envoyé au téléphone");
+    st = await Rec("state", si: o => (string?)o["mode"] == "media");
+    Ok((string?)st?["sous"] != null && ((string?)st?["sous"] ?? "").StartsWith("MyCam"), "état : sous-titre MyCam", st?["sous"]?.ToJsonString());
+    await Env(new { t = "noir" });
+    var t2 = await Rec("cam.tally");
+    Ok(noirPc && (string?)t2?["etat"] == "off", "Noir depuis le téléphone : écran noir et témoin éteint");
+    st = await Rec("state", si: o => (bool?)o["noir"] == true);
+    Ok(st != null, "état : noir");
+    await Env(new { t = "noir" });
+    Egal((string?)(await Rec("cam.tally"))?["etat"], "live", "Noir de nouveau : la caméra revient");
+
+    string? vu = null;
+    tel.MessageVu += (_, texte) => vu = texte;
+    Ok(tel.EnvoyerMessageCam("tel-cam", "Plan serré sur le pasteur"), "message au caméraman envoyé");
+    Ok(!tel.EnvoyerMessageCam("inconnu", "x"), "message à un téléphone absent : refusé");
+    var msg = await Rec("cam.msg");
+    Egal((string?)msg?["texte"], "Plan serré sur le pasteur", "message reçu par le téléphone");
+    await Env(new { t = "cam.ack", id = (string?)msg?["id"] });
+    for (int k = 0; k < 40 && vu == null; k++) await Task.Delay(25);
+    Egal(vu, "Plan serré sur le pasteur", "« Vu » du caméraman reçu par la régie");
+
+    await Env(new { t = "agenda.add", type = "bible", @ref = "ps 23 1", rid = 1 });
+    await Env(new { t = "agenda.get", rid = 2 });
+    var ag = await Rec("agenda", si: o => o["elements"]?.AsArray().Any(x => ((string?)x?["titre"] ?? "").StartsWith("Psaume")) == true);
+    Ok(ag != null && ag["elements"]!.AsArray().Any(x => (string?)x?["source"] == "mycam"), "déroulé envoyé au téléphone (avec la source MyCam)", ag?.ToJsonString());
+    var idPs = (string?)ag?["elements"]?.AsArray().FirstOrDefault(x => ((string?)x?["titre"] ?? "").StartsWith("Psaume"))?["id"];
+    await Env(new { t = "agenda.show", id = idPs });
+    st = await Rec("state", si: o => (string?)o["element"] == idPs);
+    Ok(st != null && (string?)st["mode"] == "verset", "élément du déroulé affiché depuis le téléphone");
+    await Env(new { t = "agenda.show", id = "absent" });
+    Ok(((string?)(await Rec("error"))?["message"] ?? "").Contains("déroulé"), "élément absent : refusé");
+    await Env(new { t = "default.set", id = "fond" });
+    st = await Rec("state", si: o => (string?)o["defaut"]?["id"] == "fond");
+    Ok(st != null, "écran par défaut choisi depuis le téléphone");
+    await Env(new { t = "clear" });
+    st = await Rec("state", si: o => (bool?)o["surDefaut"] == true);
+    Ok(st != null && (string?)st["ecran"] == "fond" && (string?)st["mode"] == "vide", "Retirer : le fond seul (« vide » pour les anciennes apps)");
+    if (ws.State == System.Net.WebSockets.WebSocketState.Open) await ws.CloseAsync(System.Net.WebSockets.WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
+    else ws.Abort();
+    for (int k = 0; k < 40 && tel.Cameras.InfoDe("tel-cam")?.Diffuse == true; k++) await Task.Delay(25);
+    Ok(tel.Cameras.InfoDe("tel-cam") is { Diffuse: false }, "téléphone parti : MyCam ne diffuse plus");
+}
+
 Groupe("Audio OBS");
 if (Actif()) MyVerse.Tests.ObsTests.Run(Ok);
 Groupe("Enregistrement");

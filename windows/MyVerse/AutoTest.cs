@@ -413,6 +413,45 @@ public static class AutoTest
                 Ok(R.EcranDefaut == "noir" && R.Etat.Lignes.FirstOrDefault() == avantRetrait, "écran par défaut remis à noir, écran principal retiré du déroulé");
             }
 
+            // 3.4 : MyCam — l'image JPEG d'un téléphone (comme reçue par sa connexion) s'affiche dans Display, témoin rouge
+            {
+                var dv = new DrawingVisual();
+                using (var dc = dv.RenderOpen())
+                {
+                    dc.DrawRectangle(new LinearGradientBrush(Color.FromRgb(0x2A, 0x33, 0x46), Color.FromRgb(0xC8, 0x96, 0x2E), 30), null, new Rect(0, 0, 640, 360));
+                    dc.DrawText(new FormattedText("MyCam · image du téléphone", System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+                        new Typeface("Segoe UI"), 34, Brushes.White, 1.0), new Point(40, 160));
+                }
+                var rtb = new RenderTargetBitmap(640, 360, 96, 96, PixelFormats.Pbgra32);
+                rtb.Render(dv);
+                var enc = new JpegBitmapEncoder { QualityLevel = 82 };
+                enc.Frames.Add(BitmapFrame.Create(rtb));
+                using var ms = new MemoryStream();
+                enc.Save(ms);
+                var jpeg = ms.ToArray();
+                var msg = new byte[jpeg.Length + 4];
+                msg[0] = (byte)'M'; msg[1] = (byte)'C'; msg[2] = 1; msg[3] = 0;
+                jpeg.CopyTo(msg, 4);
+                var cams = App.Telephone.Cameras;
+                cams.Infos("autotest-cam", "Téléphone test", System.Text.Json.Nodes.JsonNode.Parse("""{"nom":"Caméra · Chaire","taille":"640 × 360","diffuse":true,"batterie":88,"lien":"wifi"}""")!.AsObject());
+                var cam = R.NouveauDisplay("Caméra · Chaire", new SourceDisplay { Type = "mycam", Peripherique = "autotest-cam" });
+                R.GrilleAnnonce(cam.Id, true);
+                R.AfficherAnnonce(cam);
+                for (int k = 0; k < 12; k++)
+                {
+                    cams.Recevoir("autotest-cam", "Téléphone test", msg, msg.Length);
+                    await Attendre(80);
+                }
+                await Attendre(600);
+                Ok(App.Sources.Image is { PixelWidth: 640, PixelHeight: 360 }, "MyCam : l'image du téléphone est à l'écran (" + App.Sources.Statut + ")");
+                Ok(R.TemoinMyCam("autotest-cam") == "live", "MyCam : témoin rouge pour le téléphone");
+                Capture(w, "21d-mycam-direct.png");
+                if (w.Ecran != null) Capture(w.Ecran, "21e-mycam-ecran.png");
+                R.Effacer();
+                await Attendre(500);
+                Ok(R.TemoinMyCam("autotest-cam") == "off", "MyCam retirée : témoin éteint");
+            }
+
             // fonds clairs Lin et Ciel
             R.AfficherElement(lecture, 0);
             R.Theme("lin");

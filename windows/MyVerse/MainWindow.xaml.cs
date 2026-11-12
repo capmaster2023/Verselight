@@ -204,6 +204,9 @@ public partial class MainWindow : Window
 
         // ---------- régie et téléphones
         R.EcranOuvert = () => ecran != null;
+        // écran noir (touche B) : le téléphone le voit et peut le basculer (MyChurch 3.4)
+        R.EstNoir = () => noir && ReferenceEquals(R.Etat, etatNoir);
+        R.BasculerNoir = BasculerNoir;
         R.Change += MajEcran;
         R.ChantsChange += () => { ListeChantsMaj(); if (chantOuvert != null) OuvrirChant(chantOuvert); };
         R.Message += Toast;
