@@ -1,0 +1,20 @@
+name: Outil temporaire (paquets NuGet)
+on:
+  push:
+    branches: [outil-paquets]
+jobs:
+  paquets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet restore outil/Telechargement.csproj
+      - run: dotnet restore windows/MyVerse/MyVerse.csproj -p:RuntimeIdentifier= -p:SelfContained=false -p:EnableWindowsTargeting=true
+      - run: tar -C ~/.nuget -czf paquets.tgz packages && ls -la paquets.tgz && ls ~/.nuget/packages
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paquets
+          path: paquets.tgz
+          retention-days: 1

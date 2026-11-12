@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- outil temporaire : télécharge le paquet de références WPF attendu par le SDK du poste de développement -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageDownload Include="Microsoft.WindowsDesktop.App.Ref" Version="[8.0.34]" />
+    <PackageDownload Include="Microsoft.NETCore.App.Ref" Version="[8.0.34]" />
+  </ItemGroup>
+</Project>
