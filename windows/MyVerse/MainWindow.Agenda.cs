@@ -10,20 +10,34 @@ using System.Windows.Threading;
 
 namespace MyVerse.Ui;
 
-/// <summary>Une carte du déroulé (design « Pupitre ») : titre, « heure · type · détail », trait de la couleur du type ; « ● DIRECT » et « passé » suivent l'écran.</summary>
+/// <summary>
+/// Une carte du déroulé (MyChurch 3.3) : icône du type sur sa couleur pâle, « heure · TYPE », titre, détail ;
+/// « À L'ÉCRAN », « PAR DÉFAUT » (écran principal choisi) et « passé » suivent l'écran.
+/// </summary>
 public sealed class LigneAgenda : INotifyPropertyChanged
 {
     public required ElementAgenda Element { get; init; }
     public string Titre { get; init; } = "";
     /// <summary>« Lecture · Jean 3:16-17 » : le type et le détail (l'heure s'ajoute devant dans <see cref="Ligne2"/>).</summary>
     public string Sous { get; init; } = "";
+    /// <summary>« LECTURE », « ÉCRAN PRINCIPAL »… (en couleur du type).</summary>
+    public string TypeNom { get; init; } = "";
+    /// <summary>« Louis Segond 1910 · 2 versets », « Image · reste à l'écran »…</summary>
+    public string Detail { get; init; } = "";
     public Brush? Couleur { get; init; }
+    /// <summary>La couleur du type, pâle : le fond de l'icône.</summary>
+    public Brush? FondType { get; init; }
+    public Geometry? Icone { get; init; }
     string heure = "";
-    bool enCours, fait;
-    public string Heure { get => heure; set { if (heure == value) return; heure = value; Prevenir(nameof(Heure)); Prevenir(nameof(Ligne2)); } }
+    bool enCours, fait, defaut;
+    public string Heure { get => heure; set { if (heure == value) return; heure = value; Prevenir(nameof(Heure)); Prevenir(nameof(Ligne2)); Prevenir(nameof(HeureAvant)); } }
     public string Ligne2 => heure.Length > 0 ? heure + " · " + Sous : Sous;
+    /// <summary>« 10:15 · » devant le type (rien sans heure).</summary>
+    public string HeureAvant => heure.Length > 0 ? heure + " · " : "";
     public bool EnCours { get => enCours; set { if (enCours == value) return; enCours = value; Prevenir(nameof(EnCours)); } }
     public bool Fait { get => fait; set { if (fait == value) return; fait = value; Prevenir(nameof(Fait)); } }
+    /// <summary>Cet écran principal est l'écran par défaut.</summary>
+    public bool Defaut { get => defaut; set { if (defaut == value) return; defaut = value; Prevenir(nameof(Defaut)); } }
     void Prevenir(string p) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(p));
     public event PropertyChangedEventHandler? PropertyChanged;
 }
@@ -128,6 +142,7 @@ public partial class MainWindow
         if (elementChoisi != null && !R.Agenda.Elements.Contains(elementChoisi)) elementChoisi = null;
         ListeAgendaMaj();
         VignettesMaj();
+        MajEcranDefaut();
     }
 
     void ListeAgendaMaj()
@@ -138,6 +153,8 @@ public partial class MainWindow
             var l = new LigneAgenda
             {
                 Element = e, Sous = TypeLib(e) + " · " + sous, Titre = TitreElement(e), Couleur = Pinceau(CleType(e)),
+                TypeNom = TypeLib(e).ToUpper(System.Globalization.CultureInfo.GetCultureInfo("fr-FR")), Detail = sous,
+                FondType = FondPale(CleType(e)), Icone = (Geometry)FindResource(IconeType(e)),
             };
             MajLigne(l);
             return l;
@@ -153,12 +170,34 @@ public partial class MainWindow
     void MajLigne(LigneAgenda l)
     {
         var e = l.Element;
-        l.EnCours = R.ElementCourant == e;
+        // écran par défaut revenu par « Retirer » (3.3) : sa carte est à l'écran sans devenir l'élément en cours
+        l.EnCours = R.ElementCourant == e || (R.ElementCourant == null && R.Cible is CibleDefaut cd && cd.Id == e.Id);
+        l.Defaut = e.Type == "principal" && R.EcranDefaut == e.Id;
         l.Fait = R.EstFait(e);
         l.Heure = e.Heure ?? (l.Fait && R.HeureAffiche(e) is DateTime h ? h.ToString("HH:mm") : "");
     }
 
-    static string TypeLib(ElementAgenda e) => e.Type switch { "chant" => "Chant", "bible" => "Lecture", "compte" => "Accueil", _ => "Display" };
+    static string TypeLib(ElementAgenda e) => e.Type switch { "chant" => "Chant", "bible" => "Lecture", "compte" => "Accueil", "principal" => "Écran principal", _ => "Display" };
+
+    /// <summary>L'icône de la carte : note, livre, horloge, punaise (écran principal), deux écrans (Duo), texte ou écran (Display).</summary>
+    static string IconeType(ElementAgenda e) => e.Type switch
+    {
+        "chant" => "IconeChants",
+        "bible" => "IconeBible",
+        "compte" => "IconeHorloge",
+        "principal" => "IconePrincipal",
+        "texte" => "IconeTexte",
+        _ => e.Source?.Type == "duo" ? "IconeDuo" : "IconeEcran",
+    };
+
+    /// <summary>La couleur d'un type, très pâle (fond de l'icône des cartes).</summary>
+    static Brush FondPale(string cle)
+    {
+        var c = Pinceau(cle) is SolidColorBrush b ? b.Color : Colors.Gray;
+        var p = new SolidColorBrush(Color.FromArgb(0x24, c.R, c.G, c.B));
+        p.Freeze();
+        return p;
+    }
 
     /// <summary>Choisit un élément du déroulé (carte ambre) ; avec <paramref name="defiler"/>, les vignettes défilent jusqu'à lui.</summary>
     void ChoisirElement(ElementAgenda? e, bool defiler = true)
@@ -186,6 +225,8 @@ public partial class MainWindow
         if (Habillage(R.Etat) != habillageVignettes) VignettesMaj();
         else VignettesEtat(true);
         MajEntete();
+        // un écran principal passé à l'écran devient l'écran par défaut (3.3)
+        MajEcranDefaut();
     }
 
     void AfficherAgendaCourant()
@@ -307,7 +348,28 @@ public partial class MainWindow
             if (Dialogue.Demander(this, "Durée du compte à rebours (minutes) :", "5", "Compte à rebours d'accueil") is { } t && int.TryParse(t, out var mn))
                 ChoisirElement(R.AjouterCompteAgenda(mn));
         }));
+        // 3.3 : un écran qui reste (logo, image, caméra, texte de bienvenue, fond seul) ; il devient l'écran par défaut quand il passe
+        m.Items.Add(new Separator());
+        var principal = new MenuItem { Header = "Écran principal (reste à l'écran)", FontWeight = FontWeights.Bold };
+        principal.Items.Add(Article("Fond seul (l'habillage, sans texte)", () => AjouterPrincipal(null)));
+        var sources = R.Annonces.Where(a => a.Source?.Type != "duo").ToList();
+        if (sources.Count > 0) principal.Items.Add(new Separator());
+        foreach (var a in sources)
+        {
+            var id = a.Id;
+            principal.Items.Add(Article(a.Titre.Length > 0 ? a.Titre : "(sans titre)", () => AjouterPrincipal(id)));
+        }
+        if (sources.Count == 0) principal.Items.Add(new MenuItem { Header = "(logo, image, caméra : ajoutez-les d'abord dans Display)", IsEnabled = false });
+        m.Items.Add(principal);
         Ouvrir(m, AgendaAjouter, PlacementMode.Top);
+    }
+
+    /// <summary>Ajoute un écran principal (source Display, ou fond seul) au déroulé.</summary>
+    void AjouterPrincipal(string? annonceId)
+    {
+        if (R.AjouterPrincipalAgenda(annonceId) is not { } el) return;
+        ChoisirElement(el);
+        Toast($"« {el.Titre} » ajouté comme écran principal : il reste à l'écran quand il passe, et Retirer de l'écran revient dessus. Vous pouvez aussi le choisir dans « Écran par défaut ».");
     }
 
     void MenuElement(ElementAgenda e)
@@ -316,6 +378,10 @@ public partial class MainWindow
         m.Items.Add(Article("Afficher depuis le début", () => R.AfficherElement(e, 0), true));
         m.Items.Add(Article("Heure prévue…", () => DemanderHeure(e)));
         if (e.Type is "texte" or "chant" or "compte") m.Items.Add(Article("Modifier…", () => ModifierElement(e)));
+        if (e.Type == "principal")
+            m.Items.Add(R.EcranDefaut == e.Id
+                ? new MenuItem { Header = "C'est l'écran par défaut", IsEnabled = false }
+                : Article("Choisir comme écran par défaut", () => R.ChoisirEcranDefaut(e.Id)));
         m.Items.Add(new Separator());
         m.Items.Add(Article("Monter", () => R.DeplacerAgenda(e.Id, -1)));
         m.Items.Add(Article("Descendre", () => R.DeplacerAgenda(e.Id, 1)));

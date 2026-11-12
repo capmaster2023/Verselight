@@ -111,6 +111,7 @@ public partial class MainWindow
     {
         var b = duoMemeSource ? App.Sources.Image : App.SourcesDuo.Image;
         ApercuRendu.ImageDuo(b);
+        CulteRendu.ImageDuo(b);
         ecran?.Rendu.ImageDuo(b);
         App.CameraVirtuelle?.MediaDuo(b);
     }

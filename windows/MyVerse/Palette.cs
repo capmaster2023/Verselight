@@ -4,7 +4,7 @@ using System.Windows.Media;
 namespace MyVerse.Ui;
 
 /// <summary>
-/// Les couleurs de l'interface (MyChurch 3.2, design « Pupitre ») : thème clair par défaut, thème sombre au choix (Réglages › Apparence ou barre de gauche).
+/// Les couleurs de l'interface : thème clair par défaut (MyChurch 3.3 : ivoire, bleu nuit et or), thème sombre au choix (Réglages › Apparence ou barre de gauche).
 /// Chaque pinceau de Theme.xaml est lié à une couleur d'ici : changer de thème met à jour d'un coup toute l'interface,
 /// fenêtres ouvertes et éléments construits en C# compris (ils utilisent les mêmes pinceaux).
 /// Les noms viennent des versions précédentes : « Blanc » est le texte, « Encre » et « Nuit » le fond des cartes, « Or » l'accent.
@@ -14,29 +14,34 @@ public sealed class Palette : INotifyPropertyChanged
     /// <summary>Clé → (clair, sombre). Déclaré avant <see cref="Actuelle"/> : les champs statiques s'initialisent dans l'ordre.</summary>
     static readonly Dictionary<string, (string Clair, string Sombre)> Couleurs = new()
     {
-        // fonds (design « Pupitre » : crème chaud en clair, brun très foncé en sombre)
+        // fonds (3.3 : ivoire et sable en clair, brun très foncé en sombre)
         ["Page"] = ("#FAF8F4", "#14120F"),
-        ["Rail"] = ("#F2EEE7", "#100E0B"),
-        ["RailActif"] = ("#FFFFFF", "#1E1B16"),
+        ["Rail"] = ("#F3EFE7", "#100E0B"),
+        ["RailActif"] = ("#FFF6E3", "#1E1B16"),
         ["Encre"] = ("#FFFFFF", "#1E1B16"),
         ["Nuit"] = ("#FFFFFF", "#1E1B16"),
-        ["Nuit2"] = ("#F4F0E9", "#27231D"),
-        ["Nuit3"] = ("#E8E2D8", "#332D25"),
-        ["Trait"] = ("#EEE8DF", "#2A251F"),
+        ["Nuit2"] = ("#F6F2EB", "#27231D"),
+        ["Nuit3"] = ("#E6DED1", "#332D25"),
+        ["Trait"] = ("#ECE5DA", "#2A251F"),
         ["Trait2"] = ("#D6CDBF", "#4A4237"),
-        // textes
-        ["Blanc"] = ("#1F1A14", "#F3EEE6"),
-        ["Encre2"] = ("#5B5247", "#C9BFB1"),
-        ["Brume"] = ("#73695C", "#A99F92"),
-        ["Brume2"] = ("#8C8275", "#8F8576"),
-        // accent ambre
-        ["Or"] = ("#B86E00", "#F5A524"),
-        ["Or2"] = ("#9A5B00", "#FFC15A"),
-        ["OrVif"] = ("#E8920C", "#F5A524"),
-        ["OrLeger"] = ("#FFF3DF", "#2B2215"),
+        // textes (3.3 : bleu nuit en clair)
+        ["Blanc"] = ("#172036", "#F3EEE6"),
+        ["Encre2"] = ("#3C465B", "#C9BFB1"),
+        ["Brume"] = ("#646C7E", "#A99F92"),
+        ["Brume2"] = ("#6E7587", "#8F8576"),
+        // accent or
+        ["Or"] = ("#8A5A0B", "#F5A524"),
+        ["Or2"] = ("#6E4708", "#FFC15A"),
+        ["OrVif"] = ("#C8962E", "#F5A524"),
+        ["OrLeger"] = ("#FFF6E3", "#2B2215"),
+        ["OrBord"] = ("#EBCB8B", "#5A4520"),
         ["SurOr"] = ("#1E1404", "#1E1404"),
-        ["OrDegrade"] = ("#E8920C", "#F5A524"),
-        ["OrDegradeClair"] = ("#F2A12A", "#FFB53F"),
+        ["OrDegrade"] = ("#C8962E", "#F5A524"),
+        ["OrDegradeClair"] = ("#D9A944", "#FFB53F"),
+        // bouton principal (Suivant, Importer…) : bleu nuit en clair, or en sombre
+        ["Primaire"] = ("#1B2742", "#F5A524"),
+        ["PrimaireSurvol"] = ("#2A3A5E", "#FFB53F"),
+        ["SurPrimaire"] = ("#FFFFFF", "#1E1404"),
         // en direct, sourdine, erreurs
         ["Rouge"] = ("#D92D20", "#F04438"),
         ["Direct"] = ("#D92D20", "#F04438"),
@@ -48,11 +53,12 @@ public sealed class Palette : INotifyPropertyChanged
         ["Vert"] = ("#16A34A", "#3DD68C"),
         ["VertLeger"] = ("#E9F7EF", "#13261C"),
         // types d'éléments du déroulé (trait des cartes, titres des groupes de vignettes)
-        ["TypeAccueil"] = ("#64748B", "#94A3B8"),
+        ["TypeAccueil"] = ("#475569", "#94A3B8"),
         ["TypeChant"] = ("#2563EB", "#60A5FA"),
-        ["TypeLecture"] = ("#D97706", "#F59E0B"),
-        ["TypeDisplay"] = ("#DB2777", "#F472B6"),
-        ["TypeDuo"] = ("#0D9488", "#2DD4BF"),
+        ["TypeLecture"] = ("#B45309", "#F59E0B"),
+        ["TypeDisplay"] = ("#BE185D", "#F472B6"),
+        ["TypeDuo"] = ("#0F766E", "#2DD4BF"),
+        ["TypePrincipal"] = ("#A87618", "#E3B762"),
         // divers
         ["BleuFonce"] = ("#152C91", "#9DB0FF"),
         ["Marque"] = ("#FFE9C2", "#3A2E14"),
@@ -121,6 +127,10 @@ public sealed class Palette : INotifyPropertyChanged
     public Color Or2 => C(nameof(Or2));
     public Color OrVif => C(nameof(OrVif));
     public Color OrLeger => C(nameof(OrLeger));
+    public Color OrBord => C(nameof(OrBord));
+    public Color Primaire => C(nameof(Primaire));
+    public Color PrimaireSurvol => C(nameof(PrimaireSurvol));
+    public Color SurPrimaire => C(nameof(SurPrimaire));
     public Color SurOr => C(nameof(SurOr));
     public Color OrDegrade => C(nameof(OrDegrade));
     public Color OrDegradeClair => C(nameof(OrDegradeClair));
@@ -137,6 +147,7 @@ public sealed class Palette : INotifyPropertyChanged
     public Color TypeLecture => C(nameof(TypeLecture));
     public Color TypeDisplay => C(nameof(TypeDisplay));
     public Color TypeDuo => C(nameof(TypeDuo));
+    public Color TypePrincipal => C(nameof(TypePrincipal));
     public Color BleuFonce => C(nameof(BleuFonce));
     public Color Marque => C(nameof(Marque));
     public Color Surligne => C(nameof(Surligne));

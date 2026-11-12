@@ -242,6 +242,7 @@ public partial class MainWindow : Window
         InitGrille();
         InitDossiersDuo();
         InitDuo();
+        InitEcranDefaut();
         AgendaAjoutBible.Click += (_, _) =>
         {
             if (sel is Ref s && s.V1 > 0) Toast($"{R.AjouterBibleAgenda(s).Titre} ajouté au déroulé « {R.Agenda.Nom} ».");
@@ -368,6 +369,8 @@ public partial class MainWindow : Window
         (o switch { "agenda" => OngletAgenda, "bible" => OngletBible, "annonces" => OngletAnnonces, "duo" => OngletDuo, "reglages" => OngletReglages, _ => OngletChants }).IsChecked = true;
         // sur Culte, un clic sur une vignette affiche : pas de bouton « Afficher la sélection » ; sur Display, le mélangeur est complet
         Afficher.Visibility = V(o is not ("agenda" or "reglages"));
+        // 3.3 : sur Culte, l'écran live est en grand au centre ; la colonne garde l'écran par défaut, l'audio, le Duo et l'habillage
+        ControleHaut.Visibility = V(o != "agenda");
         AudioListeHote.Visibility = V(o != "annonces");
         MajEntete();
         if (o == "agenda") Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => { LargeurVignettes(); DefilerVers(elementChoisi ?? R.ElementCourant); }));
@@ -912,15 +915,18 @@ public partial class MainWindow : Window
         // écran noir : le texte est caché sans être perdu ; une nouvelle diapositive le rallume
         if (noir && !ReferenceEquals(R.Etat, etatNoir)) noir = false;
         var e = EtatProjete();
+        // l'écran par défaut (3.3) est pour la salle : OBS et la caméra virtuelle restent vides, comme avant
+        var diffusion = R.EtatDiffusion(e);
         App.Sources.Choisir(e);
         ChoisirSourceDuo(e);
         ApercuRendu.Afficher(e);
-        App.CameraVirtuelle?.Afficher(e);
+        App.CameraVirtuelle?.Afficher(diffusion);
         ecran?.Rendu.Afficher(e);
         ApercuRendu.ImageDisplay(App.Sources.Image);
         ecran?.Rendu.ImageDisplay(App.Sources.Image);
+        CulteRendu.ImageDisplay(App.Sources.Image);
         ImagesDuo();
-        App.SortieObs.Ecrire(e);
+        App.SortieObs.Ecrire(diffusion);
         bool rien = e.Vide && e.Duo == null;
         Apercu.BorderBrush = Pinceau(rien ? "Nuit3" : "Direct");
         Apercu.Background = rien || e.Theme == "transparent" ? Pinceau("Damier") : Brushes.Black;
@@ -932,6 +938,7 @@ public partial class MainWindow : Window
         MajSuivant();
         var s = R.Prochaine();
         Decouper.IsEnabled = s != null && s.Cible is CibleChant or CibleVerset;
+        MajCulteLive(e, s);
         // le verset à l'écran est dans un autre chapitre (Suivant, téléphone) : la Bible le suit
         // (pas pendant qu'une liste de résultats de recherche est affichée)
         if (R.Cible is CibleVerset cv && ongletBible && vue is { } v && (v.B != cv.B || v.C != cv.C))
@@ -950,7 +957,7 @@ public partial class MainWindow : Window
     {
         var e = R.Etat;
         bool ouvert = R.EcranOuvert();
-        PastilleTexte.Text = noir ? "Écran noir" : ouvert ? (e.Vide && e.Duo == null ? "Écran ouvert · vide" : "À l'écran") : "Aperçu seulement";
+        PastilleTexte.Text = noir ? "Écran noir" : ouvert ? (R.Cible is CibleDefaut ? "Écran par défaut" : e.Vide && e.Duo == null ? "Écran ouvert · vide" : "À l'écran") : "Aperçu seulement";
         // l'état s'affiche à droite d'« EN DIRECT » (« Aperçu seulement » tant qu'aucun écran n'est ouvert)
         var m = App.Donnees.Reglages.Ecran;
         EcranInfo.Text = PastilleTexte.Text;

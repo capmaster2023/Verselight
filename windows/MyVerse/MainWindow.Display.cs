@@ -24,7 +24,7 @@ public partial class MainWindow
         App.Sources.Change += () =>
         {
             var b = App.Sources.Image;
-            ApercuRendu.ImageDisplay(b); ecran?.Rendu.ImageDisplay(b); App.CameraVirtuelle?.Media(b);
+            ApercuRendu.ImageDisplay(b); CulteRendu.ImageDisplay(b); ecran?.Rendu.ImageDisplay(b); App.CameraVirtuelle?.Media(b);
             if (duoMemeSource) ImagesDuo();
             DisplaySourceInfo.Text = App.Sources.Statut;
         };

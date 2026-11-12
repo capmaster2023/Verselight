@@ -37,6 +37,11 @@
     <SolidColorBrush x:Key="TypeLecture" Color="{Binding TypeLecture, Source={x:Static local:Palette.Actuelle}}" />
     <SolidColorBrush x:Key="TypeDisplay" Color="{Binding TypeDisplay, Source={x:Static local:Palette.Actuelle}}" />
     <SolidColorBrush x:Key="TypeDuo" Color="{Binding TypeDuo, Source={x:Static local:Palette.Actuelle}}" />
+    <SolidColorBrush x:Key="TypePrincipal" Color="{Binding TypePrincipal, Source={x:Static local:Palette.Actuelle}}" />
+    <SolidColorBrush x:Key="OrBord" Color="{Binding OrBord, Source={x:Static local:Palette.Actuelle}}" />
+    <SolidColorBrush x:Key="Primaire" Color="{Binding Primaire, Source={x:Static local:Palette.Actuelle}}" />
+    <SolidColorBrush x:Key="PrimaireSurvol" Color="{Binding PrimaireSurvol, Source={x:Static local:Palette.Actuelle}}" />
+    <SolidColorBrush x:Key="SurPrimaire" Color="{Binding SurPrimaire, Source={x:Static local:Palette.Actuelle}}" />
     <SolidColorBrush x:Key="BleuFonce" Color="{Binding BleuFonce, Source={x:Static local:Palette.Actuelle}}" />
     <SolidColorBrush x:Key="Marque" Color="{Binding Marque, Source={x:Static local:Palette.Actuelle}}" />
     <SolidColorBrush x:Key="Surligne" Color="{Binding Surligne, Source={x:Static local:Palette.Actuelle}}" />
@@ -68,6 +73,14 @@
     <Geometry x:Key="IconePlus">M12,5 V19 M5,12 H19</Geometry>
     <Geometry x:Key="IconeCoche">M5,12.5 L9.5,17 L19,7.5</Geometry>
     <Geometry x:Key="IconeLune">M20,14.5 A8,8 0 0 1 9.5,4 A8,8 0 1 0 20,14.5 Z</Geometry>
+    <!-- MyChurch 3.3 : logo (croix au-dessus des vagues, sur 48), écran principal (punaise), horloge, texte, écran, retirer, retour -->
+    <Geometry x:Key="IconeLogo">M24,4 V27 M16.5,11.5 H31.5 M7,33 C12.7,29.4 18.3,29.4 24,33 S35.3,36.6 41,33 M7,39.5 C12.7,35.9 18.3,35.9 24,39.5 S35.3,43.1 41,39.5</Geometry>
+    <Geometry x:Key="IconePrincipal">M12,17 V22 M9,10.76 A2,2 0 0 1 7.89,12.55 L6.11,13.45 A2,2 0 0 0 5,15.24 V16 A1,1 0 0 0 6,17 H18 A1,1 0 0 0 19,16 V15.24 A2,2 0 0 0 17.89,13.45 L16.11,12.55 A2,2 0 0 1 15,10.76 V7 A1,1 0 0 1 16,6 A2,2 0 0 0 16,2 H8 A2,2 0 0 0 8,6 A1,1 0 0 1 9,7 Z</Geometry>
+    <Geometry x:Key="IconeHorloge">M21,12 A9,9 0 1 1 3,12 A9,9 0 1 1 21,12 Z M12,7 V12 L15,14</Geometry>
+    <Geometry x:Key="IconeTexte">M4,7 V4.5 H20 V7 M9,20 H15 M12,4.5 V20</Geometry>
+    <Geometry x:Key="IconeEcran">M4.5,3.5 H19.5 A2,2 0 0 1 21.5,5.5 V14.5 A2,2 0 0 1 19.5,16.5 H4.5 A2,2 0 0 1 2.5,14.5 V5.5 A2,2 0 0 1 4.5,3.5 Z M8,20.5 H16 M12,16.5 V20.5</Geometry>
+    <Geometry x:Key="IconeRetirer">M4.5,3.5 H19.5 A2,2 0 0 1 21.5,5.5 V14.5 A2,2 0 0 1 19.5,16.5 H4.5 A2,2 0 0 1 2.5,14.5 V5.5 A2,2 0 0 1 4.5,3.5 Z M9.5,7.5 L14.5,12.5 M14.5,7.5 L9.5,12.5 M8,20.5 H16 M12,16.5 V20.5</Geometry>
+    <Geometry x:Key="IconeRetour">M4,4 V11 A4,4 0 0 0 8,15 H20 M15,10 L20,15 L15,20</Geometry>
     <Geometry x:Key="IconeSoleil">M12,8 A4,4 0 1 1 11.99,8 Z M12,2 V4 M12,20 V22 M4.9,4.9 L6.3,6.3 M17.7,17.7 L19.1,19.1 M2,12 H4 M20,12 H22 M4.9,19.1 L6.3,17.7 M17.7,6.3 L19.1,4.9</Geometry>
 
     <!-- ===================== polices (incluses dans MyChurch) : projection (Literata, Atkinson, Unbounded), interface (Manrope, design « Pupitre ») =====================
@@ -188,14 +201,15 @@
         </Setter>
     </Style>
     <!-- bouton principal : ambre, texte foncé (Suivant, + Ajouter une source, + Source audio) -->
+    <!-- bouton principal (Suivant, Importer, Ajouter…) : bleu nuit en clair (3.3), or en sombre -->
     <Style x:Key="BtnOr" TargetType="Button" BasedOn="{StaticResource Btn}">
-        <Setter Property="Background" Value="{StaticResource OrDegrade}" />
-        <Setter Property="Foreground" Value="{StaticResource SurOr}" />
+        <Setter Property="Background" Value="{StaticResource Primaire}" />
+        <Setter Property="Foreground" Value="{StaticResource SurPrimaire}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="{StaticResource OrDegradeClair}" />
+                <Setter Property="Background" Value="{StaticResource PrimaireSurvol}" />
             </Trigger>
         </Style.Triggers>
     </Style>
@@ -365,6 +379,73 @@
                             <Setter TargetName="Fond" Property="BorderBrush" Value="{StaticResource Nuit3}" />
                             <Setter Property="Foreground" Value="{StaticResource Blanc}" />
                             <Setter TargetName="Icone" Property="Stroke" Value="{StaticResource OrVif}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <!-- page de la barre de gauche, version large (MyChurch 3.3, fenêtre large) : icône et nom sur une ligne, la page ouverte en or -->
+    <Style x:Key="OngletBarre" TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{StaticResource Encre2}" />
+        <Setter Property="FontFamily" Value="{StaticResource Ui}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Margin" Value="12,0,12,6" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusOr}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="Fond" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="12" Padding="14,0" MinHeight="44">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Path x:Name="Icone" Data="{TemplateBinding Tag}" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.8"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center" />
+                            <ContentPresenter Margin="12,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="False" />
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Fond" Property="Background" Value="{StaticResource Nuit2}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Fond" Property="Background" Value="{StaticResource RailActif}" />
+                            <Setter TargetName="Fond" Property="BorderBrush" Value="{StaticResource OrBord}" />
+                            <Setter Property="Foreground" Value="{StaticResource Or}" />
+                            <Setter Property="FontWeight" Value="Bold" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <!-- bouton de la barre de gauche, version large (thème clair ou sombre) -->
+    <Style x:Key="BtnBarre" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource Encre2}" />
+        <Setter Property="FontFamily" Value="{StaticResource Ui}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Margin" Value="12,0,12,6" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusOr}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Fond" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="12" Padding="14,0" MinHeight="44">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Path Data="{TemplateBinding Tag}" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.8"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center" />
+                            <ContentPresenter Margin="12,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="False" />
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Fond" Property="Background" Value="{StaticResource Nuit2}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Fond" Property="Opacity" Value="0.8" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

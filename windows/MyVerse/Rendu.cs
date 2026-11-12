@@ -244,6 +244,8 @@ public sealed class Rendu : Grid
         // A live source may have temporarily replaced the theme background.
         fond.Background = FondTheme(e.Theme);
         bool vide = e.Vide;
+        // « fond » (écran par défaut « Fond seul », 3.3) : l'habillage reste, sans texte
+        bool sansTexte = vide || e.Mode == "fond";
         var deux = e.Mode == "verset" && e.Second != null ? e.Second.Texte : "";
         var nouvelle = string.Join("\u0001", new[] { e.Mode, string.Join("\n", e.Lignes), e.Ref, e.Taille.ToString(), e.Presentation, deux });
         double dureeFond = Transitions ? 0.6 : 0;
@@ -252,7 +254,7 @@ public sealed class Rendu : Grid
         var avant = cle;
         cle = nouvelle;
         int v = ++version;
-        if (vide)
+        if (sansTexte)
         {
             Animer(scene, 0, Transitions ? 0.45 : 0);
             return;

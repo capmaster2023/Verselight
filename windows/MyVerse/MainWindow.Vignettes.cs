@@ -61,6 +61,7 @@ public partial class MainWindow
         "chant" => "TypeChant",
         "bible" => "TypeLecture",
         "compte" => "TypeAccueil",
+        "principal" => "TypePrincipal",
         _ => e.Source?.Type == "duo" ? "TypeDuo" : "TypeDisplay",
     };
 
@@ -211,15 +212,10 @@ public partial class MainWindow
     {
         var cur = R.ElementCourant;
         int? pos = cur != null && R.Agenda.Elements.Contains(cur) ? R.PositionAgenda(cur) : null;
-        (ElementAgenda E, int I)? suivante = null;
-        if (cur != null && pos is int p)
-        {
-            var l = R.Agenda.Elements;
-            if (p + 1 < R.Diapos(cur).Count) suivante = (cur, p + 1);
-            else
-                for (int k = l.IndexOf(cur) + 1; k >= 1 && k < l.Count; k++)
-                    if (R.Diapos(l[k]).Count > 0) { suivante = (l[k], 0); break; }
-        }
+        // 3.3 : l'écran par défaut revenu par « Retirer » est à l'écran (vignette de son écran principal) ;
+        // la suivante est alors celle d'après ce qui a été retiré
+        if (cur == null && R.Cible is CibleDefaut cd && R.Agenda.Elements.FirstOrDefault(x => x.Id == cd.Id) is { } principal) { cur = principal; pos = 0; }
+        var suivante = R.SuivanteDeroule();
         Vignette? directe = null;
         foreach (var v in vignettes)
         {

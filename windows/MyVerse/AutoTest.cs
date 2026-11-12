@@ -386,6 +386,33 @@ public static class AutoTest
             await Attendre(300);
             Ok(!w.TestEstNoir, "la diapositive suivante rallume l'écran");
 
+            // 3.3 : écran par défaut — un écran principal dans le déroulé ; Retirer de l'écran revient direct dessus
+            Ok(w.TestBarreLarge == (w.ActualWidth >= 1360), "barre de gauche large ou compacte selon la fenêtre (" + (int)w.ActualWidth + " px)");
+            var principal = R.AjouterPrincipalAgenda(null);
+            await Attendre(400);
+            Ok(principal != null && w.TestEcranDefautChoix.Split(" | ").Count(x => x.StartsWith("Fond seul")) == 2,
+                "écran principal ajouté au déroulé, proposé dans « Écran par défaut » : " + w.TestEcranDefautChoix);
+            if (principal != null)
+            {
+                var avantRetrait = R.Etat.Lignes.FirstOrDefault();
+                Ok(w.TestChoisirEcranDefaut(principal.Id) && R.EcranDefaut == principal.Id, "clic sur l'écran principal dans « Écran par défaut »");
+                Ok(R.Etat.Lignes.FirstOrDefault() == avantRetrait && w.TestCulteRetour.EndsWith(principal.Titre),
+                    "le choix ne touche pas aux paroles à l'écran · " + w.TestCulteRetour);
+                R.Effacer();
+                await Attendre(900);
+                Ok(R.Cible is CibleDefaut && R.Etat.Mode == "fond" && R.EtatDiffusion(R.Etat).Vide, "Retirer de l'écran : retour direct sur l'écran par défaut (fond seul), OBS vide");
+                Ok(w.TestVignetteDirecte.Contains("À L'ÉCRAN") && w.TestCulteAEcran.Contains("défaut"), "vignette et écran live : " + w.TestVignetteDirecte + " · " + w.TestCulteAEcran);
+                Capture(w, "21b-culte-ecran-par-defaut.png");
+                if (w.Ecran != null) Capture(w.Ecran, "21c-ecran-par-defaut.png");
+                R.Bouger(-1);
+                await Attendre(400);
+                Ok(R.Etat.Lignes.FirstOrDefault() == avantRetrait, "Précédent remet ce qui a été retiré : " + string.Join(" / ", R.Etat.Lignes));
+                w.TestChoisirEcranDefaut("noir");
+                R.RetirerAgenda(principal.Id);
+                await Attendre(300);
+                Ok(R.EcranDefaut == "noir" && R.Etat.Lignes.FirstOrDefault() == avantRetrait, "écran par défaut remis à noir, écran principal retiré du déroulé");
+            }
+
             // fonds clairs Lin et Ciel
             R.AfficherElement(lecture, 0);
             R.Theme("lin");

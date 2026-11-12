@@ -80,6 +80,13 @@ public partial class MainWindow
         {
             if (R.AjouterAnnonceAgenda(a.Id) is { } el) Toast($"« {el.Titre} » ajouté au déroulé « {R.Agenda.Nom} ».");
         }));
+        // 3.3 : un écran qui reste ; quand il passe, il devient l'écran par défaut (Retirer de l'écran revient dessus)
+        if (a.Source?.Type != "duo")
+            m.Items.Add(Article("Ajouter au déroulé comme écran principal", () =>
+            {
+                if (R.AjouterPrincipalAgenda(a.Id) is { } el)
+                    Toast($"« {el.Titre} » ajouté au déroulé comme écran principal : il reste à l'écran quand il passe. Choisissez-le aussi dans « Écran par défaut ».");
+            }));
         if (a.Source?.Type is "camera" or "fenetre") m.Items.Add(Article("Reconnecter la source", ReconnecterSources));
         m.Items.Add(new Separator());
         m.Items.Add(Article("Supprimer", () => SupprimerDisplay(a)));
@@ -151,15 +158,30 @@ public partial class MainWindow
             Foreground = Pinceau("Blanc"), TextTrimming = TextTrimming.CharacterEllipsis,
         });
         var pile = new DockPanel();
+        // en haut : l'icône et le type (TEXTE, IMAGE, CAMÉRA…)
+        var tete = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12, 9, 12, 7) };
+        tete.Children.Add(new System.Windows.Shapes.Path
+        {
+            Data = (Geometry)FindResource(type switch { "texte" => "IconeTexte", "duo" => "IconeDuo", "camera" or "fenetre" or "video" => "IconeEcran", _ => "IconeDisplay" }),
+            Stroke = Pinceau("Brume"), StrokeThickness = 1.8, Width = 14, Height = 14, Stretch = Stretch.Uniform, VerticalAlignment = VerticalAlignment.Center,
+            StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, StrokeLineJoin = PenLineJoin.Round,
+        });
+        tete.Children.Add(new TextBlock
+        {
+            Text = (type switch { "texte" => "Texte", "camera" => "Caméra", "fenetre" => "Fenêtre", "video" => "Vidéo", "duo" => "Duo", _ => "Image" }).ToUpperInvariant(),
+            FontSize = 10.5, FontWeight = FontWeights.ExtraBold, Foreground = Pinceau("Brume"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(7, 0, 0, 0),
+        });
+        DockPanel.SetDock(tete, Dock.Top);
+        pile.Children.Add(tete);
         DockPanel.SetDock(bas, Dock.Bottom);
         pile.Children.Add(bas);
-        // la vignette sombre remplit le haut de la tuile (coins arrondis en haut seulement), le nom est dessous sur fond blanc
-        pile.Children.Add(new Border { Height = 120, CornerRadius = new CornerRadius(10, 10, 0, 0), ClipToBounds = true, Child = vue });
+        // la vignette sombre au milieu (coins arrondis), le nom dessous sur fond blanc
+        pile.Children.Add(new Border { Height = 112, Margin = new Thickness(10, 0, 10, 0), CornerRadius = new CornerRadius(9), ClipToBounds = true, Child = vue });
         var tuile = new Border
         {
-            Width = 214, Margin = new Thickness(0, 0, 14, 14), Padding = new Thickness(0), CornerRadius = new CornerRadius(12), Cursor = Cursors.Hand,
+            Width = 214, Margin = new Thickness(0, 0, 14, 14), Padding = new Thickness(0), CornerRadius = new CornerRadius(14), Cursor = Cursors.Hand,
             Background = Pinceau("Encre"), BorderBrush = Pinceau("Nuit3"), BorderThickness = new Thickness(1.5), Child = pile,
-            ToolTip = "Clic : en direct · clic droit : modifier, retirer",
+            ToolTip = "Clic : en direct · clic droit : modifier, écran principal, retirer",
         };
         tuile.MouseLeftButtonUp += (_, _) => R.AfficherAnnonce(a, i);
         tuile.MouseRightButtonUp += (_, e) => { MenuDisplay(a, tuile, true); e.Handled = true; };
