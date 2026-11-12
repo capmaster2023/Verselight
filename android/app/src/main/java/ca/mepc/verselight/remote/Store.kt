@@ -43,6 +43,47 @@ class Store(context: Context) {
         get() = prefs.getBoolean("couperBip", true)
         set(v) = prefs.edit().putBoolean("couperBip", v).apply()
 
+    // ------------------------------------------------------------ MyCam (le téléphone devient une caméra du PC)
+    /** Nom de la source dans MyChurch (vide : le nom du téléphone). */
+    var camNom: String
+        get() = prefs.getString("camNom", "") ?: ""
+        set(v) = prefs.edit().putString("camNom", v.trim().take(40)).apply()
+
+    /** Hauteur de l'image envoyée : 720 ou 1080. */
+    var camResolution: Int
+        get() = prefs.getInt("camResolution", 720)
+        set(v) = prefs.edit().putInt("camResolution", v).apply()
+
+    /** Images par seconde : 15, 24 ou 30. */
+    var camFps: Int
+        get() = prefs.getInt("camFps", 30)
+        set(v) = prefs.edit().putInt("camFps", v).apply()
+
+    /** Connexion par câble USB (partage de connexion USB) : on ne force plus le passage par le Wi-Fi. */
+    var camUsb: Boolean
+        get() = prefs.getBoolean("camUsb", false)
+        set(v) = prefs.edit().putBoolean("camUsb", v).apply()
+
+    /** Écran du téléphone assombri pendant la diffusion (la caméra continue). */
+    var camAssombrir: Boolean
+        get() = prefs.getBoolean("camAssombrir", true)
+        set(v) = prefs.edit().putBoolean("camAssombrir", v).apply()
+
+    /** Vibrer quand la caméra passe à l'écran. */
+    var camVibrer: Boolean
+        get() = prefs.getBoolean("camVibrer", true)
+        set(v) = prefs.edit().putBoolean("camVibrer", v).apply()
+
+    /** Afficher les messages de la régie. */
+    var camMessages: Boolean
+        get() = prefs.getBoolean("camMessages", true)
+        set(v) = prefs.edit().putBoolean("camMessages", v).apply()
+
+    /** Grille des tiers sur le viseur. */
+    var camGrille: Boolean
+        get() = prefs.getBoolean("camGrille", true)
+        set(v) = prefs.edit().putBoolean("camGrille", v).apply()
+
     /** Réglages de l'écran reçus du PC (JSON : principale, seconde, theme, taille, presentation). */
     var reglages: String
         get() = prefs.getString("reglages", "{}") ?: "{}"

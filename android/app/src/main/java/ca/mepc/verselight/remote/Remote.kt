@@ -23,6 +23,7 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import okio.ByteString.Companion.toByteString
 import org.json.JSONObject
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -46,6 +47,17 @@ class Remote(private val context: Context, val store: Store) {
     val pcName = MutableStateFlow(store.pairing()?.pcName ?: "")
     val update = MutableStateFlow<Pair<String, String>?>(null) // nouvelle version : (numéro, lien de l'APK)
     val journal = MutableStateFlow<List<String>>(emptyList())  // journal d'erreurs (Réglages › Journal)
+    /** Protocole du PC : 1 = MyChurch 3.3 et avant, 2 = 3.4 (déroulé, écran par défaut, noir, MyCam). */
+    val proto = MutableStateFlow(1)
+    /** Le déroulé du culte (réponse « agenda » du PC). */
+    val agenda = MutableStateFlow<JSONObject?>(null)
+    /** Les sources Display du PC (réponse « displays »). */
+    val displays = MutableStateFlow<List<JSONObject>?>(null)
+    /** MyCam : témoin envoyé par le PC pour ce téléphone (« live », « next » ou « off »). */
+    val temoin = MutableStateFlow("off")
+    /** MyCam : messages de la régie au caméraman (les plus récents en dernier). */
+    val messagesCam = MutableStateFlow<List<JSONObject>>(emptyList())
+    private var agendaVu = -1
     private val clock = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.FRANCE)
 
     @Synchronized
@@ -101,7 +113,8 @@ class Remote(private val context: Context, val store: Store) {
         val req = NetworkRequest.Builder().addTransportType(NetworkCapabilities.TRANSPORT_WIFI).build()
         cm.registerNetworkCallback(req, object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                cm.bindProcessToNetwork(network)
+                // MyCam par câble USB (partage de connexion) : le PC n'est pas sur le Wi-Fi, on ne force rien
+                if (!store.camUsb) cm.bindProcessToNetwork(network)
                 log("Wi-Fi disponible")
                 wake.trySend(Unit)
             }
@@ -150,6 +163,47 @@ class Remote(private val context: Context, val store: Store) {
 
     /** Le téléphone est relié à MyChurch sur le PC. */
     fun pret(): Boolean = socket != null
+
+    /** MyCam par câble USB : relâche (ou reprend) le passage forcé par le Wi-Fi, puis reconnecte. */
+    fun choisirUsb(usb: Boolean) {
+        store.camUsb = usb
+        val cm = context.getSystemService(ConnectivityManager::class.java)
+        if (usb) cm.bindProcessToNetwork(null)
+        else cm.allNetworks.firstOrNull { cm.getNetworkCapabilities(it)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true }?.let { cm.bindProcessToNetwork(it) }
+        socket?.cancel()
+        wake.trySend(Unit)
+    }
+
+    /** MyCam : une image (en-tête MC + JPEG) vers le PC. Faux si le PC n'est pas joignable ou si la file d'envoi est pleine. */
+    fun sendBinary(data: ByteArray, len: Int): Boolean {
+        val s = socket ?: return false
+        if (s.queueSize() > 1_200_000L) return false
+        return s.send(data.toByteString(0, len))
+    }
+
+    /** Octets en attente d'envoi (MyCam s'en sert pour ne pas prendre de retard). */
+    fun fileEnvoi(): Long = socket?.queueSize() ?: 0L
+
+    /** Câble USB si le téléphone partage sa connexion par USB et parle au PC par là, sinon Wi-Fi. */
+    fun lien(): String {
+        val hote = store.pairing()?.lastHost ?: return "wifi"
+        val prefixe = hote.substringBeforeLast('.')
+        return try {
+            val usb = NetworkInterface.getNetworkInterfaces().toList().any { ni ->
+                ni.isUp && (ni.name.startsWith("rndis") || ni.name.startsWith("usb") || ni.name.startsWith("ncm")) &&
+                    ni.inetAddresses.toList().any { it.hostAddress?.substringBeforeLast('.') == prefixe }
+            }
+            if (usb) "usb" else "wifi"
+        } catch (e: Exception) {
+            "wifi"
+        }
+    }
+
+    /** Le caméraman a vu le message de la régie. */
+    fun vuMessage(id: String) {
+        messagesCam.value = messagesCam.value.filter { it.optString("id") != id }
+        send("cam.ack", "id" to id)
+    }
 
     /** Commande vers la régie du PC. Renvoie false si le PC n'est pas joignable. */
     fun send(type: String, vararg fields: Pair<String, Any?>): Boolean {
@@ -257,9 +311,14 @@ class Remote(private val context: Context, val store: Store) {
             store.save(p.copy(pcName = name, lastHost = host, lastPort = port))
             pcName.value = name
             info.value = ""
+            proto.value = w.optInt("proto", 1)
+            agendaVu = -1
             socket = ws
             link.value = Link.CONNECTED
             send("state.get")
+            if (proto.value >= 2) send("agenda.get")
+            send("display.list")
+            MyCam.reconnecte()
             // copie des Bibles du PC (versions, noms des livres) pour le détecteur de versets (puis toutes les 10 minutes)
             val synchro = scope.launch {
                 while (socket === ws) {
@@ -275,7 +334,26 @@ class Remote(private val context: Context, val store: Store) {
                             log("connexion perdue : " + m.optString("err", "?"))
                             return Result.CLOSED
                         }
-                        "state" -> screen.value = m
+                        "state" -> {
+                            screen.value = m
+                            // le déroulé a changé sur le PC : on le redemande
+                            val v = m.optInt("agendaV", -1)
+                            if (v >= 0 && v != agendaVu && proto.value >= 2) {
+                                agendaVu = v
+                                send("agenda.get")
+                            }
+                        }
+                        "agenda" -> agenda.value = m
+                        "displays" -> {
+                            val a = m.optJSONArray("liste")
+                            displays.value = if (a == null) emptyList() else (0 until a.length()).map { a.getJSONObject(it) }
+                            events.tryEmit(m)
+                        }
+                        "cam.tally" -> temoin.value = m.optString("etat", "off")
+                        "cam.msg" -> {
+                            messagesCam.value = (messagesCam.value.filter { it.optString("id") != m.optString("id") } + m).takeLast(3)
+                            events.tryEmit(m)
+                        }
                         "auth.fail" -> throw Rejected(m.optString("code"), m.optString("message"))
                         "obs" -> {} // ancien relais des réglages OBS : ignoré
                         "sync" -> scope.launch {
@@ -310,7 +388,10 @@ class Remote(private val context: Context, val store: Store) {
             log("$host:$port : erreur ${e.javaClass.simpleName} ${e.message ?: ""}")
             return Result.FAILED
         } finally {
-            if (socket === ws) socket = null
+            if (socket === ws) {
+                socket = null
+                temoin.value = "off"
+            }
             ws.cancel()
         }
     }
