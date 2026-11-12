@@ -106,7 +106,7 @@ private fun temoinActuel(remote: Remote): Temoin {
     val sombre = Temoin("", "", C.CamSurface2, C.CamBord2, C.CamBrume, null)
     return when {
         link != Link.CONNECTED -> Temoin("PC introuvable", "reconnexion…", sombre.fond, sombre.bord, C.CamAmbreVif, null)
-        proto < 2 -> Temoin("MyChurch 3.4 requis sur le PC", "mise à jour", sombre.fond, sombre.bord, C.CamAmbreVif, null)
+        proto < 2 -> Temoin("MyChurch 4.0 requis sur le PC", "mise à jour", sombre.fond, sombre.bord, C.CamAmbreVif, null)
         !diffuse -> Temoin("Diffusion arrêtée", "rien n’est envoyé", sombre.fond, sombre.bord, C.CamBrume, null)
         t == "live" -> {
             val s = if (depuis > 0) ((maintenant - depuis) / 1000).coerceAtLeast(0) else 0

@@ -43,6 +43,16 @@ public static class LibObs
     // ---------------------------------------------------------------- cœur
     [StructLayout(LayoutKind.Sequential)]
     public struct AudioInfo { public uint SamplesPerSec; public int Speakers; }
+    /// <summary>struct obs_audio_info2 (libobs 30 et suivantes) : la mise en mémoire tampon à faible latence d'OBS (20 ms, fixe).</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct AudioInfo2
+    {
+        public uint SamplesPerSec;
+        public int Speakers;
+        public uint MaxBufferingMs;
+        [MarshalAs(UnmanagedType.U1)] public bool FixedBuffering;
+    }
+    public const int SpeakersMono = 1;
     public const int SpeakersStereo = 2;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -67,6 +77,7 @@ public static class LibObs
     [DllImport(Lib)] public static extern IntPtr obs_get_version_string();
     [DllImport(Lib)] public static extern void obs_add_data_path([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
     [DllImport(Lib)] [return: MarshalAs(UnmanagedType.U1)] public static extern bool obs_reset_audio(ref AudioInfo info);
+    [DllImport(Lib)] [return: MarshalAs(UnmanagedType.U1)] public static extern bool obs_reset_audio2(ref AudioInfo2 info);
     [DllImport(Lib)] public static extern int obs_reset_video(ref VideoInfo info);
     [DllImport(Lib)] public static extern int obs_open_module(out IntPtr module, [MarshalAs(UnmanagedType.LPUTF8Str)] string path, [MarshalAs(UnmanagedType.LPUTF8Str)] string? dataPath);
     [DllImport(Lib)] [return: MarshalAs(UnmanagedType.U1)] public static extern bool obs_init_module(IntPtr module);
@@ -105,6 +116,10 @@ public static class LibObs
     [DllImport(Lib)] public static extern void obs_source_set_monitoring_enabled(IntPtr source, [MarshalAs(UnmanagedType.U1)] bool enabled);
     /// <summary>libobs 32 et précédentes : 0 = aucune écoute, 2 = écoute et sortie.</summary>
     [DllImport(Lib)] public static extern void obs_source_set_monitoring_type(IntPtr source, int type);
+    /// <summary>Balance des propriétés audio avancées : 0 = gauche, 0,5 = centre, 1 = droite.</summary>
+    [DllImport(Lib)] public static extern void obs_source_set_balance_value(IntPtr source, float balance);
+    /// <summary>Décalage de synchronisation, en nanosecondes.</summary>
+    [DllImport(Lib)] public static extern void obs_source_set_sync_offset(IntPtr source, long offset);
 
     // ---------------------------------------------------------------- périphériques
     [DllImport(Lib)] public static extern IntPtr obs_get_source_properties([MarshalAs(UnmanagedType.LPUTF8Str)] string id);
@@ -131,6 +146,8 @@ public static class LibObs
     [DllImport(Lib)] public static extern void obs_volmeter_detach_source(IntPtr volmeter);
     [DllImport(Lib)] public static extern void obs_volmeter_add_callback(IntPtr volmeter, VolmeterUpdated callback, IntPtr param);
     [DllImport(Lib)] public static extern void obs_volmeter_remove_callback(IntPtr volmeter, VolmeterUpdated callback, IntPtr param);
+    /// <summary>0 = crête d'échantillon, 1 = crête réelle (obs_peak_meter_type).</summary>
+    [DllImport(Lib)] public static extern void obs_volmeter_set_peak_meter_type(IntPtr volmeter, int type);
 
     // ---------------------------------------------------------------- pistes (sortie du mélange)
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -138,6 +155,17 @@ public static class LibObs
     [DllImport(Lib)] [return: MarshalAs(UnmanagedType.U1)]
     public static extern bool audio_output_connect(IntPtr audio, UIntPtr mixIndex, IntPtr conversion, AudioOutputCallback callback, IntPtr param);
     [DllImport(Lib)] public static extern void audio_output_disconnect(IntPtr audio, UIntPtr mixIndex, AudioOutputCallback callback, IntPtr param);
+    /// <summary>struct audio_convert_info : OBS rééchantillonne et mixe la piste pour cet abonné (5.1 ou 7.1 ramenés en stéréo).</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct AudioConvertInfo
+    {
+        public uint SamplesPerSec;
+        public int Format;
+        public int Speakers;
+        [MarshalAs(UnmanagedType.U1)] public bool AllowClipping;
+    }
+    [DllImport(Lib, EntryPoint = "audio_output_connect")] [return: MarshalAs(UnmanagedType.U1)]
+    public static extern bool audio_output_connect_converti(IntPtr audio, UIntPtr mixIndex, ref AudioConvertInfo conversion, AudioOutputCallback callback, IntPtr param);
 
     // ---------------------------------------------------------------- type de source de MyChurch : son poussé par MyChurch (entrées séparées)
     public const int SourceTypeInput = 0;               // OBS_SOURCE_TYPE_INPUT

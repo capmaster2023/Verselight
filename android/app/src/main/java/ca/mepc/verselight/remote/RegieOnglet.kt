@@ -259,7 +259,7 @@ private fun CarteDirect(s: JSONObject?, link: Link, proto: Int) {
                 T(titreLive(s, link), taille = 18.sp, poids = FontWeight.ExtraBold, interligne = 22.sp, lignes = 2)
                 val sous = s?.optString("sous").orEmpty()
                 if (sous.isNotBlank()) T(sous, taille = 12.5.sp, couleur = C.Encre2, lignes = 2)
-                else if (pret && proto < 2) T("Mettez MyChurch à jour sur le PC (3.4)", taille = 12.5.sp, couleur = C.Encre2, lignes = 2)
+                else if (pret && proto < 2) T("Mettez MyChurch à jour sur le PC (4.0)", taille = 12.5.sp, couleur = C.Encre2, lignes = 2)
             }
             Column(Modifier.width(112.dp)) {
                 Surtitre("Ensuite", C.AmbreTexte, Modifier.padding(bottom = 4.dp))

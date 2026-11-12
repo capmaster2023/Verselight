@@ -12,11 +12,11 @@ using Shapes = System.Windows.Shapes;
 namespace MyVerse.Ui.Audio;
 
 /// <summary>
-/// Le panneau Audio de Display, sous la grille (MyChurch 3.0.1). Tout le son passe par le moteur d'OBS (libobs).
-/// À gauche le mélangeur vertical, comme dans OBS : une bande par source (échelle de 0 à −60 dB, vumètres gauche et droite,
-/// fader, sourdine, écoute, filtres et pastilles des destinations). À droite les enregistrements (5 au plus, qui peuvent
+/// Le panneau Audio de Display, sous la grille. Tout le son passe par le moteur d'OBS (libobs).
+/// À gauche le mélangeur d'OBS 32.1 : vertical par défaut (ou horizontal), une bande par source (échelle de 0 à −60 dB,
+/// vumètres gauche et droite, fader, sourdine, écoute, filtres et pastilles des destinations), les périphériques globaux et les
+/// sources épinglées d'abord, les masquées et les inactives selon les options. À droite les enregistrements (5 au plus, qui peuvent
 /// tourner en même temps) et les sorties MyVirtualSound (4 au plus), chacun avec les sources choisies par l'utilisateur.
-/// Le mélangeur démarre vide : rien n'est préréglé.
 /// </summary>
 public sealed class AudioPanel : Border
 {
@@ -26,7 +26,7 @@ public sealed class AudioPanel : Border
     static Style S(string cle) => MainWindow.Style_(cle);
     static readonly CultureInfo Fr = CultureInfo.GetCultureInfo("fr-CA");
     const string Vide = "Le mélangeur est vide : « + Source audio » pour ajouter un micro, le son d'une sortie ou un média.";
-    const string Legende = "Pastilles : 1 à 5 = enregistrements, A à D = sorties MyVirtualSound (allumée : la source y va) · clic droit sur une bande : renommer, changer, mono, ordre, supprimer";
+    const string Legende = "Pastilles : 1 à 5 = enregistrements, A à D = sorties MyVirtualSound (allumée : la source y va) · clic sur le nom ou clic droit : épingler, masquer, renommer, écoute, ordre";
     const double LargeurBande = 112, HauteurVu = 176;
 
     /// <summary>Une bande verticale du mélangeur.</summary>
@@ -40,6 +40,10 @@ public sealed class AudioPanel : Border
         public Button Muet = null!, Casque = null!, Filtres = null!;
         public Shapes.Path CasqueIcone = null!;
         public readonly List<(Button Bouton, IDestinationAudio Destination, string Marque)> Pastilles = new();
+        /// <summary>L'étiquette d'OBS 32.1 : GLOBALE, ÉPINGLÉE, ACTIVE, INACTIVE ou MASQUÉE.</summary>
+        public TextBlock Statut = null!;
+        /// <summary>Ligne de la disposition horizontale (sinon bande verticale).</summary>
+        public bool Horizontale;
     }
 
     /// <summary>La carte d'un enregistrement ou d'une sortie MyVirtualSound.</summary>
@@ -66,6 +70,9 @@ public sealed class AudioPanel : Border
     readonly TextBlock alerteTexte = new() { FontSize = 13.5, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
     readonly Grid corps = new() { Margin = new Thickness(0, 16, 0, 0) };
     readonly StackPanel bandes = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Left };
+    readonly ScrollViewer defilBandes;
+    readonly Button masquees, inactives, options, disposition, avancees;
+    readonly Shapes.Path iconeDisposition;
     readonly TextBlock vide;
     readonly StackPanel droite = new();
     readonly ScrollViewer defilDroite;
@@ -98,7 +105,7 @@ public sealed class AudioPanel : Border
         titre.Children.Add(puce);
         ajouter = new Button { Style = S("BtnOr"), Content = "+ Source audio", Height = 42, Padding = new Thickness(18, 0, 18, 0), ToolTip = "Ajouter un micro, le son d'une sortie, un fichier ou le son de la vidéo projetée" };
         ajouter.Click += (_, _) => MenuAjouter();
-        peripheriques = new Button { Style = S("Btn"), Content = "Périphériques", Height = 42, Padding = new Thickness(16, 0, 16, 0), Margin = new Thickness(8, 0, 0, 0), ToolTip = "Réglages : micro et sortie par défaut, écoute au casque, VB-CABLE, ffmpeg" };
+        peripheriques = new Button { Style = S("Btn"), Content = "Réglages audio", Height = 42, Padding = new Thickness(16, 0, 16, 0), Margin = new Thickness(8, 0, 0, 0), ToolTip = "Réglages › Audio, comme dans OBS : fréquence, canaux, périphériques globaux, vumètres, écoute, raccourcis" };
         peripheriques.Click += (_, _) => { (Fenetre as MainWindow)?.OuvrirParametres(); Rafraichir(); };
         chevron = new Shapes.Path
         {
@@ -131,7 +138,36 @@ public sealed class AudioPanel : Border
         corps.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         corps.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         var gauche = new DockPanel();
-        var titreMelangeur = Etiquette("MÉLANGEUR", 0);
+        // la barre du mélangeur d'OBS 32.1 : « 2 masquées », Options, disposition, propriétés audio avancées
+        masquees = new Button { Style = S("BtnLien"), FontSize = 12.5, Margin = new Thickness(0, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed, ToolTip = "Afficher les sources masquées" };
+        masquees.Click += (_, _) => { C.ShowHidden = true; A.Apply(); Rafraichir(); };
+        inactives = new Button { Style = S("BtnLien"), FontSize = 12.5, Margin = new Thickness(0, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed, ToolTip = "Afficher les sources inactives (périphérique débranché, fichier introuvable)" };
+        inactives.Click += (_, _) => { C.ShowInactive = true; A.Apply(); Rafraichir(); };
+        options = new Button { Style = S("BtnPlat"), Content = "Options ▾", Height = 32, Padding = new Thickness(10, 0, 10, 0), FontSize = 13, ToolTip = "Sources masquées et inactives, tout réafficher, disposition" };
+        options.Click += (_, _) => MenuOptions();
+        iconeDisposition = new Shapes.Path { Stroke = P("Blanc"), StrokeThickness = 1.8, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, Width = 20, Height = 20, Stretch = Stretch.None };
+        disposition = new Button { Style = S("BtnPlat"), Width = 34, Height = 32, Padding = new Thickness(0), Margin = new Thickness(4, 0, 0, 0), Content = iconeDisposition };
+        disposition.Click += (_, _) => { C.VerticalLayout = !C.VerticalLayout; A.Apply(); Rafraichir(); };
+        avancees = new Button
+        {
+            Style = S("BtnPlat"), Width = 34, Height = 32, Padding = new Thickness(0), Margin = new Thickness(4, 0, 0, 0), ToolTip = "Propriétés audio avancées (volume, mono, balance, synchro, écoute, destinations)",
+            Content = new Shapes.Path
+            {
+                Data = Geometry.Parse("M3,6 H17 M3,14 H17 M7,3 V9 M13,11 V17"), Stroke = P("Blanc"), StrokeThickness = 1.8,
+                StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, Width = 20, Height = 20, Stretch = Stretch.None,
+            },
+        };
+        avancees.Click += (_, _) => OuvrirProprietes();
+        var outils = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        outils.Children.Add(masquees);
+        outils.Children.Add(inactives);
+        outils.Children.Add(options);
+        outils.Children.Add(disposition);
+        outils.Children.Add(avancees);
+        var titreMelangeur = new DockPanel { Margin = new Thickness(0, 0, 0, 10) };
+        DockPanel.SetDock(outils, Dock.Right);
+        titreMelangeur.Children.Add(outils);
+        titreMelangeur.Children.Add(new TextBlock { Text = "MÉLANGEUR", Style = S("CarteTitre"), Margin = new Thickness(0), VerticalAlignment = VerticalAlignment.Center });
         DockPanel.SetDock(titreMelangeur, Dock.Top);
         gauche.Children.Add(titreMelangeur);
         var legende = new TextBlock { Text = Legende, FontSize = 12.5, Foreground = P("Brume"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0) };
@@ -139,7 +175,8 @@ public sealed class AudioPanel : Border
         gauche.Children.Add(legende);
         vide = new TextBlock { Text = Vide, FontSize = 14, Foreground = P("Brume"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(2, 4, 2, 12), LineHeight = 22 };
         var zone = new Grid();
-        zone.Children.Add(new ScrollViewer { Content = bandes, VerticalAlignment = VerticalAlignment.Top, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, Padding = new Thickness(0, 0, 0, 6) });
+        defilBandes = new ScrollViewer { Content = bandes, VerticalAlignment = VerticalAlignment.Top, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, Padding = new Thickness(0, 0, 0, 6) };
+        zone.Children.Add(defilBandes);
         zone.Children.Add(vide);
         gauche.Children.Add(zone);
         corps.Children.Add(gauche);
@@ -185,6 +222,9 @@ public sealed class AudioPanel : Border
 
         // ---------------- vie du panneau
         A.Changed += () => Dispatcher.BeginInvoke(new Action(SurChangement));
+        // un micro branché ou débranché : bandes ajoutées, actives ou inactives (OBS 32.1)
+        A.PeripheriquesChange += () => Dispatcher.BeginInvoke(new Action(Rafraichir));
+        A.RaccourcisChange += () => Dispatcher.BeginInvoke(new Action(() => { foreach (var b in lignes) MajBande(b); }));
         A.Recorder.Changed += () => Dispatcher.BeginInvoke(new Action(() => { MajCartes(); Annoncer(); }));
         minuterie.Tick += (_, _) => Battre();
         Loaded += (_, _) => minuterie.Start();
@@ -194,6 +234,13 @@ public sealed class AudioPanel : Border
         MajReduction();
         SurChangement();
     }
+
+    /// <summary>Les bandes affichées, dans l'ordre (test automatique).</summary>
+    public List<string> TestBandes => lignes.Select(l => l.S.Name).ToList();
+    /// <summary>L'étiquette d'OBS 32.1 d'une bande affichée (test automatique).</summary>
+    public string TestStatut(string nom) => lignes.FirstOrDefault(l => l.S.Name == nom)?.Statut.Text ?? "";
+    /// <summary>Le mélangeur est en disposition horizontale (test automatique).</summary>
+    public bool TestHorizontal => lignes.Count > 0 && lignes.All(l => l.Horizontale);
 
     /// <summary>Montre le mélangeur (bouton ou raccourci) : déplie le panneau et le fait défiler à l'écran.</summary>
     public void Deplier()
@@ -242,13 +289,24 @@ public sealed class AudioPanel : Border
         {
             bandes.Children.Clear();
             lignes.Clear();
-            foreach (var s in C.Sources)
+            // disposition verticale (par défaut depuis OBS 32.1) ou horizontale
+            bool horizontal = !C.VerticalLayout;
+            bandes.Orientation = horizontal ? Orientation.Vertical : Orientation.Horizontal;
+            bandes.HorizontalAlignment = horizontal ? HorizontalAlignment.Stretch : HorizontalAlignment.Left;
+            defilBandes.HorizontalScrollBarVisibility = horizontal ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
+            defilBandes.VerticalScrollBarVisibility = horizontal ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
+            defilBandes.MaxHeight = horizontal ? 470 : double.PositiveInfinity;
+            iconeDisposition.Data = Geometry.Parse(horizontal ? "M5,3 V17 M10,3 V17 M15,3 V17" : "M3,5 H17 M3,10 H17 M3,15 H17");
+            disposition.ToolTip = horizontal ? "Disposition verticale (par défaut, comme OBS 32.1)" : "Disposition horizontale (comme l'ancien mélangeur d'OBS)";
+            var visibles = C.Affichage(A.Inactive);
+            foreach (var s in visibles)
             {
-                var b = CreerBande(s);
+                var b = horizontal ? CreerLigne(s) : CreerBande(s);
                 lignes.Add(b);
                 bandes.Children.Add(b.Cadre);
             }
-            vide.Visibility = C.Sources.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            vide.Text = C.Sources.Count == 0 ? Vide : "Toutes les sources sont masquées ou inactives : « Options » pour les afficher.";
+            vide.Visibility = visibles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
             listeEnregistrements.Children.Clear();
             enregistrements.Clear();
@@ -276,19 +334,34 @@ public sealed class AudioPanel : Border
         }
         finally { remplissage = false; }
         foreach (var b in lignes) MajBande(b);
+        MajCompteurs();
         MajCartes();
         MajAlerte();
     }
 
+    /// <summary>« 2 masquées » et « 1 inactive » dans la barre du mélangeur (un clic les affiche), comme OBS 32.1.</summary>
+    void MajCompteurs()
+    {
+        int nm = C.Sources.Count(s => s.Hidden && !s.Pinned && s.Global.Length == 0);
+        int ni = C.Sources.Count(s => !s.Hidden && !s.Pinned && s.Global.Length == 0 && A.Inactive(s));
+        masquees.Content = nm == 1 ? "1 masquée" : $"{nm} masquées";
+        masquees.Visibility = nm > 0 && !C.ShowHidden ? Visibility.Visible : Visibility.Collapsed;
+        inactives.Content = ni == 1 ? "1 inactive" : $"{ni} inactives";
+        inactives.Visibility = ni > 0 && !C.ShowInactive ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Une bande verticale (disposition par défaut d'OBS 32.1) : nom, étiquette, échelle et vumètres, fader, M, casque, filtres, destinations.</summary>
     Bande CreerBande(AudioSource s)
     {
         var b = new Bande { S = s };
         var pile = new StackPanel();
         b.Nom = new TextBlock { FontSize = 14.5, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis, TextAlignment = TextAlignment.Center };
+        b.Statut = new TextBlock { FontSize = 9.5, FontWeight = FontWeights.Bold, TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 1, 0, 0) };
         b.Genre = new TextBlock { FontSize = 11.5, Foreground = P("Brume"), TextTrimming = TextTrimming.CharacterEllipsis, TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 2, 0, 0) };
         b.Perif = new TextBlock { FontSize = 10.5, Foreground = P("Brume2"), TextTrimming = TextTrimming.CharacterEllipsis, TextAlignment = TextAlignment.Center };
         b.Db = new TextBlock { FontSize = 13, FontWeight = FontWeights.SemiBold, TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 8, 0, 0), ToolTip = "Volume de la source" };
         pile.Children.Add(b.Nom);
+        pile.Children.Add(b.Statut);
         pile.Children.Add(b.Genre);
         pile.Children.Add(b.Perif);
         pile.Children.Add(b.Db);
@@ -303,11 +376,105 @@ public sealed class AudioPanel : Border
         Grid.SetColumn(b.D, 3);
         zone.Children.Add(b.G);
         zone.Children.Add(b.D);
-        b.Volume = new Slider
+        b.Volume = new Slider { Style = S("CurseurVertical"), Minimum = -60, Maximum = 6, SmallChange = 0.5, LargeChange = 3, IsMoveToPointEnabled = true, Value = AudioConfiguration.Bound(s.VolumeDb, -60, 6) };
+        Grid.SetColumn(b.Volume, 5);
+        zone.Children.Add(b.Volume);
+        pile.Children.Add(zone);
+
+        // M et casque, puis les filtres
+        var boutons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 12, 0, 0) };
+        b.Muet = BoutonM(40, 30);
+        b.CasqueIcone = IconeCasque();
+        b.Casque = new Button { Style = S("Btn"), Width = 40, Height = 30, Padding = new Thickness(0), Margin = new Thickness(6, 0, 0, 0), Content = b.CasqueIcone };
+        boutons.Children.Add(b.Muet);
+        boutons.Children.Add(b.Casque);
+        pile.Children.Add(boutons);
+        b.Filtres = new Button { Style = S("Btn"), Height = 28, Padding = new Thickness(6, 0, 6, 0), Margin = new Thickness(0, 6, 0, 0), FontSize = 12.5 };
+        pile.Children.Add(b.Filtres);
+
+        // les destinations : 1 à 5 (enregistrements), A à D (sorties MyVirtualSound)
+        var pastilles = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 8, 0, 0) };
+        pile.Children.Add(pastilles);
+
+        b.Cadre = new Border
         {
-            Style = S("CurseurVertical"), Minimum = -60, Maximum = 6, SmallChange = 0.5, LargeChange = 3, IsMoveToPointEnabled = true,
-            Value = AudioConfiguration.Bound(s.VolumeDb, -60, 6), ToolTip = "Volume (−60 à +6 dB) · double-clic : 0 dB · molette : ±1 dB",
+            Child = pile, Width = LargeurBande, CornerRadius = new CornerRadius(12), Padding = new Thickness(8, 10, 8, 10), Margin = new Thickness(0, 0, 10, 0),
+            BorderThickness = new Thickness(1), BorderBrush = P("Nuit3"), Background = P("Encre"),
         };
+        Brancher(b, pastilles);
+        return b;
+    }
+
+    /// <summary>Une ligne de la disposition horizontale d'OBS : nom et étiquette, vumètres gauche et droite sur l'échelle, fader, volume, boutons et destinations.</summary>
+    Bande CreerLigne(AudioSource s)
+    {
+        var b = new Bande { S = s, Horizontale = true };
+        var g = new Grid();
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(172) });
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 140 });
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var tete = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
+        b.Nom = new TextBlock { FontSize = 14.5, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
+        b.Statut = new TextBlock { FontSize = 9.5, FontWeight = FontWeights.Bold, Margin = new Thickness(0, 1, 0, 0) };
+        b.Genre = new TextBlock { FontSize = 11.5, Foreground = P("Brume"), TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 2, 0, 0) };
+        b.Perif = new TextBlock { FontSize = 10.5, Foreground = P("Brume2"), TextTrimming = TextTrimming.CharacterEllipsis };
+        tete.Children.Add(b.Nom);
+        tete.Children.Add(b.Statut);
+        tete.Children.Add(b.Genre);
+        tete.Children.Add(b.Perif);
+        g.Children.Add(tete);
+
+        var milieu = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        b.G = new Vumetre(7) { ToolTip = "Gauche : niveau d'OBS (après volume et filtres), de −60 à 0 dBFS" };
+        b.D = new Vumetre(7) { Margin = new Thickness(0, 3, 0, 0), ToolTip = "Droite : niveau d'OBS (après volume et filtres), de −60 à 0 dBFS" };
+        milieu.Children.Add(b.G);
+        milieu.Children.Add(b.D);
+        milieu.Children.Add(new EchelleDb { Horizontale = true, Height = 15, Margin = new Thickness(0, 2, 0, 0) });
+        b.Volume = new Slider { Minimum = -60, Maximum = 6, SmallChange = 0.5, LargeChange = 3, IsMoveToPointEnabled = true, Value = AudioConfiguration.Bound(s.VolumeDb, -60, 6), Margin = new Thickness(0, 2, 0, 0) };
+        milieu.Children.Add(b.Volume);
+        Grid.SetColumn(milieu, 1);
+        g.Children.Add(milieu);
+
+        b.Db = new TextBlock { FontSize = 13, FontWeight = FontWeights.SemiBold, TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 4, 0), ToolTip = "Volume de la source" };
+        Grid.SetColumn(b.Db, 2);
+        g.Children.Add(b.Db);
+
+        var droite = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
+        b.Muet = BoutonM(36, 30);
+        b.CasqueIcone = IconeCasque();
+        b.Casque = new Button { Style = S("Btn"), Width = 36, Height = 30, Padding = new Thickness(0), Margin = new Thickness(6, 0, 0, 0), Content = b.CasqueIcone };
+        b.Filtres = new Button { Style = S("Btn"), Height = 30, Padding = new Thickness(8, 0, 8, 0), Margin = new Thickness(6, 0, 0, 0), FontSize = 12.5 };
+        var pastilles = new WrapPanel { MaxWidth = 150, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
+        droite.Children.Add(b.Muet);
+        droite.Children.Add(b.Casque);
+        droite.Children.Add(b.Filtres);
+        droite.Children.Add(pastilles);
+        Grid.SetColumn(droite, 3);
+        g.Children.Add(droite);
+
+        b.Cadre = new Border
+        {
+            Child = g, CornerRadius = new CornerRadius(12), Padding = new Thickness(12, 10, 10, 10), Margin = new Thickness(0, 0, 0, 8),
+            BorderThickness = new Thickness(1), BorderBrush = P("Nuit3"), Background = P("Encre"),
+        };
+        Brancher(b, pastilles);
+        return b;
+    }
+
+    static Shapes.Path IconeCasque() => new()
+    {
+        Data = Geometry.Parse("M3,13 V10 A7,7 0 0 1 17,10 V13 M3,12 H6 V18 H3 Z M14,12 H17 V18 H14 Z"),
+        StrokeThickness = 1.7, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, StrokeLineJoin = PenLineJoin.Round,
+        Width = 20, Height = 20, Stretch = Stretch.None,
+    };
+
+    /// <summary>Ce que les deux dispositions partagent : fader, M, casque (un clic : écouter ou non, comme OBS 32.1), filtres, destinations et menus.</summary>
+    void Brancher(Bande b, WrapPanel pastilles)
+    {
+        var s = b.S;
+        b.Volume.ToolTip = "Volume (−60 à +6 dB) · double-clic : 0 dB · molette : ±1 dB";
         b.Volume.ValueChanged += (_, e) =>
         {
             if (remplissage) return;
@@ -317,43 +484,23 @@ public sealed class AudioPanel : Border
         };
         b.Volume.MouseDoubleClick += (_, _) => b.Volume.Value = 0;
         b.Volume.PreviewMouseWheel += (_, e) => { b.Volume.Value = Math.Clamp(b.Volume.Value + Math.Sign(e.Delta), -60, 6); e.Handled = true; };
-        Grid.SetColumn(b.Volume, 5);
-        zone.Children.Add(b.Volume);
-        pile.Children.Add(zone);
-
-        // M et casque, puis les filtres
-        var boutons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 12, 0, 0) };
-        b.Muet = BoutonM(40, 30);
         b.Muet.Click += (_, _) => { s.Muted = !s.Muted; A.Apply(); MajBande(b); };
-        b.CasqueIcone = new Shapes.Path
+        b.Casque.Click += (_, _) =>
         {
-            Data = Geometry.Parse("M3,13 V10 A7,7 0 0 1 17,10 V13 M3,12 H6 V18 H3 Z M14,12 H17 V18 H14 Z"),
-            StrokeThickness = 1.7, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, StrokeLineJoin = PenLineJoin.Round,
-            Width = 20, Height = 20, Stretch = Stretch.None,
+            s.Monitoring = s.Monitoring == AudioMonitoring.Off ? AudioMonitoring.AndOutput : AudioMonitoring.Off;
+            A.Apply();
+            MajBande(b);
         };
-        b.Casque = new Button { Style = S("Btn"), Width = 40, Height = 30, Padding = new Thickness(0), Margin = new Thickness(6, 0, 0, 0), Content = b.CasqueIcone };
-        b.Casque.Click += (_, _) => MenuEcoute(b);
-        boutons.Children.Add(b.Muet);
-        boutons.Children.Add(b.Casque);
-        pile.Children.Add(boutons);
-        b.Filtres = new Button { Style = S("Btn"), Height = 28, Padding = new Thickness(6, 0, 6, 0), Margin = new Thickness(0, 6, 0, 0), FontSize = 12.5 };
+        b.Casque.MouseRightButtonUp += (_, e) => { MenuEcoute(b); e.Handled = true; };
         b.Filtres.Click += (_, _) => OuvrirFiltres(s);
-        pile.Children.Add(b.Filtres);
-
-        // les destinations : 1 à 5 (enregistrements), A à D (sorties MyVirtualSound)
-        var pastilles = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 8, 0, 0) };
         for (int i = 0; i < C.Profiles.Count; i++) pastilles.Children.Add(Pastille(b, C.Profiles[i], (i + 1).ToString()));
         for (int i = 0; i < C.VirtualSounds.Count; i++) pastilles.Children.Add(Pastille(b, C.VirtualSounds[i], MarqueSortie(i)));
-        if (pastilles.Children.Count > 0) pile.Children.Add(pastilles);
-
-        b.Cadre = new Border
-        {
-            Child = pile, Width = LargeurBande, CornerRadius = new CornerRadius(12), Padding = new Thickness(8, 10, 8, 10), Margin = new Thickness(0, 0, 10, 0),
-            BorderThickness = new Thickness(1), BorderBrush = P("Nuit3"), Background = P("Encre"),
-            ToolTip = "Clic droit : renommer, changer, mono, ordre, supprimer",
-        };
+        if (pastilles.Children.Count == 0) pastilles.Visibility = Visibility.Collapsed;
+        // comme OBS 32.1 : un clic sur le nom ouvre le menu de la source (épingler, masquer, renommer…)
+        b.Nom.Cursor = Cursors.Hand;
+        b.Nom.MouseLeftButtonUp += (_, e) => { MenuBande(b); e.Handled = true; };
+        b.Cadre.ToolTip = "Clic sur le nom ou clic droit : épingler, masquer, renommer, écoute, filtres, propriétés avancées";
         b.Cadre.MouseRightButtonUp += (_, e) => { MenuBande(b); e.Handled = true; };
-        return b;
     }
 
     Button Pastille(Bande b, IDestinationAudio d, string marque)
@@ -403,7 +550,23 @@ public sealed class AudioPanel : Border
     {
         var s = b.S;
         b.Nom.Text = s.Name;
-        b.Nom.ToolTip = s.Name;
+        b.Nom.ToolTip = s.Name + " · cliquer : épingler, masquer, renommer…";
+        // l'étiquette d'OBS 32.1
+        bool inactive = A.Inactive(s);
+        var etat = AudioConfiguration.Etat(s, inactive);
+        (string texte, string couleur, string aide) = etat switch
+        {
+            EtatMelangeur.Globale => ("GLOBALE", "Or", "Périphérique audio global (Réglages › Audio) : toujours dans le mélangeur, comme dans OBS"),
+            EtatMelangeur.Epinglee => ("ÉPINGLÉE", "Or", "Épinglée : toujours affichée, à gauche"),
+            EtatMelangeur.Masquee => ("MASQUÉE", "Brume2", "Masquée : affichée parce que « Afficher les sources masquées » est coché"),
+            EtatMelangeur.Inactive => ("INACTIVE", "Brume2", s.Kind == AudioInputKind.Media ? "Inactive : fichier introuvable" : "Inactive : périphérique débranché (elle revient quand il est rebranché)"),
+            _ => ("ACTIVE", "Vert", "Active"),
+        };
+        if (inactive && etat != EtatMelangeur.Inactive) { texte += " · INACTIVE"; aide += "\nInactive : " + (s.Kind == AudioInputKind.Media ? "fichier introuvable" : "périphérique débranché"); }
+        b.Statut.Text = texte;
+        b.Statut.Foreground = P(couleur);
+        b.Statut.ToolTip = aide;
+        b.Cadre.Opacity = inactive ? 0.62 : 1;
         b.Genre.Inlines.Clear();
         if (s.Kind == AudioInputKind.Microphone && s.Channel > 0)
         {
@@ -412,12 +575,14 @@ public sealed class AudioPanel : Border
             b.Genre.Inlines.Add(new System.Windows.Documents.Run(s.Channel.ToString()) { Foreground = P("Or"), FontWeight = FontWeights.Bold });
         }
         else b.Genre.Text = Genre(s);
-        b.Perif.Text = s.Kind == AudioInputKind.Media ? " " : s.DeviceId == "default" || s.DeviceName.Length == 0 ? "Windows par défaut" : NomCourt(s.DeviceName);
-        string probleme = s.Channel > 0 ? A.StatutEntrees(s.DeviceId) : "";
+        b.Perif.Text = s.Kind == AudioInputKind.Media ? (inactive ? "fichier introuvable" : " ")
+            : (s.DeviceId == "default" || s.DeviceName.Length == 0 ? "Windows par défaut" : NomCourt(s.DeviceName)) + (inactive ? " · débranché" : "");
+        string probleme = s.Channel > 0 && !inactive ? A.StatutEntrees(s.DeviceId) : "";
         b.Genre.ToolTip = b.Perif.ToolTip = Description(s) + (probleme.Length > 0 ? "\n" + probleme : "");
-        b.Perif.Foreground = P(probleme.Length > 0 ? "RougeTexte" : "Brume2");
+        b.Perif.Foreground = P(probleme.Length > 0 || inactive ? "RougeTexte" : "Brume2");
         b.Db.Text = TexteDb(s.VolumeDb);
         string? par = CoupeePar(s);
+        bool raccourci = A.CoupeeParRaccourci(s.Id);
         if (s.Muted)
         {
             Allume(b.Muet, true, "Direct");
@@ -430,6 +595,15 @@ public sealed class AudioPanel : Border
             b.Muet.Foreground = P("RougeTexte");
             b.Muet.ToolTip = $"Coupée tant que {par} tourne (option « Couper les autres sources »)";
         }
+        else if (raccourci)
+        {
+            Allume(b.Muet, false, "Direct");
+            b.Muet.BorderBrush = P("OrVif");
+            b.Muet.Foreground = P("Or");
+            b.Muet.ToolTip = s.PushToTalk && s.PushToTalkKey.Length > 0
+                ? $"Coupée : appuyer pour parler ({Touches.Afficher(s.PushToTalkKey)} relâchée)"
+                : $"Coupée : appuyer pour couper le son ({Touches.Afficher(s.PushToMuteKey)} enfoncée)";
+        }
         else
         {
             Allume(b.Muet, false, "Direct");
@@ -438,10 +612,10 @@ public sealed class AudioPanel : Border
         bool ecoute = s.Monitoring != AudioMonitoring.Off;
         Allume(b.Casque, ecoute, "Or");
         b.CasqueIcone.Stroke = ecoute ? P("Encre") : P("Blanc");
-        b.Casque.ToolTip = "Écoute au casque : " + NomEcoute(s.Monitoring).ToLower(Fr) + " (cliquer pour changer)";
+        b.Casque.ToolTip = "Écoute au casque : " + NomEcoute(s.Monitoring).ToLower(Fr) + " · clic : écouter ou non · clic droit : écoute seule";
         b.Filtres.Content = s.Filters.Count == 0 ? "Filtres" : "Filtres " + s.Filters.Count;
         b.Filtres.ToolTip = s.Filters.Count == 0 ? "Ajouter un filtre (réduction du bruit, noise gate, compresseur, limiteur)" : string.Join(" → ", s.Filters.Select(f => AudioFilter.Nom(f.Kind) + (f.Enabled ? "" : " (coupé)")));
-        b.G.Gris = b.D.Gris = s.Muted || par != null;
+        b.G.Gris = b.D.Gris = s.Muted || par != null || raccourci;
         bool seule = s.Monitoring == AudioMonitoring.Only;
         foreach (var (bouton, d, marque) in b.Pastilles)
         {
@@ -754,7 +928,15 @@ public sealed class AudioPanel : Border
             RemplirEcoute();
         }
         MajAlerte();
+        // une source ajoutée, retirée, épinglée ou masquée ailleurs (réglages, entrée branchée) : le mélangeur se refait
+        var voulues = C.Affichage(A.Inactive);
+        if (!voulues.SequenceEqual(lignes.Select(l => l.S)) || lignes.Any(l => l.Horizontale == C.VerticalLayout))
+        {
+            Rafraichir();
+            return;
+        }
         foreach (var b in lignes) MajBande(b);
+        MajCompteurs();
         MajCartes();
     }
 
@@ -1087,13 +1269,27 @@ public sealed class AudioPanel : Border
     void MenuBande(Bande b)
     {
         var s = b.S;
-        int i = C.Sources.IndexOf(s);
+        bool globale = s.Global.Length > 0;
         var m = new ContextMenu();
+        // OBS 32.1 : épingler (toujours affichée, à gauche) et masquer
+        if (!globale)
+        {
+            m.Items.Add(Article(s.Pinned ? "Désépingler" : "Épingler", () => { s.Pinned = !s.Pinned; if (s.Pinned) s.Hidden = false; Appliquer(); }));
+            var masquer = Article(s.Hidden ? "Ne plus masquer" : "Masquer", () =>
+            {
+                s.Hidden = !s.Hidden;
+                Appliquer();
+                if (s.Hidden && !C.ShowHidden) Toast($"« {s.Name} » est masquée. « {C.Sources.Count(x => x.Hidden)} masquée(s) » ou Options › Tout réafficher pour la revoir.");
+            }, !s.Pinned);
+            if (s.Pinned) { masquer.ToolTip = "Une source épinglée est toujours affichée : désépinglez-la d'abord"; ToolTipService.SetShowOnDisabled(masquer, true); }
+            m.Items.Add(masquer);
+            m.Items.Add(new Separator());
+        }
         m.Items.Add(Article("Renommer…", () =>
         {
             if (Dialogue.Demander(Fenetre, "Nom de la source :", s.Name, "Renommer") is { } n && n.Trim().Length > 0) { s.Name = n.Trim(); Appliquer(); }
         }));
-        if (s.Kind == AudioInputKind.Microphone)
+        if (s.Kind == AudioInputKind.Microphone && !globale)
         {
             // une carte son à plusieurs entrées : cette bande écoute une entrée seule, ou toutes ensemble
             int n = ChurchAudioService.Entrees(s.DeviceId);
@@ -1130,17 +1326,36 @@ public sealed class AudioPanel : Border
             }
             m.Items.Add(Article("Relancer le média", () => A.RestartMedia(s)));
         }
-        m.Items.Add(new Separator());
-        m.Items.Add(Article("Vers la gauche", () => Deplacer(s, -1), i > 0));
-        m.Items.Add(Article("Vers la droite", () => Deplacer(s, 1), i >= 0 && i < C.Sources.Count - 1));
-        m.Items.Add(new Separator());
-        m.Items.Add(Article("Supprimer", () =>
+        var ecoute = new MenuItem { Header = "Écoute au casque" };
+        foreach (var mode in new[] { AudioMonitoring.Off, AudioMonitoring.Only, AudioMonitoring.AndOutput })
         {
-            if (!Dialogue.Confirmer(Fenetre, $"Retirer « {s.Name} » du mélangeur ? Elle sort aussi des enregistrements et des sorties.", "Retirer")) return;
-            C.Sources.Remove(s);
-            Appliquer();
-        }));
-        Ouvrir(m, b.Cadre, PlacementMode.MousePoint);
+            var item = new MenuItem { Header = NomEcoute(mode), IsCheckable = true, IsChecked = s.Monitoring == mode };
+            item.Click += (_, _) => { s.Monitoring = mode; A.Apply(); MajBande(b); };
+            ecoute.Items.Add(item);
+        }
+        m.Items.Add(ecoute);
+        m.Items.Add(Article(s.Filters.Count == 0 ? "Filtres…" : $"Filtres ({s.Filters.Count})…", () => OuvrirFiltres(s)));
+        m.Items.Add(Article("Propriétés audio avancées…", OuvrirProprietes));
+        m.Items.Add(new Separator());
+        bool h = !C.VerticalLayout;
+        m.Items.Add(Article(h ? "Vers le haut" : "Vers la gauche", () => Deplacer(s, -1), PeutDeplacer(s, -1)));
+        m.Items.Add(Article(h ? "Vers le bas" : "Vers la droite", () => Deplacer(s, 1), PeutDeplacer(s, 1)));
+        m.Items.Add(new Separator());
+        if (globale)
+            m.Items.Add(Article("Désactiver ce périphérique global", () =>
+            {
+                if (!Dialogue.Confirmer(Fenetre, $"Désactiver « {s.Name} » ? Comme dans OBS, il quitte le mélangeur ; Réglages › Audio › Périphériques audio globaux pour le remettre.", "Désactiver")) return;
+                C.RegleGlobal(s.Global, null);
+                Appliquer();
+            }));
+        else
+            m.Items.Add(Article("Supprimer", () =>
+            {
+                if (!Dialogue.Confirmer(Fenetre, $"Retirer « {s.Name} » du mélangeur ? Elle sort aussi des enregistrements et des sorties.", "Retirer")) return;
+                C.Retirer(s);
+                Appliquer();
+            }));
+        Ouvrir(m, b.Nom.IsMouseOver ? b.Nom : b.Cadre, b.Nom.IsMouseOver ? PlacementMode.Bottom : PlacementMode.MousePoint);
     }
 
     void Appliquer()
@@ -1149,12 +1364,56 @@ public sealed class AudioPanel : Border
         Rafraichir();
     }
 
+    /// <summary>Changer de place avec la voisine affichée du même groupe (les globales restent dans l'ordre des réglages, comme OBS).</summary>
+    bool PeutDeplacer(AudioSource s, int sens)
+    {
+        if (s.Global.Length > 0) return false;
+        var vus = C.Affichage(A.Inactive);
+        int i = vus.IndexOf(s), j = i + sens;
+        return i >= 0 && j >= 0 && j < vus.Count && C.Groupe(vus[j], A.Inactive(vus[j])) == C.Groupe(s, A.Inactive(s));
+    }
+
     void Deplacer(AudioSource s, int sens)
     {
-        int i = C.Sources.IndexOf(s), j = i + sens;
-        if (i < 0 || j < 0 || j >= C.Sources.Count) return;
-        (C.Sources[i], C.Sources[j]) = (C.Sources[j], C.Sources[i]);
+        if (!PeutDeplacer(s, sens)) return;
+        var vus = C.Affichage(A.Inactive);
+        var autre = vus[vus.IndexOf(s) + sens];
+        int a = C.Sources.IndexOf(s), z = C.Sources.IndexOf(autre);
+        (C.Sources[a], C.Sources[z]) = (C.Sources[z], C.Sources[a]);
         Appliquer();
+    }
+
+    /// <summary>Les options du mélangeur d'OBS 32.1.</summary>
+    void MenuOptions()
+    {
+        var m = new ContextMenu();
+        MenuItem Case(string titre, bool valeur, Action<bool> changer)
+        {
+            var it = new MenuItem { Header = titre, IsCheckable = true, IsChecked = valeur };
+            it.Click += (_, _) => { changer(it.IsChecked); A.Apply(); Rafraichir(); };
+            return it;
+        }
+        m.Items.Add(Case("Afficher les sources masquées", C.ShowHidden, v => C.ShowHidden = v));
+        m.Items.Add(Case("Afficher les sources inactives", C.ShowInactive, v => C.ShowInactive = v));
+        m.Items.Add(Case("Garder les sources masquées à droite", C.HiddenRight, v => C.HiddenRight = v));
+        m.Items.Add(Case("Garder les sources inactives à droite", C.InactiveRight, v => C.InactiveRight = v));
+        m.Items.Add(new Separator());
+        m.Items.Add(Article("Tout réafficher", () => { foreach (var x in C.Sources) x.Hidden = false; Appliquer(); }, C.Sources.Any(x => x.Hidden)));
+        m.Items.Add(new Separator());
+        m.Items.Add(Case("Disposition verticale", C.VerticalLayout, v => C.VerticalLayout = v));
+        m.Items.Add(Article("Propriétés audio avancées…", OuvrirProprietes));
+        m.Items.Add(Article("Réglages audio…", () => (Fenetre as MainWindow)?.OuvrirParametres()));
+        Ouvrir(m, options, PlacementMode.Bottom);
+    }
+
+    /// <summary>Les propriétés audio avancées d'OBS : toutes les sources dans un tableau.</summary>
+    public void OuvrirProprietes()
+    {
+        var w = new ProprietesAudioWindow();
+        if (Fenetre is { IsLoaded: true } f) w.Owner = f;
+        else w.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        w.ShowDialog();
+        Rafraichir();
     }
 
     void ChangerPeripherique(AudioSource s)
@@ -1218,6 +1477,9 @@ internal sealed class EchelleDb : FrameworkElement
 {
     static readonly CultureInfo Fr = CultureInfo.GetCultureInfo("fr-CA");
 
+    /// <summary>Échelle couchée sous les vumètres de la disposition horizontale : −60 à gauche, 0 à droite.</summary>
+    public bool Horizontale { get; init; }
+
     public EchelleDb()
     {
         // redessinée quand le thème change (les couleurs sont figées dans le dessin)
@@ -1238,6 +1500,19 @@ internal sealed class EchelleDb : FrameworkElement
         trait.Freeze();
         var police = new Typeface(TryFindResource("Ui") as FontFamily ?? new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
         double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+        if (Horizontale)
+        {
+            int pasH = w / 12 >= 26 ? 5 : 10;
+            for (int db = 0; db >= -60; db -= 5)
+            {
+                double x = Math.Round(w * (db + 60) / 60.0) + 0.5;
+                dc.DrawLine(trait, new Point(x, 0), new Point(x, db % 10 == 0 ? 4 : 2));
+                if (db % pasH != 0) continue;
+                var t = new FormattedText(db == 0 ? "0" : "−" + (-db).ToString(Fr), Fr, FlowDirection.LeftToRight, police, 9.5, encre, dpi);
+                dc.DrawText(t, new Point(Math.Clamp(x - t.Width / 2, 0, Math.Max(0, w - t.Width)), 4));
+            }
+            return;
+        }
         for (int db = 0; db >= -60; db -= 5)
         {
             double y = Math.Round(h * -db / 60.0) + 0.5;
@@ -1261,8 +1536,11 @@ internal sealed class Vumetre : Grid
     readonly Border crete;
     readonly RectangleGeometry coupe = new(new Rect(0, 0, 0, 0));
     double affiche = double.NegativeInfinity, pic = double.NegativeInfinity;
-    long picDepuis;
+    long picDepuis, dernier;
     bool gris;
+
+    /// <summary>Vitesse de retombée (dB par seconde) de Réglages › Audio › Vumètres, comme OBS : rapide 23,53, moyenne 11,76, lente 8,57.</summary>
+    internal static double Retombee = 23.53;
 
     public Vumetre(double epaisseur, bool vertical = false)
     {
@@ -1292,9 +1570,11 @@ internal sealed class Vumetre : Grid
     public void Niveau(double dbfs)
     {
         if (double.IsNaN(dbfs) || dbfs < -100) dbfs = -100;
-        // retombée d'environ 24 dB par seconde, montée immédiate ; la crête reste 1,5 s puis redescend
-        affiche = dbfs >= affiche ? dbfs : Math.Max(dbfs, affiche - 1.2);
+        // montée immédiate, retombée à la vitesse choisie (comme OBS) ; la crête reste 1,5 s puis redescend
         long maintenant = Environment.TickCount64;
+        double dt = dernier == 0 ? 0.05 : Math.Clamp((maintenant - dernier) / 1000.0, 0, 0.5);
+        dernier = maintenant;
+        affiche = dbfs >= affiche ? dbfs : Math.Max(dbfs, affiche - Retombee * dt);
         if (dbfs >= pic) { pic = dbfs; picDepuis = maintenant; }
         else if (maintenant - picDepuis > 1500) pic = Math.Max(affiche, pic - 1.5);
         double f = Math.Clamp((affiche + 60) / 60, 0, 1), fp = Math.Clamp((pic + 60) / 60, 0, 1);

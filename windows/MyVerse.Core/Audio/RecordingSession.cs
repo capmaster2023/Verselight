@@ -45,7 +45,7 @@ public sealed class RecordingSession : IDisposable
         {
             audioPipe = NamedPipe(); if (!profile.AudioOnly) videoPipe = NamedPipe();
         }
-        primeFrames = videoPipe == null ? 0 : 48000 / profile.Fps;
+        primeFrames = videoPipe == null ? 0 : AudioBlock.Rate / profile.Fps;
     }
     static readonly System.Runtime.CompilerServices.ConditionalWeakTable<NamedPipeServerStream, PipeName> names = new();
     sealed record PipeName(string Value);
@@ -65,7 +65,7 @@ public sealed class RecordingSession : IDisposable
         // pas de « -thread_queue_size » sur les entrées : les ffmpeg récents le refusent, et la vidéo suit le son reçu
         var args = new List<string> { "-hide_banner", "-loglevel", "warning", "-nostdin", "-y" };
         if (videoInput != null) args.AddRange(new[] { "-f", "rawvideo", "-pixel_format", "bgra", "-video_size", $"{profile.Width}x{profile.Height}", "-framerate", profile.Fps.ToString(), "-probesize", "32", "-analyzeduration", "0", "-i", videoInput });
-        args.AddRange(new[] { "-f", "f32le", "-ar", "48000", "-ac", "2", "-probesize", "32", "-analyzeduration", "0", "-i", audioInput });
+        args.AddRange(new[] { "-f", "f32le", "-ar", AudioBlock.Rate.ToString(), "-ac", "2", "-probesize", "32", "-analyzeduration", "0", "-i", audioInput });
         if (videoInput != null)
         {
             args.AddRange(new[] { "-map", "0:v:0", "-map", "1:a:0", "-c:v", encoder, "-b:v", profile.VideoKbps + "k", "-pix_fmt", encoder == "mjpeg" ? "yuvj420p" : "yuv420p", "-c:a", "aac", "-b:a", profile.AudioKbps + "k", "-cluster_time_limit", "1000", "-f", "matroska" });
@@ -81,7 +81,7 @@ public sealed class RecordingSession : IDisposable
     }
     public bool Accept(ReadOnlySpan<float> audio)
     {
-        if (audio.Length != AudioBlock.Samples) throw new ArgumentException("Un bloc stéréo de 480 trames est requis.");
+        if (audio.Length != AudioBlock.Samples) throw new ArgumentException($"Un bloc stéréo de {AudioBlock.Frames} trames est requis.");
         lock (gate)
         {
             if (finished || error != null) return false;
@@ -183,12 +183,12 @@ public sealed class RecordingSession : IDisposable
         await SendAsync();
         // L'image suit le son REÇU, pas le son déjà lu par ffmpeg : ffmpeg peut retenir le son tant qu'un encodeur
         // avec retard (x264, carte graphique) n'a pas sorti ses premières images ; si la vidéo attendait le son écrit,
-        // les deux s'attendraient l'un l'autre (fichier vide). Pas de dérive : une image tous les 48000 / ips trames reçues.
+        // les deux s'attendraient l'un l'autre (fichier vide). Pas de dérive : une image tous les « fréquence / ips » trames reçues.
         while (!cancel.IsCancellationRequested)
         {
             // lu avant le compte : une fois l'arrêt vu, plus aucun bloc ne s'ajoute, le compte est définitif
             bool fini = Volatile.Read(ref finished) || audioDone;
-            long wanted = ((primeFrames + Interlocked.Read(ref accepted)) * profile.Fps + 47999) / 48000;
+            long wanted = ((primeFrames + Interlocked.Read(ref accepted)) * profile.Fps + AudioBlock.Rate - 1) / AudioBlock.Rate;
             if (wanted - sent > profile.Fps * 2) { Fail("L’encodeur vidéo ne suit plus le son. Arrêt pour préserver la synchronisation."); break; }
             if (sent < wanted) await SendAsync();
             // plus aucun son ne sera reçu : la vidéo se termine tout de suite (l'encodeur vide ses images en attente),

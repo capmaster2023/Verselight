@@ -161,7 +161,7 @@ object MyCam {
     fun demarrerDiffusion() {
         val r = remote ?: return
         if (r.proto.value < 2) {
-            Bulles.dire("MyCam demande MyChurch 3.4 ou plus sur le PC.")
+            Bulles.dire("MyCam demande MyChurch 4.0 ou plus sur le PC.")
             return
         }
         diffuse.value = true

@@ -50,7 +50,7 @@ public sealed class PcmRecordingWriter : IDisposable
         using var w = new BinaryWriter(file, Encoding.ASCII, true);
         w.Write(Encoding.ASCII.GetBytes("RF64")); w.Write(uint.MaxValue); w.Write(Encoding.ASCII.GetBytes("WAVEds64")); w.Write(28u);
         w.Write(72L); w.Write(0L); w.Write(0L); w.Write(0u);
-        w.Write(Encoding.ASCII.GetBytes("fmt ")); w.Write(16u); w.Write((ushort)1); w.Write((ushort)2); w.Write(48000u); w.Write(288000u); w.Write((ushort)6); w.Write((ushort)24);
+        w.Write(Encoding.ASCII.GetBytes("fmt ")); w.Write(16u); w.Write((ushort)1); w.Write((ushort)2); w.Write((uint)AudioBlock.Rate); w.Write((uint)AudioBlock.Rate * 6u); w.Write((ushort)6); w.Write((ushort)24);
         w.Write(Encoding.ASCII.GetBytes("data")); w.Write(uint.MaxValue);
     }
     public void Write(ReadOnlySpan<float> audio)
@@ -62,7 +62,7 @@ public sealed class PcmRecordingWriter : IDisposable
             bytes[i * 3] = (byte)sample; bytes[i * 3 + 1] = (byte)(sample >> 8); bytes[i * 3 + 2] = (byte)(sample >> 16);
         }
         file.Write(bytes, 0, audio.Length * 3); frames += audio.Length / 2;
-        if (frames - checkpoint >= 48000) { Checkpoint(); checkpoint = frames; }
+        if (frames - checkpoint >= AudioBlock.Rate) { Checkpoint(); checkpoint = frames; }
     }
     void Checkpoint()
     {

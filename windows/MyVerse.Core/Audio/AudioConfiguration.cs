@@ -71,6 +71,65 @@ public sealed class AudioSource
     /// <summary>Écoute au casque (monitoring OBS) : coupée, écoute seule (la source ne va plus dans les pistes) ou écoute et sortie.</summary>
     public AudioMonitoring Monitoring { get; set; } = AudioMonitoring.Off;
     public List<AudioFilter> Filters { get; set; } = new();
+
+    // ---------------- MyChurch 4.0 : comme OBS 32
+    /// <summary>Périphérique audio global d'OBS (Réglages › Audio) : « bureau1 », « bureau2 », « micro1 » à « micro4 ». Vide pour une source ajoutée au mélangeur.</summary>
+    public string Global { get; set; } = "";
+    /// <summary>Épinglée (OBS 32.1) : toujours affichée dans le mélangeur, à gauche, avec les sources globales.</summary>
+    public bool Pinned { get; set; }
+    /// <summary>Masquée dans le mélangeur (OBS : « Masquer ») ; l'option « Afficher les sources masquées » ou « Tout réafficher » la fait revenir.</summary>
+    public bool Hidden { get; set; }
+    /// <summary>Balance comme dans les propriétés audio avancées d'OBS : 0 = tout à gauche, 0,5 = centre, 1 = tout à droite.</summary>
+    public double Balance { get; set; } = 0.5;
+    /// <summary>Décalage de synchronisation (ms) des propriétés audio avancées d'OBS, de −950 à 20 000 : retarde le son de la source.</summary>
+    public int SyncOffsetMs { get; set; }
+    /// <summary>Raccourcis d'OBS : « appuyer pour couper le son » et « appuyer pour parler », leur délai après relâchement (ms) et leur touche (ex. « Ctrl+F13 »).</summary>
+    public bool PushToMute { get; set; }
+    public int PushToMuteDelayMs { get; set; }
+    public string PushToMuteKey { get; set; } = "";
+    public bool PushToTalk { get; set; }
+    public int PushToTalkDelayMs { get; set; }
+    public string PushToTalkKey { get; set; } = "";
+}
+
+/// <summary>Un des six périphériques audio globaux d'OBS (Réglages › Audio).</summary>
+public sealed record AudioGlobal(string Slot, string Nom, AudioInputKind Kind);
+
+/// <summary>Comment OBS 32.1 étiquette une source dans le mélangeur.</summary>
+public enum EtatMelangeur { Globale, Epinglee, Active, Inactive, Masquee }
+
+/// <summary>
+/// « Appuyer pour parler » et « appuyer pour couper le son » d'OBS pour une source : la touche enfoncée, puis le délai après relâchement.
+/// Même règle que libobs : coupée si l'appui pour couper est enfoncé (ou dans son délai), ou si l'appui pour parler n'est ni enfoncé ni dans son délai.
+/// </summary>
+public sealed class EtatRaccourcis
+{
+    long parlerJusqua = long.MinValue, couperJusqua = long.MinValue;
+
+    /// <summary>Met à jour l'état d'après les touches à l'instant <paramref name="ms"/> ; vrai si la source doit être coupée par ses raccourcis.</summary>
+    public bool Coupee(AudioSource s, bool parlerEnfonce, bool couperEnfonce, long ms) =>
+        Coupee(s.PushToTalk, s.PushToTalkDelayMs, parlerEnfonce, s.PushToMute, s.PushToMuteDelayMs, couperEnfonce, ms);
+
+    /// <summary>Idem, raccourcis donnés un par un (MyChurch n'active un raccourci que s'il a une touche).</summary>
+    public bool Coupee(bool parler, int delaiParler, bool parlerEnfonce, bool couper, int delaiCouper, bool couperEnfonce, long ms)
+    {
+        bool coupee = false;
+        if (parler)
+        {
+            if (parlerEnfonce) parlerJusqua = long.MaxValue;
+            else if (parlerJusqua == long.MaxValue) parlerJusqua = ms + Math.Max(0, delaiParler);
+            if (ms >= parlerJusqua) coupee = true;
+        }
+        else parlerJusqua = long.MinValue;
+        if (couper)
+        {
+            if (couperEnfonce) couperJusqua = long.MaxValue;
+            else if (couperJusqua == long.MaxValue) couperJusqua = ms + Math.Max(0, delaiCouper);
+            if (ms < couperJusqua) coupee = true;
+        }
+        else couperJusqua = long.MinValue;
+        return coupee;
+    }
 }
 
 /// <summary>Ce qui reçoit un mélange d'OBS : un enregistrement ou une sortie MyVirtualSound. Chacun choisit ses sources ;
@@ -190,14 +249,45 @@ public sealed class VirtualSoundSettings : IDestinationAudio
 
 public sealed class AudioConfiguration
 {
-    /// <summary>4 : enregistrements choisis par l'utilisateur (MyChurch 3.0.1).</summary>
-    public const int Actuelle = 4;
+    /// <summary>5 : réglages audio et périphériques globaux d'OBS 32 (MyChurch 4.0). 4 : enregistrements choisis par l'utilisateur (3.0.1).</summary>
+    public const int Actuelle = 5;
     public const int Pistes = 6;
     public const int MaxEnregistrements = 5;
     public const int MaxSortiesVirtuelles = 4;
+    /// <summary>Bandes du mélangeur au plus.</summary>
+    public const int MaxSources = 32;
     /// <summary>Entrées d'un périphérique qu'une bande peut écouter seule (cartes son jusqu'à 32 canaux).</summary>
     public const int MaxEntrees = 32;
     public int Version { get; set; } = Actuelle;
+
+    // ---------------- Réglages › Audio, comme OBS 32
+    /// <summary>Général : fréquence d'échantillonnage du moteur, 44 100 ou 48 000 Hz. Comme dans OBS, elle s'applique au prochain démarrage.</summary>
+    public int SampleRate { get; set; } = 48000;
+    /// <summary>Général : canaux du moteur (mono, stereo, 2.1, 4.0, 4.1, 5.1, 7.1), au prochain démarrage. Enregistrements et sorties restent en stéréo.</summary>
+    public string Channels { get; set; } = "stereo";
+    /// <summary>Vumètres : vitesse de retombée « rapide », « moyenne » (PPM de type I) ou « lente » (PPM de type II).</summary>
+    public string MeterDecay { get; set; } = "rapide";
+    /// <summary>Vumètres : « echantillon » (crête d'échantillon) ou « reelle » (crête réelle, plus de processeur).</summary>
+    public string PeakMeter { get; set; } = "echantillon";
+    /// <summary>Avancé : MyChurch n'est plus baissé par Windows pendant un appel (atténuation audio de Windows désactivée).</summary>
+    public bool DisableDucking { get; set; }
+    /// <summary>Avancé : mise en mémoire tampon audio à faible latence (pour les sorties Decklink/NDI), au prochain démarrage.</summary>
+    public bool LowLatency { get; set; }
+    /// <summary>Un micro ou une carte son branché pour la première fois s'ajoute tout seul au mélangeur.</summary>
+    public bool AutoAddInputs { get; set; } = true;
+    /// <summary>Les entrées audio déjà vues (identifiants Windows) : seules les nouvelles s'ajoutent toutes seules.</summary>
+    public List<string> KnownInputs { get; set; } = new();
+    /// <summary>Le premier relevé des entrées est fait (il note ce qui est déjà branché sans rien ajouter).</summary>
+    public bool KnownInputsReady { get; set; }
+    /// <summary>« Audio du bureau » et « Micro/Aux » ont été créés au premier démarrage, comme dans OBS (une seule fois).</summary>
+    public bool GlobalsInitialized { get; set; }
+    /// <summary>Mélangeur (options d'OBS 32.1) : afficher les sources masquées, les inactives, et les garder à droite.</summary>
+    public bool ShowHidden { get; set; }
+    public bool ShowInactive { get; set; }
+    public bool HiddenRight { get; set; }
+    public bool InactiveRight { get; set; }
+    /// <summary>Mélangeur vertical (par défaut depuis OBS 32.1) ou horizontal.</summary>
+    public bool VerticalLayout { get; set; } = true;
     public string FfmpegPath { get; set; } = "";
     /// <summary>Périphérique d'écoute au casque (monitoring OBS) ; « default » = sortie Windows par défaut.</summary>
     public string MonitorDeviceId { get; set; } = "default";
@@ -224,6 +314,170 @@ public sealed class AudioConfiguration
     /// <summary>Les enregistrements créés par l'utilisateur (5 au plus). Nom JSON « enregistrements » : le profil automatique de la 3.0.0 n'est pas repris.</summary>
     [JsonPropertyName("enregistrements")]
     public List<RecordingProfile> Profiles { get; set; } = new();
+
+    // ---------------- les choix des Réglages › Audio d'OBS 32
+    /// <summary>Les six périphériques audio globaux d'OBS, dans l'ordre de ses réglages.</summary>
+    public static readonly IReadOnlyList<AudioGlobal> Globaux = new AudioGlobal[]
+    {
+        new("bureau1", "Audio du bureau", AudioInputKind.Sortie),
+        new("bureau2", "Audio du bureau 2", AudioInputKind.Sortie),
+        new("micro1", "Micro/Aux", AudioInputKind.Microphone),
+        new("micro2", "Micro/Aux 2", AudioInputKind.Microphone),
+        new("micro3", "Micro/Aux 3", AudioInputKind.Microphone),
+        new("micro4", "Micro/Aux 4", AudioInputKind.Microphone),
+    };
+    /// <summary>Canaux d'OBS : identifiant, nom, « speaker_layout » de libobs.</summary>
+    public static readonly IReadOnlyList<(string Id, string Nom, int Speakers)> Dispositions = new[]
+    {
+        ("mono", "Mono", 1), ("stereo", "Stéréo", 2), ("2.1", "2.1", 3), ("4.0", "4.0", 4), ("4.1", "4.1", 5), ("5.1", "5.1", 6), ("7.1", "7.1", 8),
+    };
+    /// <summary>Vitesses de retombée des vumètres d'OBS (dB par seconde).</summary>
+    public static readonly IReadOnlyList<(string Id, string Nom, double DbParSeconde)> Retombees = new[]
+    {
+        ("rapide", "Rapide", 23.53), ("moyenne", "Moyenne (PPM de type I)", 11.76), ("lente", "Lente (PPM de type II)", 8.57),
+    };
+    /// <summary>Types de crête des vumètres d'OBS (obs_peak_meter_type).</summary>
+    public static readonly IReadOnlyList<(string Id, string Nom, int Type)> Cretes = new[]
+    {
+        ("echantillon", "Crête d'échantillon", 0), ("reelle", "Crête réelle (utilise plus le processeur)", 1),
+    };
+    public static AudioGlobal? InfoGlobal(string? slot) => Globaux.FirstOrDefault(g => g.Slot == slot);
+    /// <summary>Rang d'un périphérique global dans les réglages (0 à 5), −1 sinon.</summary>
+    public static int RangGlobal(string? slot)
+    {
+        for (int i = 0; i < Globaux.Count; i++) if (Globaux[i].Slot == slot) return i;
+        return -1;
+    }
+    /// <summary>Le « speaker_layout » de libobs pour les canaux choisis.</summary>
+    public int HautParleurs
+    {
+        get
+        {
+            foreach (var d in Dispositions) if (d.Id == Channels) return d.Speakers;
+            return 2;
+        }
+    }
+    public double RetombeeDbParSeconde
+    {
+        get
+        {
+            foreach (var r in Retombees) if (r.Id == MeterDecay) return r.DbParSeconde;
+            return 23.53;
+        }
+    }
+    public int TypeCrete => PeakMeter == "reelle" ? 1 : 0;
+
+    /// <summary>La source d'un périphérique global, s'il n'est pas désactivé.</summary>
+    public AudioSource? Globale(string slot) => Sources.FirstOrDefault(s => s.Global == slot);
+
+    /// <summary>
+    /// Règle un périphérique global comme dans OBS : null = « Désactivé » (la source quitte le mélangeur), « default » = « Par défaut »
+    /// (suit le périphérique Windows par défaut), sinon le périphérique choisi. Les globales restent en tête du mélangeur.
+    /// </summary>
+    public AudioSource? RegleGlobal(string slot, string? deviceId, string deviceName = "")
+    {
+        var info = InfoGlobal(slot) ?? throw new ArgumentException("Périphérique global inconnu : " + slot);
+        var s = Globale(slot);
+        if (deviceId == null)
+        {
+            if (s != null) Retirer(s);
+            return null;
+        }
+        if (s == null)
+        {
+            s = new AudioSource { Name = info.Nom, Kind = info.Kind, Global = slot };
+            int rang = RangGlobal(slot);
+            int ou = Sources.TakeWhile(x => x.Global.Length > 0 && RangGlobal(x.Global) < rang).Count();
+            Sources.Insert(ou, s);
+        }
+        s.DeviceId = deviceId.Length == 0 ? "default" : deviceId;
+        s.DeviceName = s.DeviceId == "default" ? "" : deviceName ?? "";
+        return s;
+    }
+
+    /// <summary>Retire une source du mélangeur, de ses enregistrements et de ses sorties MyVirtualSound.</summary>
+    public void Retirer(AudioSource s)
+    {
+        Sources.Remove(s);
+        foreach (var d in Profiles.Cast<IDestinationAudio>().Concat(VirtualSounds)) d.SourceIds.Remove(s.Id);
+    }
+
+    /// <summary>Premier démarrage, comme OBS : « Audio du bureau » et « Micro/Aux » sur les périphériques Windows par défaut, si le mélangeur est vide. Une seule fois.</summary>
+    public bool InitialiserGlobaux()
+    {
+        if (GlobalsInitialized) return false;
+        GlobalsInitialized = true;
+        if (Sources.Count > 0) return false;
+        RegleGlobal("bureau1", "default");
+        RegleGlobal("micro1", "default");
+        return true;
+    }
+
+    /// <summary>« Microphone (Focusrite USB) » → « Focusrite USB » : un nom court pour une bande.</summary>
+    public static string NomCourt(string nom)
+    {
+        nom ??= "";
+        int a = nom.IndexOf('('), b = nom.LastIndexOf(')');
+        return a >= 0 && b > a + 1 ? nom[(a + 1)..b].Trim() : nom.Trim();
+    }
+
+    /// <summary>Un nom de bande pas encore pris : « Micro », « Micro 2 »…</summary>
+    public string NomLibre(string nom)
+    {
+        if (string.IsNullOrWhiteSpace(nom)) nom = "Source";
+        if (Sources.All(s => s.Name != nom)) return nom;
+        for (int i = 2; ; i++)
+            if (Sources.All(s => s.Name != $"{nom} {i}")) return $"{nom} {i}";
+    }
+
+    /// <summary>
+    /// Les entrées audio branchées pour la première fois (jamais vues par MyChurch). Le tout premier relevé ne fait que noter
+    /// ce qui est déjà branché : seules les entrées branchées ensuite s'ajoutent toutes seules au mélangeur.
+    /// </summary>
+    public List<AudioDevice> NouvellesEntrees(IEnumerable<AudioDevice> presentes)
+    {
+        KnownInputs ??= new();
+        var liste = presentes.Where(d => !string.IsNullOrEmpty(d.Id) && d.Id != "default").GroupBy(d => d.Id).Select(g => g.First()).ToList();
+        if (!KnownInputsReady)
+        {
+            KnownInputs = KnownInputs.Concat(liste.Select(d => d.Id)).Distinct().ToList();
+            KnownInputsReady = true;
+            return new();
+        }
+        var nouvelles = liste.Where(d => !KnownInputs.Contains(d.Id)).ToList();
+        KnownInputs.AddRange(nouvelles.Select(d => d.Id));
+        if (KnownInputs.Count > 200) KnownInputs.RemoveRange(0, KnownInputs.Count - 200);
+        return nouvelles;
+    }
+
+    /// <summary>Ajoute au mélangeur une entrée qui vient d'être branchée : une bande stéréo, comme une capture d'entrée audio d'OBS.
+    /// Null si le périphérique a déjà sa bande ou si le mélangeur est plein.</summary>
+    public AudioSource? AjouterEntree(AudioDevice d)
+    {
+        if (Sources.Count >= MaxSources || Sources.Any(s => s.Kind == AudioInputKind.Microphone && s.DeviceId == d.Id)) return null;
+        var s = new AudioSource { Name = NomLibre(NomCourt(d.Name)), Kind = AudioInputKind.Microphone, DeviceId = d.Id, DeviceName = d.Name };
+        Sources.Add(s);
+        return s;
+    }
+
+    /// <summary>L'étiquette d'OBS 32.1 : Globale, Épinglée, Masquée, Inactive ou Active.</summary>
+    public static EtatMelangeur Etat(AudioSource s, bool inactive) =>
+        s.Global.Length > 0 ? EtatMelangeur.Globale : s.Pinned ? EtatMelangeur.Epinglee : s.Hidden ? EtatMelangeur.Masquee : inactive ? EtatMelangeur.Inactive : EtatMelangeur.Active;
+
+    /// <summary>Visible dans le mélangeur : les globales et les épinglées toujours ; les masquées et les inactives selon les options.</summary>
+    public bool Visible(AudioSource s, bool inactive) =>
+        s.Global.Length > 0 || s.Pinned || ((!s.Hidden || ShowHidden) && (!inactive || ShowInactive));
+
+    /// <summary>
+    /// Les bandes du mélangeur dans l'ordre d'OBS 32.1 : les globales (ordre des réglages), les épinglées, puis les autres dans l'ordre choisi ;
+    /// les masquées et les inactives seulement si les options les montrent, et en dernier si « garder à droite » est coché.
+    /// </summary>
+    public List<AudioSource> Affichage(Func<AudioSource, bool> inactive) =>
+        Sources.Where(s => Visible(s, inactive(s))).OrderBy(s => Groupe(s, inactive(s))).ThenBy(s => s.Global.Length > 0 ? RangGlobal(s.Global) : 0).ToList();
+
+    /// <summary>Le groupe d'une bande dans le mélangeur : 0 globales, 1 épinglées, 2 les autres, 3 masquées gardées à droite, 4 inactives gardées à droite.</summary>
+    public int Groupe(AudioSource s, bool inactive) =>
+        s.Global.Length > 0 ? 0 : s.Pinned ? 1 : s.Hidden && HiddenRight ? 3 : inactive && InactiveRight ? 4 : 2;
 
     /// <summary>Dossier des enregistrements par défaut : Vidéos\MyChurch.</summary>
     public static string DossierEnregistrements
@@ -256,7 +510,15 @@ public sealed class AudioConfiguration
             }
             AncienneSortie = null;
         }
+        // 4.0 : la « sampleRate » de la 1.2 bêta (son ancien mélangeur) n'est pas reprise
+        if (Version < 5) { SampleRate = 48000; Channels = "stereo"; }
         Version = Actuelle;
+        if (SampleRate != 44100) SampleRate = 48000;
+        if (Dispositions.All(d => d.Id != Channels)) Channels = "stereo";
+        if (Retombees.All(r => r.Id != MeterDecay)) MeterDecay = "rapide";
+        if (PeakMeter != "reelle") PeakMeter = "echantillon";
+        KnownInputs = (KnownInputs ?? new()).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().ToList();
+        if (KnownInputs.Count > 200) KnownInputs.RemoveRange(0, KnownInputs.Count - 200);
         if (string.IsNullOrEmpty(MonitorDeviceId)) MonitorDeviceId = "default";
         MonitorDeviceName ??= "";
         if (string.IsNullOrEmpty(MicrophoneId)) MicrophoneId = "default";
@@ -264,9 +526,24 @@ public sealed class AudioConfiguration
         MicrophoneName ??= ""; OutputName ??= "";
         var ids = new HashSet<string>();
         Sources.RemoveAll(s => s == null || string.IsNullOrEmpty(s.Id) || !ids.Add(s.Id));
-        if (Sources.Count > 32) Sources.RemoveRange(32, Sources.Count - 32);
+        if (Sources.Count > MaxSources) Sources.RemoveRange(MaxSources, Sources.Count - MaxSources);
+        var emplacements = new HashSet<string>();
         foreach (var s in Sources)
         {
+            // périphérique global : un seul par emplacement, du genre d'OBS (sortie ou micro), le périphérique entier, jamais masqué
+            s.Global ??= "";
+            var g = InfoGlobal(s.Global);
+            if (g == null || !emplacements.Add(g.Slot)) s.Global = "";
+            else { s.Kind = g.Kind; s.Channel = 0; s.Hidden = false; s.Pinned = false; s.FollowProjection = false; }
+            if (s.Pinned) s.Hidden = false;
+            s.Balance = Bound(s.Balance, 0, 1, 0.5);
+            s.SyncOffsetMs = Math.Clamp(s.SyncOffsetMs, -950, 20000);
+            s.PushToMuteDelayMs = Math.Clamp(s.PushToMuteDelayMs, 0, 10000);
+            s.PushToTalkDelayMs = Math.Clamp(s.PushToTalkDelayMs, 0, 10000);
+            s.PushToMuteKey = (s.PushToMuteKey ?? "").Trim();
+            s.PushToTalkKey = (s.PushToTalkKey ?? "").Trim();
+            if (s.PushToMuteKey.Length > 64) s.PushToMuteKey = "";
+            if (s.PushToTalkKey.Length > 64) s.PushToTalkKey = "";
             s.Name = string.IsNullOrWhiteSpace(s.Name) ? "Source" : s.Name.Trim();
             if (string.IsNullOrEmpty(s.DeviceId)) s.DeviceId = "default";
             s.DeviceName ??= ""; s.MediaPath ??= ""; s.Filters ??= new();
@@ -389,12 +666,16 @@ public sealed class AudioConfiguration
     }
 }
 
-/// <summary>Blocs remis à l'enregistrement : 10 ms, stéréo entrelacée, 48 kHz.</summary>
+/// <summary>
+/// Blocs remis à l'enregistrement et aux sorties : 10 ms, stéréo entrelacée, à la fréquence du moteur (48 kHz, ou 44,1 kHz choisi
+/// dans Réglages › Audio). Comme dans OBS, elle est fixée au démarrage du moteur et ne change qu'au prochain démarrage.
+/// </summary>
 public static class AudioBlock
 {
-    public const int Rate = 48000;
-    public const int Frames = 480;
-    public const int Samples = Frames * 2;
+    public static int Rate { get; private set; } = 48000;
+    public static int Frames => Rate / 100;
+    public static int Samples => Frames * 2;
+    public static void Configurer(int rate) => Rate = rate == 44100 ? 44100 : 48000;
 }
 public static class AudioMath
 {

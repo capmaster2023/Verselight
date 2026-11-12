@@ -56,7 +56,7 @@ data class VueEcran(
 
         fun de(s: JSONObject?): VueEcran {
             if (s == null) return VIDE
-            // « ecran » (PC 3.4) : le vrai mode, « fond » compris ; « mode » : celui des anciennes apps
+            // « ecran » (PC 4.0) : le vrai mode, « fond » compris ; « mode » : celui des anciennes apps
             val mode = if (s.optBoolean("noir")) "noir" else s.optString("ecran").ifBlank { s.optString("mode", "vide") }.ifBlank { "vide" }
             return VueEcran(mode, lignes(s), s.optString("ref"), s.optString("titre"), s.optString("theme", "nuit").ifBlank { "nuit" }, s.optString("mediaType"))
         }

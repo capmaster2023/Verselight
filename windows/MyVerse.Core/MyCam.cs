@@ -4,7 +4,7 @@ using System.Text.Json.Nodes;
 namespace MyVerse;
 
 /// <summary>
-/// MyCam (MyChurch 3.4) : les téléphones jumelés qui servent de caméra, comme DroidCam.
+/// MyCam (MyChurch 4.0) : les téléphones jumelés qui servent de caméra, comme DroidCam.
 /// Le téléphone envoie des images JPEG par sa connexion WebSocket déjà authentifiée (messages binaires « MC ») ;
 /// ce registre garde la dernière image et l'état de chaque téléphone (nom, image, batterie, lien).
 /// La source Display « mycam » (Peripherique = identifiant du téléphone) affiche ces images.

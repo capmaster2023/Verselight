@@ -75,7 +75,7 @@ fun CulteOnglet(remote: Remote) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (vue == 0) {
                 if (proto >= 2) Deroule(remote)
-                else Info("Mettez MyChurch à jour sur le PC (3.4 ou plus) pour suivre le déroulé ici. Les sources Display marchent déjà.")
+                else Info("Mettez MyChurch à jour sur le PC (4.0 ou plus) pour suivre le déroulé ici. Les sources Display marchent déjà.")
             } else Sources(remote)
         }
         BarreLive(remote)

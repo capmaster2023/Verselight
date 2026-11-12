@@ -79,6 +79,115 @@ public static class AutoTest
     /// deux enregistrements qui tournent en même temps (une vidéo MKV avec la projection et deux sources Display, un WAV qui
     /// coupe les autres sources), puis les fichiers relus par le ffmpeg livré avec MyChurch. Captures du panneau et des fenêtres.
     /// </summary>
+    /// <summary>
+    /// MyChurch 4.0 : l'audio comme OBS 32. Périphériques globaux créés au premier démarrage, carte son branchée ajoutée toute seule
+    /// (relevé simulé : la machine du CI n'a pas de micro), inactive quand elle est débranchée, épingler et masquer, disposition horizontale,
+    /// appuyer pour parler, balance et synchro, fréquence au prochain démarrage, propriétés audio avancées et page Réglages › Audio.
+    /// </summary>
+    static async Task TestAudioObs32(MainWindow w)
+    {
+        var cfg = App.Audio.Config;
+        var avant = MyVerse.Audio.AudioConfiguration.Copy(cfg);
+        try
+        {
+            cfg.Sources.Clear(); cfg.Profiles.Clear(); cfg.VirtualSounds.Clear();
+            cfg.GlobalsInitialized = false;
+            cfg.ShowHidden = false; cfg.ShowInactive = false; cfg.HiddenRight = false; cfg.InactiveRight = false; cfg.VerticalLayout = true;
+            Ok(cfg.InitialiserGlobaux() && cfg.Globale("bureau1") != null && cfg.Globale("micro1") != null, "4.0 : premier démarrage, « Audio du bureau » et « Micro/Aux » créés comme dans OBS");
+            App.Audio.Apply();
+            w.MontrerAudio();
+            var pa = w.PanneauAudio!;
+            pa.Rafraichir();
+            await Attendre(500);
+            Ok(pa.TestBandes.SequenceEqual(new[] { "Audio du bureau", "Micro/Aux" }) && pa.TestStatut("Micro/Aux").StartsWith("GLOBALE"), "mélangeur : les deux globales, étiquetées GLOBALE (" + string.Join(", ", pa.TestBandes) + ")");
+            if (App.Audio.Running) Ok(App.Audio.InputReady(cfg.Globale("micro1")!.Id) && App.Audio.InputReady(cfg.Globale("bureau1")!.Id), "les globales sont des sources d'OBS");
+
+            // une carte son branchée (relevé simulé)
+            cfg.AutoAddInputs = true; cfg.KnownInputsReady = false; cfg.KnownInputs.Clear();
+            var webcam = new MyVerse.Audio.AudioDevice("{autotest-webcam}", "Microphone (Webcam C920)");
+            var carte = new MyVerse.Audio.AudioDevice("{autotest-umc}", "Line In (Behringer UMC404HD)");
+            var hp = new MyVerse.Audio.AudioDevice("{autotest-hp}", "Haut-parleurs (Realtek)");
+            App.Audio.Traiter(new() { webcam }, new() { hp }, true);
+            Ok(cfg.KnownInputsReady && cfg.Sources.Count == 2, "premier relevé : ce qui est déjà branché est noté, rien n'est ajouté");
+            App.Audio.Traiter(new() { webcam, carte }, new() { hp }, true);
+            await Attendre(400);
+            var umc = cfg.Sources.FirstOrDefault(x => x.DeviceId == "{autotest-umc}");
+            Ok(umc is { Name: "Behringer UMC404HD" } && pa.TestBandes.Contains("Behringer UMC404HD"), "carte son branchée : ajoutée toute seule au mélangeur (" + string.Join(", ", pa.TestBandes) + ")");
+            Ok(pa.TestStatut("Behringer UMC404HD") == "ACTIVE", "étiquette ACTIVE (" + pa.TestStatut("Behringer UMC404HD") + ")");
+            if (App.Audio.Running && umc != null) Ok(App.Audio.InputReady(umc.Id), "la carte son branchée est une source d'OBS");
+            Capture(w, "37-obs32-entree-branchee.png");
+            App.Audio.Traiter(new() { webcam }, new() { hp }, true);
+            await Attendre(400);
+            Ok(umc != null && App.Audio.Inactive(umc) && !pa.TestBandes.Contains("Behringer UMC404HD"), "débranchée : inactive, elle quitte le mélangeur (option d'OBS 32.1)");
+            cfg.ShowInactive = true; App.Audio.Apply(); pa.Rafraichir();
+            Ok(pa.TestStatut("Behringer UMC404HD") == "INACTIVE", "« Afficher les sources inactives » : elle revient, étiquetée INACTIVE");
+            App.Audio.Traiter(new() { webcam, carte }, new() { hp }, true);
+            await Attendre(400);
+            Ok(umc != null && !App.Audio.Inactive(umc) && cfg.Sources.Count(x => x.DeviceId == "{autotest-umc}") == 1, "rebranchée : de nouveau active, sans deuxième bande");
+
+            // épingler et masquer
+            var pasteur = new MyVerse.Audio.AudioSource { Name = "Pasteur", Kind = MyVerse.Audio.AudioInputKind.Microphone, DeviceId = "default", Hidden = true };
+            var chorale = new MyVerse.Audio.AudioSource { Name = "Chorale", Kind = MyVerse.Audio.AudioInputKind.Microphone, DeviceId = "default", Pinned = true };
+            cfg.Sources.Add(pasteur); cfg.Sources.Add(chorale);
+            App.Audio.Apply(); pa.Rafraichir();
+            Ok(pa.TestBandes.SequenceEqual(new[] { "Audio du bureau", "Micro/Aux", "Chorale", "Behringer UMC404HD" }), "épinglée juste après les globales, masquée cachée : " + string.Join(", ", pa.TestBandes));
+            Ok(pa.TestStatut("Chorale") == "ÉPINGLÉE", "étiquette ÉPINGLÉE");
+            cfg.ShowHidden = true; App.Audio.Apply(); pa.Rafraichir();
+            Ok(pa.TestStatut("Pasteur") == "MASQUÉE" && pa.TestBandes.Count == 5, "« Afficher les sources masquées » : étiquette MASQUÉE");
+            await Attendre(400);
+            Capture(w, "38-obs32-melangeur.png");
+            cfg.VerticalLayout = false; App.Audio.Apply(); pa.Rafraichir();
+            await Attendre(500);
+            Ok(pa.TestHorizontal, "disposition horizontale (bouton de la barre du mélangeur, comme OBS)");
+            Capture(w, "38b-obs32-horizontal.png");
+            cfg.VerticalLayout = true; App.Audio.Apply(); pa.Rafraichir();
+
+            if (App.Audio.Running)
+            {
+                // appuyer pour parler : touche relâchée, la source est coupée sans toucher à sa sourdine
+                pasteur.PushToTalk = true; pasteur.PushToTalkKey = "F24"; pasteur.PushToTalkDelayMs = 0;
+                App.Audio.Apply();
+                for (int i = 0; i < 30 && !App.Audio.CoupeeParRaccourci(pasteur.Id); i++) await Attendre(50);
+                Ok(App.Audio.CoupeeParRaccourci(pasteur.Id) && !pasteur.Muted, "appuyer pour parler (F24 relâchée) : « Pasteur » coupée, sourdine intacte");
+                pasteur.PushToTalk = false; App.Audio.Apply();
+                for (int i = 0; i < 30 && App.Audio.CoupeeParRaccourci(pasteur.Id); i++) await Attendre(50);
+                Ok(!App.Audio.CoupeeParRaccourci(pasteur.Id), "raccourci désactivé : le son revient");
+                pasteur.Balance = 0.2; pasteur.SyncOffsetMs = 150; cfg.PeakMeter = "reelle"; cfg.MeterDecay = "lente";
+                App.Audio.Apply();
+                Ok(App.Audio.InputReady(pasteur.Id) && Math.Abs(Audio.Vumetre.Retombee - 8.57) < 0.01, "balance, décalage de synchro, crête réelle et retombée lente appliqués");
+            }
+            Ok(App.Audio.Format.StartsWith("48 kHz") && !App.Audio.RedemarrageRequis, "moteur : " + App.Audio.Format);
+            cfg.SampleRate = 44100;
+            Ok(App.Audio.RedemarrageRequis, "44,1 kHz choisi : redémarrage demandé, comme dans OBS");
+            cfg.SampleRate = 48000;
+            Note("atténuation de Windows désactivée : " + (Audio.AttenuationWindows.Desactiver(true) ? "oui" : "non (pas de sortie audio sur cette machine)"));
+            Audio.AttenuationWindows.Desactiver(false);
+            Ok(Audio.Touches.Afficher("Ctrl+Shift+D1") == "Ctrl + Maj + 1" && Audio.Touches.Afficher("Souris4") == "Souris 4" && !Audio.Touches.Enfoncee("F24"), "touches des raccourcis lues et affichées en français");
+
+            await Fenetre(w, () => new Audio.ProprietesAudioWindow(), "39-proprietes-audio-avancees.png");
+            w.TestPage("reglages");
+            w.Reglages.Aller("audio", false);
+            await Attendre(1200);
+            Capture(w, "39b-reglages-audio-obs32.png");
+        }
+        catch (Exception x) { Echec("audio comme OBS 32 : " + x); }
+        finally
+        {
+            cfg.Sources.Clear(); cfg.Sources.AddRange(avant.Sources);
+            cfg.Profiles.Clear(); cfg.Profiles.AddRange(avant.Profiles);
+            cfg.VirtualSounds.Clear(); cfg.VirtualSounds.AddRange(avant.VirtualSounds);
+            cfg.GlobalsInitialized = avant.GlobalsInitialized; cfg.KnownInputs = avant.KnownInputs; cfg.KnownInputsReady = avant.KnownInputsReady;
+            cfg.ShowHidden = avant.ShowHidden; cfg.ShowInactive = avant.ShowInactive; cfg.HiddenRight = avant.HiddenRight; cfg.InactiveRight = avant.InactiveRight;
+            cfg.VerticalLayout = avant.VerticalLayout; cfg.AutoAddInputs = avant.AutoAddInputs;
+            cfg.SampleRate = avant.SampleRate; cfg.Channels = avant.Channels; cfg.MeterDecay = avant.MeterDecay; cfg.PeakMeter = avant.PeakMeter;
+            cfg.DisableDucking = avant.DisableDucking; cfg.LowLatency = avant.LowLatency;
+            App.Audio.OublierReleve();
+            App.Audio.Apply();
+            w.MontrerAudio();
+            w.PanneauAudio?.Rafraichir();
+        }
+    }
+
     static async Task TestAudio(MainWindow w, Annonce texte, Annonce image)
     {
         var cfg = App.Audio.Config;
@@ -413,7 +522,7 @@ public static class AutoTest
                 Ok(R.EcranDefaut == "noir" && R.Etat.Lignes.FirstOrDefault() == avantRetrait, "écran par défaut remis à noir, écran principal retiré du déroulé");
             }
 
-            // 3.4 : MyCam — l'image JPEG d'un téléphone (comme reçue par sa connexion) s'affiche dans Display, témoin rouge
+            // 4.0 : MyCam — l'image JPEG d'un téléphone (comme reçue par sa connexion) s'affiche dans Display, témoin rouge
             {
                 var dv = new DrawingVisual();
                 using (var dc = dv.RenderOpen())
@@ -512,6 +621,8 @@ public static class AutoTest
 
             // 3.0 : panneau Audio sous la grille, sur le vrai moteur d'OBS (dossier « obs » à côté de MyChurch.exe)
             await TestAudio(w, an, img);
+            // 4.0 : l'audio comme OBS 32 (périphériques globaux, entrées branchées, mélangeur 32.1, propriétés avancées, raccourcis, réglages)
+            await TestAudioObs32(w);
             w.TestCliquerTuile(1);
             await Attendre(1300);
             Ok(R.Etat.Mode == "media" && App.Sources.Image != null, "clic sur la tuile image : en direct");

@@ -13,7 +13,7 @@ public partial class App : Application
         var v = System.Reflection.CustomAttributeExtensions.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(typeof(App).Assembly)?.InformationalVersion ?? "";
         int plus = v.IndexOf('+');
         if (plus >= 0) v = v[..plus];
-        return v.Trim().Length > 0 ? v.Trim() : "3.4.0";
+        return v.Trim().Length > 0 ? v.Trim() : "4.0.0";
     }
 
     /// <summary>
@@ -86,7 +86,7 @@ public partial class App : Application
         }
         int i = Array.IndexOf(args, "--autotest");
         if (i >= 0) AutoTest = i + 1 < args.Length ? args[i + 1] : Path.Combine(Path.GetTempPath(), "myverse-autotest");
-        if (AutoTest == null && !UneSeuleCopie())
+        if (AutoTest == null && !UneSeuleCopie(args.Contains("--redemarrage")))
         {
             Shutdown(0);
             return;
@@ -154,10 +154,18 @@ public partial class App : Application
         if (AutoTest != null) Ui.AutoTest.Lancer(w, AutoTest);
     }
 
-    /// <summary>Une seule copie de MyChurch : un 2e lancement ramène la fenêtre déjà ouverte.</summary>
-    static bool UneSeuleCopie()
+    /// <summary>
+    /// Une seule copie de MyChurch : un 2e lancement ramène la fenêtre déjà ouverte.
+    /// <paramref name="attendre"/> : redémarrage demandé par MyChurch (Réglages › Audio) ; on attend que l'ancienne copie se ferme.
+    /// </summary>
+    static bool UneSeuleCopie(bool attendre = false)
     {
         instance = new Mutex(true, @"Local\MyVerse4", out bool premier);
+        if (!premier && attendre)
+        {
+            try { premier = instance.WaitOne(TimeSpan.FromSeconds(30)); }
+            catch (AbandonedMutexException) { premier = true; }
+        }
         signal = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\MyVerse4-montrer");
         if (!premier)
         {
@@ -174,6 +182,15 @@ public partial class App : Application
         }) { IsBackground = true, Name = "une seule copie" };
         t.Start();
         return true;
+    }
+
+    /// <summary>Redémarre MyChurch (réglages audio qui, comme dans OBS, ne s'appliquent qu'au démarrage).</summary>
+    public static void Redemarrer()
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!, "--redemarrage") { UseShellExecute = false }); }
+        catch (Exception e) { Journal.Erreur("redémarrage de MyChurch", e); return; }
+        Journal.Info("redémarrage demandé (réglages audio)");
+        Current.Shutdown();
     }
 
     protected override void OnExit(ExitEventArgs e)

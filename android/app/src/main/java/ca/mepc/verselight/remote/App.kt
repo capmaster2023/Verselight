@@ -244,7 +244,7 @@ private fun Reglages(remote: Remote, fermer: () -> Unit) {
                         Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(C.OrPale), contentAlignment = Alignment.Center) { Ico(I.ecran, C.Or, 22.dp) }
                         Column(Modifier.weight(1f)) {
                             T(pc.ifBlank { "PC" }, taille = 15.sp, poids = FontWeight.ExtraBold, lignes = 1)
-                            T(if (proto >= 2) "MyChurch 3.4 ou plus" else "MyChurch 3.3 ou avant : mettez le PC à jour pour le déroulé, Noir et MyCam", taille = 12.5.sp, couleur = C.Encre2)
+                            T(if (proto >= 2) "MyChurch 4.0 ou plus" else "MyChurch 3.3 ou avant : mettez le PC à jour pour le déroulé, Noir et MyCam", taille = 12.5.sp, couleur = C.Encre2)
                         }
                     }
                     Touche(onClick = { oublier = true }, modifier = Modifier.fillMaxWidth(), bord = C.RougeBord) {

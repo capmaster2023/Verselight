@@ -126,7 +126,7 @@ public sealed class AppareilsJumeles
 public sealed class Telephone : IDisposable
 {
     public const int PremierPort = 47900, DernierPort = 47909, PortDecouverte = 47901, Protocole = 1;
-    /// <summary>Fonctions du PC annoncées au téléphone : 2 = MyChurch 3.4 (déroulé, écran par défaut, noir, MyCam).</summary>
+    /// <summary>Fonctions du PC annoncées au téléphone : 2 = MyChurch 4.0 (déroulé, écran par défaut, noir, MyCam).</summary>
     public const int Fonctions = 2;
 
     readonly Regie regie;
@@ -147,7 +147,7 @@ public sealed class Telephone : IDisposable
     readonly Dictionary<string, DateTime> suiveurs = new();
     Timer? minuterieEtat;
 
-    /// <summary>Téléphones MyCam : images et état (MyChurch 3.4).</summary>
+    /// <summary>Téléphones MyCam : images et état (MyChurch 4.0).</summary>
     public MyCams Cameras { get; } = new();
     /// <summary>Le caméraman a vu un message de la régie : (téléphone, texte du message). Thread quelconque.</summary>
     public event Action<string, string>? MessageVu;
@@ -907,7 +907,7 @@ boucle();
                     if (!ok) await Erreur("Source Display introuvable. Actualisez la liste.");
                     break;
                 }
-                // ---- MyChurch 3.4 : déroulé, écran par défaut, noir, MyCam
+                // ---- MyChurch 4.0 : déroulé, écran par défaut, noir, MyCam
                 case "noir":
                 {
                     bool ok = false;
@@ -1058,7 +1058,7 @@ boucle();
             ["ecranOuvert"] = regie.EcranOuvert(),
             ["obsActif"] = false,
             ["obsConnecte"] = false,
-            // MyChurch 3.4 : le vrai mode (« fond » compris), noir, écran par défaut, déroulé
+            // MyChurch 4.0 : le vrai mode (« fond » compris), noir, écran par défaut, déroulé
             ["ecran"] = e.Mode,
             ["theme"] = e.Theme,
             ["sous"] = SousTitre(e, c),

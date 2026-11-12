@@ -130,7 +130,7 @@ public partial class MainWindow
         }
         catch (Exception ex) { Toast("Liste des périphériques inaccessible : " + ex.Message); }
     }
-    /// <summary>MyCam (3.4) : un téléphone jumelé qui diffuse devient une source, comme une caméra USB.</summary>
+    /// <summary>MyCam (4.0) : un téléphone jumelé qui diffuse devient une source, comme une caméra USB.</summary>
     void AjouterMyCam()
     {
         var liste = App.Telephone.Cameras.Liste();

@@ -49,21 +49,23 @@ public sealed class AudioListe : Border
         pile.Children.Add(vide);
         Child = pile;
         A.Changed += () => Dispatcher.BeginInvoke(new Action(Maj));
+        A.PeripheriquesChange += () => Dispatcher.BeginInvoke(new Action(Maj));
         minuterie.Tick += (_, _) => Niveaux();
         IsVisibleChanged += (_, _) => { if (IsVisible) minuterie.Start(); else minuterie.Stop(); };
         Maj();
     }
 
-    /// <summary>Reconstruit les lignes si les sources ont changé (ajout, nom, entrée, sourdine).</summary>
+    /// <summary>Reconstruit les lignes si les sources ont changé (ajout, nom, entrée, sourdine) : les mêmes que le mélangeur, dans le même ordre (OBS 32.1).</summary>
     void Maj()
     {
-        string sig = string.Join("|", C.Sources.Select(s => $"{s.Id}/{s.Name}/{s.Kind}/{s.Channel}/{s.DeviceId}/{s.DeviceName}/{s.Muted}"));
+        var visibles = C.Affichage(A.Inactive);
+        string sig = string.Join("|", visibles.Select(s => $"{s.Id}/{s.Name}/{s.Kind}/{s.Channel}/{s.DeviceId}/{s.DeviceName}/{s.Muted}/{s.Global}/{s.Pinned}"));
         if (sig == signature) return;
         signature = sig;
         lignes.Children.Clear();
         sources.Clear();
-        foreach (var s in C.Sources) lignes.Children.Add(Ligne(s));
-        vide.Visibility = C.Sources.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var s in visibles) lignes.Children.Add(Ligne(s));
+        vide.Visibility = visibles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     FrameworkElement Ligne(AudioSource s)

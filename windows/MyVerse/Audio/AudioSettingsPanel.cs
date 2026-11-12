@@ -118,24 +118,224 @@ public sealed class AudioSettingsPanel : StackPanel
         return t;
     }
 
-    // ------------------------------------------------------------ périphériques audio et moteur OBS
+    // ------------------------------------------------------------ Réglages › Audio, comme OBS 32 (MyChurch 4.0)
+    readonly TextBlock audioEtat = new() { FontSize = 13, Foreground = P("Brume"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0) };
+    readonly StackPanel audioCorps = new();
+    readonly Border redemarrage = new()
+    {
+        Background = P("OrLeger"), BorderBrush = P("OrBord"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10),
+        Padding = new Thickness(14, 10, 12, 10), Margin = new Thickness(0, 12, 0, 0), Visibility = Visibility.Collapsed,
+    };
+    bool remplissage, aRemplir = true;
+
+    /// <summary>
+    /// La page Audio des réglages d'OBS 32 : Général (fréquence, canaux), Périphériques audio globaux (Audio du bureau 1 et 2, Micro/Aux 1 à 4),
+    /// Vumètres (retombée, type de crête), Avancé (écoute, atténuation de Windows, faible latence) et Raccourcis (appuyer pour couper / pour parler).
+    /// En plus : les entrées branchées s'ajoutent toutes seules au mélangeur.
+    /// </summary>
     Border SectionPeripheriques()
     {
-        string etat = A.Running
-            ? $"Moteur OBS actif · libobs {A.Version}" + (A.TracksActive ? "" : " · pistes indisponibles sur cet ordinateur (carte graphique)")
-            : A.Diagnostic;
-        var (cadre, corps) = Section("Périphériques audio", etat);
-        var micro = Liste(A.Microphones(), C.MicrophoneId, C.MicrophoneName, (id, nom) => { C.MicrophoneId = id; C.MicrophoneName = nom; A.Apply(); });
-        var sortie = Liste(A.Outputs(), C.OutputId, C.OutputName, (id, nom) => { C.OutputId = id; C.OutputName = nom; A.Apply(); });
-        var casque = Liste(A.MonitoringDevices(), C.MonitorDeviceId, C.MonitorDeviceName, (id, nom) => { C.MonitorDeviceId = id; C.MonitorDeviceName = nom; A.Apply(); });
-        var format = new TextBlock { Text = "48 kHz · stéréo · 6 mélanges", FontSize = 14, Height = 40, Padding = new Thickness(0, 10, 0, 0) };
-        corps.Children.Add(DeuxColonnes(
-            Champ("Microphone par défaut", micro),
-            Champ("Sortie audio capturée", sortie),
-            Champ("Écoute au casque", casque),
-            Champ("Format du moteur", format)));
-        corps.Children.Add(Note("Le micro et la sortie par défaut sont proposés en premier dans « + Source audio ». L'écoute au casque fait entendre les sources dont le casque est allumé dans le mélangeur."));
+        var (cadre, corps) = Section("Audio");
+        corps.Children.Add(audioEtat);
+        corps.Children.Add(audioCorps);
+        var redemarrer = new Button { Style = S("BtnOr"), Content = "Redémarrer MyChurch", Height = 36, Padding = new Thickness(14, 0, 14, 0), Margin = new Thickness(12, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        redemarrer.Click += (_, _) =>
+        {
+            if (A.Recorder.Reserves.Any() && !Dialogue.Confirmer(Fenetre, "Un enregistrement est en cours : il sera arrêté et son fichier finalisé avant le redémarrage.", "Redémarrer")) return;
+            App.Redemarrer();
+        };
+        var ligne = new DockPanel();
+        DockPanel.SetDock(redemarrer, Dock.Right);
+        ligne.Children.Add(redemarrer);
+        ligne.Children.Add(new TextBlock { Text = "Comme dans OBS, la fréquence, les canaux et la faible latence s'appliquent au prochain démarrage de MyChurch.", FontSize = 13.5, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, Foreground = P("Or2") });
+        redemarrage.Child = ligne;
+        A.Changed += () => Dispatcher.BeginInvoke(new Action(MajEtat));
+        A.PeripheriquesChange += () => Dispatcher.BeginInvoke(new Action(() => { if (IsVisible) RemplirAudio(); else aRemplir = true; }));
+        IsVisibleChanged += (_, _) => { if (IsVisible && aRemplir) RemplirAudio(); };
+        RemplirAudio();
         return cadre;
+    }
+
+    void MajEtat()
+    {
+        audioEtat.Text = A.Running
+            ? $"Moteur OBS actif · libobs {A.Version} · {A.Format}" + (A.TracksActive ? "" : " · pistes indisponibles sur cet ordinateur (carte graphique)")
+            : A.Diagnostic;
+        redemarrage.Visibility = A.RedemarrageRequis ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    static TextBlock Partie(string titre, double haut = 22) => new() { Text = titre, Style = S("CarteTitre"), Margin = new Thickness(0, haut, 0, 0) };
+
+    /// <summary>Une liste de choix (identifiant, nom), comme les listes des réglages d'OBS.</summary>
+    ComboBox Choix(IEnumerable<(string Id, string Nom)> choix, string choisi, Action<string> changer)
+    {
+        var cb = new ComboBox { MinHeight = 40 };
+        foreach (var (id, nom) in choix) cb.Items.Add(new ComboBoxItem { Content = nom, Tag = id });
+        cb.SelectedItem = cb.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == choisi) ?? cb.Items[0];
+        cb.SelectionChanged += (_, _) =>
+        {
+            if (remplissage || cb.SelectedItem is not ComboBoxItem { Tag: string id }) return;
+            changer(id);
+        };
+        return cb;
+    }
+
+    /// <summary>Un interrupteur suivi de son texte (cliquer sur le texte bascule aussi).</summary>
+    FrameworkElement Interrupteur(string texte, string? aide, bool valeur, Action<bool> changer)
+    {
+        var cb = new CheckBox { Style = S("Interrupteur"), IsChecked = valeur, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 1, 0, 0) };
+        var textes = new StackPanel { Margin = new Thickness(12, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, Background = Brushes.Transparent, Cursor = System.Windows.Input.Cursors.Hand };
+        textes.Children.Add(new TextBlock { Text = texte, FontSize = 14, TextWrapping = TextWrapping.Wrap });
+        if (aide != null) textes.Children.Add(new TextBlock { Text = aide, FontSize = 12.5, Foreground = P("Brume"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0) });
+        cb.Click += (_, _) => { if (!remplissage) changer(cb.IsChecked == true); };
+        textes.MouseLeftButtonUp += (_, _) => { cb.IsChecked = cb.IsChecked != true; changer(cb.IsChecked == true); };
+        var d = new DockPanel { Margin = new Thickness(0, 14, 0, 0) };
+        DockPanel.SetDock(cb, Dock.Left);
+        d.Children.Add(cb);
+        d.Children.Add(textes);
+        return d;
+    }
+
+    /// <summary>Un périphérique global : « Désactivé », « Par défaut » ou un périphérique (comme OBS). Un périphérique débranché reste affiché.</summary>
+    ComboBox ListeGlobal(AudioGlobal g)
+    {
+        var appareils = g.Kind == AudioInputKind.Sortie ? A.Outputs() : A.Microphones();
+        var s = C.Globale(g.Slot);
+        string choisi = s?.DeviceId ?? "";
+        var cb = new ComboBox { MinHeight = 40 };
+        cb.Items.Add(new ComboBoxItem { Content = "Désactivé", Tag = "" });
+        cb.Items.Add(new ComboBoxItem { Content = "Par défaut", Tag = "default" });
+        foreach (var d in appareils) cb.Items.Add(new ComboBoxItem { Content = d.Name, Tag = d.Id });
+        if (s != null && choisi != "default" && appareils.All(d => d.Id != choisi))
+            cb.Items.Add(new ComboBoxItem { Content = (s.DeviceName.Length > 0 ? s.DeviceName : choisi) + " (débranché)", Tag = choisi });
+        cb.SelectedItem = cb.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == choisi) ?? cb.Items[0];
+        cb.SelectionChanged += (_, _) =>
+        {
+            if (remplissage || cb.SelectedItem is not ComboBoxItem { Tag: string id } item) return;
+            string nom = id is "" or "default" ? "" : (item.Content as string ?? "").Replace(" (débranché)", "");
+            C.RegleGlobal(g.Slot, id.Length == 0 ? null : id, nom);
+            A.Apply();
+            RemplirRaccourcis();
+        };
+        return cb;
+    }
+
+    readonly StackPanel raccourcisListe = new();
+
+    /// <summary>Remplit toute la page Audio (à l'ouverture des réglages et quand un périphérique est branché ou débranché).</summary>
+    void RemplirAudio()
+    {
+        aRemplir = false;
+        remplissage = true;
+        try
+        {
+            audioCorps.Children.Clear();
+
+            // ---- Général
+            audioCorps.Children.Add(Partie("GÉNÉRAL", 16));
+            var frequence = Choix(new[] { ("44100", "44,1 kHz"), ("48000", "48 kHz") }, C.SampleRate.ToString(), v => { C.SampleRate = int.Parse(v); A.Apply(); MajEtat(); });
+            var canaux = Choix(AudioConfiguration.Dispositions.Select(d => (d.Id, d.Nom)), C.Channels, v => { C.Channels = v; A.Apply(); MajEtat(); });
+            audioCorps.Children.Add(DeuxColonnes(Champ("Fréquence d'échantillonnage", frequence), Champ("Canaux", canaux)));
+            audioCorps.Children.Add(redemarrage);
+            audioCorps.Children.Add(Note("Avec plus de deux canaux, les enregistrements et les sorties MyVirtualSound reçoivent un mélange stéréo."));
+
+            // ---- Périphériques audio globaux
+            audioCorps.Children.Add(Partie("PÉRIPHÉRIQUES AUDIO GLOBAUX"));
+            audioCorps.Children.Add(DeuxColonnes(AudioConfiguration.Globaux.Select(g => Champ(g.Nom, ListeGlobal(g))).ToArray()));
+            audioCorps.Children.Add(Note("Comme dans OBS, un périphérique global est toujours dans le mélangeur, épinglé à gauche. « Par défaut » suit le périphérique choisi dans Windows."));
+            audioCorps.Children.Add(Interrupteur("Ajouter au mélangeur les entrées audio branchées",
+                "Un micro USB, une carte son ou une table de mixage branché pour la première fois apparaît tout seul dans le mélangeur. Débranché, il devient inactif ; rebranché, il revient.",
+                C.AutoAddInputs, v => { C.AutoAddInputs = v; A.Apply(); }));
+
+            // ---- Vumètres
+            audioCorps.Children.Add(Partie("VUMÈTRES"));
+            var retombee = Choix(AudioConfiguration.Retombees.Select(r => (r.Id, r.Nom)), C.MeterDecay, v => { C.MeterDecay = v; A.Apply(); });
+            var crete = Choix(AudioConfiguration.Cretes.Select(c => (c.Id, c.Nom)), C.PeakMeter, v => { C.PeakMeter = v; A.Apply(); });
+            audioCorps.Children.Add(DeuxColonnes(Champ("Vitesse de retombée", retombee), Champ("Type de crêtemètre", crete)));
+
+            // ---- Avancé
+            audioCorps.Children.Add(Partie("AVANCÉ"));
+            var casque = Liste(A.MonitoringDevices(), C.MonitorDeviceId, C.MonitorDeviceName, (id, nom) =>
+            {
+                if (remplissage) return;
+                C.MonitorDeviceId = id; C.MonitorDeviceName = nom; A.Apply();
+            });
+            var choixCasque = Champ("Périphérique d'écoute (casque de la régie)", casque);
+            choixCasque.Margin = new Thickness(0, 14, 0, 0);
+            audioCorps.Children.Add(choixCasque);
+            audioCorps.Children.Add(Interrupteur("Désactiver l'atténuation audio de Windows",
+                "Pendant un appel (Teams, Zoom…), Windows baisse le son des autres programmes : MyChurch n'est plus baissé.",
+                C.DisableDucking, v => A.Attenuation(v)));
+            audioCorps.Children.Add(Interrupteur("Mise en mémoire tampon audio à faible latence (pour les sorties Decklink/NDI)",
+                "Peut faire grésiller ou couper certaines sources. S'applique au prochain démarrage.",
+                C.LowLatency, v => { C.LowLatency = v; A.Apply(); MajEtat(); }));
+
+            // ---- Raccourcis
+            audioCorps.Children.Add(Partie("RACCOURCIS"));
+            audioCorps.Children.Add(Note("Pour chaque source : « appuyer pour couper le son » la coupe tant que la touche est enfoncée, « appuyer pour parler » ne la laisse passer que touche enfoncée. Le délai prolonge l'effet après avoir relâché la touche. Les touches marchent même quand MyChurch est en arrière-plan.", 6));
+            audioCorps.Children.Add(raccourcisListe);
+            RemplirRaccourcis();
+        }
+        finally { remplissage = false; }
+        MajEtat();
+    }
+
+    void RemplirRaccourcis()
+    {
+        raccourcisListe.Children.Clear();
+        if (C.Sources.Count == 0) { raccourcisListe.Children.Add(Note("Aucune source dans le mélangeur pour l'instant.")); return; }
+        foreach (var s in C.Sources) raccourcisListe.Children.Add(CarteRaccourcis(s));
+    }
+
+    Border CarteRaccourcis(AudioSource s)
+    {
+        var pile = new StackPanel();
+        var titre = new TextBlock { FontSize = 14.5, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
+        titre.Inlines.Add(new Run(s.Name));
+        if (s.Global.Length > 0) titre.Inlines.Add(new Run("  ·  global") { Foreground = P("Or"), FontWeight = FontWeights.Normal, FontSize = 12.5 });
+        pile.Children.Add(titre);
+        pile.Children.Add(LigneRaccourci("Appuyer pour couper le son", s.PushToMute, s.PushToMuteDelayMs, s.PushToMuteKey,
+            (actif, delai, touche) => { s.PushToMute = actif; s.PushToMuteDelayMs = delai; s.PushToMuteKey = touche; A.Apply(); }));
+        pile.Children.Add(LigneRaccourci("Appuyer pour parler", s.PushToTalk, s.PushToTalkDelayMs, s.PushToTalkKey,
+            (actif, delai, touche) => { s.PushToTalk = actif; s.PushToTalkDelayMs = delai; s.PushToTalkKey = touche; A.Apply(); }));
+        return new Border { Child = pile, BorderBrush = P("Trait"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(14, 12, 14, 12), Margin = new Thickness(0, 10, 0, 0) };
+    }
+
+    /// <summary>Une ligne de raccourci : l'interrupteur, le délai (ms) et la touche.</summary>
+    static FrameworkElement LigneRaccourci(string titre, bool actif, int delai, string touche, Action<bool, int, string> changer)
+    {
+        var g = new Grid { Margin = new Thickness(0, 10, 0, 0) };
+        foreach (var w in new[] { GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto, GridLength.Auto, GridLength.Auto, GridLength.Auto })
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = w });
+        var cb = new CheckBox { Style = S("Interrupteur"), IsChecked = actif, VerticalAlignment = VerticalAlignment.Center };
+        var nom = new TextBlock { Text = titre, FontSize = 14, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 12, 0), TextWrapping = TextWrapping.Wrap };
+        var etiquette = new TextBlock { Text = "Délai", FontSize = 12.5, Foreground = P("Brume"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
+        var champ = new TextBox { Style = S("Champ"), Width = 76, Text = delai.ToString(), FontSize = 14, TextAlignment = TextAlignment.Right, VerticalContentAlignment = VerticalAlignment.Center, ToolTip = "Après avoir relâché la touche, l'effet dure encore ce temps (millisecondes, 0 à 10 000)" };
+        var ms = new TextBlock { Text = "ms", FontSize = 12.5, Foreground = P("Brume"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 14, 0) };
+        string t = touche;
+        bool a = actif;
+        int d = delai;
+        BoutonTouche? bouton = null;
+        void Avertir()
+        {
+            if (bouton == null) return;
+            if (a && t.Length == 0) { bouton.BorderBrush = P("Danger"); bouton.ToolTip = "Choisissez une touche : sans touche, ce raccourci ne fait rien."; }
+            else bouton.ClearValue(Control.BorderBrushProperty);
+        }
+        bouton = new BoutonTouche(touche, nouvelle => { t = nouvelle; changer(a, d, t); Avertir(); });
+        void LireDelai()
+        {
+            d = int.TryParse(champ.Text.Trim(), out int v) ? Math.Clamp(v, 0, 10000) : d;
+            champ.Text = d.ToString();
+            changer(a, d, t);
+        }
+        cb.Click += (_, _) => { a = cb.IsChecked == true; changer(a, d, t); Avertir(); };
+        champ.LostFocus += (_, _) => LireDelai();
+        champ.KeyDown += (_, e) => { if (e.Key == System.Windows.Input.Key.Enter) LireDelai(); };
+        Avertir();
+        var elements = new FrameworkElement[] { cb, nom, etiquette, champ, ms, bouton };
+        for (int i = 0; i < elements.Length; i++) { Grid.SetColumn(elements[i], i); g.Children.Add(elements[i]); }
+        return g;
     }
 
     // ------------------------------------------------------------ MyVirtualSound

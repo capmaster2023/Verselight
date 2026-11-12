@@ -119,6 +119,11 @@ public partial class MainWindow : Window
         // le mélangeur audio (moteur OBS) : dans Display, sous la grille
         PanneauAudio = new Audio.AudioPanel();
         AudioHote.Child = PanneauAudio;
+        // MyChurch 4.0 : une entrée audio branchée apparaît toute seule dans le mélangeur (Réglages › Audio)
+        App.Audio.EntreesAjoutees += ajoutees => Dispatcher.BeginInvoke(new Action(() =>
+            Toast(ajoutees.Count == 1
+                ? $"Nouvelle entrée audio : « {ajoutees[0].Name} » ajoutée au mélangeur."
+                : $"{ajoutees.Count} nouvelles entrées audio ajoutées au mélangeur : {string.Join(", ", ajoutees.Select(x => "« " + x.Name + " »"))}.")));
         AudioBref.Content = new Audio.AudioBref();
         AudioListeHote.Content = new Audio.AudioListe();
         Reglages = new ReglagesPage();
@@ -204,7 +209,7 @@ public partial class MainWindow : Window
 
         // ---------- régie et téléphones
         R.EcranOuvert = () => ecran != null;
-        // écran noir (touche B) : le téléphone le voit et peut le basculer (MyChurch 3.4)
+        // écran noir (touche B) : le téléphone le voit et peut le basculer (MyChurch 4.0)
         R.EstNoir = () => noir && ReferenceEquals(R.Etat, etatNoir);
         R.BasculerNoir = BasculerNoir;
         R.Change += MajEcran;
@@ -411,6 +416,8 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------ raccourcis clavier
     void Clavier(object sender, KeyEventArgs e)
     {
+        // Réglages › Audio : le bouton d'un raccourci attend sa touche (B, Échap… ne doivent rien faire d'autre)
+        if (Keyboard.FocusedElement is Audio.BoutonTouche { EnAttente: true }) return;
         if (e.Key == Key.K && Keyboard.Modifiers == ModifierKeys.Control)
         {
             OuvrirCommande();

@@ -47,7 +47,7 @@ class Remote(private val context: Context, val store: Store) {
     val pcName = MutableStateFlow(store.pairing()?.pcName ?: "")
     val update = MutableStateFlow<Pair<String, String>?>(null) // nouvelle version : (numéro, lien de l'APK)
     val journal = MutableStateFlow<List<String>>(emptyList())  // journal d'erreurs (Réglages › Journal)
-    /** Protocole du PC : 1 = MyChurch 3.3 et avant, 2 = 3.4 (déroulé, écran par défaut, noir, MyCam). */
+    /** Protocole du PC : 1 = MyChurch 3.3 et avant, 2 = 4.0 (déroulé, écran par défaut, noir, MyCam). */
     val proto = MutableStateFlow(1)
     /** Le déroulé du culte (réponse « agenda » du PC). */
     val agenda = MutableStateFlow<JSONObject?>(null)
