@@ -450,6 +450,10 @@ public static class AutoTest
                 R.Effacer();
                 await Attendre(500);
                 Ok(R.TemoinMyCam("autotest-cam") == "off", "MyCam retirée : témoin éteint");
+                // la suite de l'autotest compte les tuiles de la grille : la source de test repart
+                R.SupprimerAnnonce(cam.Id);
+                cams.Deconnecte("autotest-cam");
+                await Attendre(300);
             }
 
             // fonds clairs Lin et Ciel
