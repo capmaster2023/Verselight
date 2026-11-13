@@ -21,8 +21,9 @@ public sealed class Rendu : Grid
     /// </summary>
     readonly Image mediaFlou = new()
     {
+        // débordée de 90 px de chaque côté et centrée : le bord estompé par le flou tombe hors de l'écran (le dessin est rogné à ses bords)
         Stretch = Stretch.UniformToFill, Visibility = Visibility.Collapsed, Opacity = 0.5, IsHitTestVisible = false,
-        RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = new ScaleTransform(1.12, 1.12),
+        Margin = new Thickness(-90), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
         Effect = new BlurEffect { Radius = 56, KernelType = KernelType.Gaussian, RenderingBias = RenderingBias.Performance },
     };
     readonly Border scene = new();
