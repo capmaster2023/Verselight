@@ -1,0 +1,8 @@
+  Determining projects to restore...
+  Restored D:\a\Verselight\Verselight\windows\MyVerse.Core\MyVerse.Core.csproj (in 13.65 sec).
+  Restored D:\a\Verselight\Verselight\windows\MyVerse\MyVerse.csproj (in 13.69 sec).
+  MyVerse.Core -> D:\a\Verselight\Verselight\windows\MyVerse.Core\bin\Release\net8.0\MyVerse.Core.dll
+D:\a\Verselight\Verselight\windows\MyVerse\Audio\AudioPanel.cs(586,9): warning CS8602: Dereference of a possibly null reference. [D:\a\Verselight\Verselight\windows\MyVerse\MyVerse_se1qthwz_wpftmp.csproj]
+D:\a\Verselight\Verselight\windows\MyVerse\Audio\AudioPanel.cs(586,9): warning CS8602: Dereference of a possibly null reference. [D:\a\Verselight\Verselight\windows\MyVerse\MyVerse.csproj]
+  MyVerse -> D:\a\Verselight\Verselight\windows\MyVerse\bin\Release\net8.0-windows\win-x64\MyChurch.dll
+  MyVerse -> D:\a\Verselight\Verselight\out\MyChurch\

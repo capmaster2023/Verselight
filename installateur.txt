@@ -1,0 +1,18 @@
+installateur : code 0
+MyVirtualCam remplacée pendant son utilisation : True
+MyVerse rouvert après la mise à jour : True
+présent MyChurch.exe : True
+présent Ressources\lsg.json : True
+présent Ressources\obs\ecran.html : True
+présent Desinstaller.exe : True
+présent obs\bin\64bit\obs.dll : True
+présent obs\core\win-wasapi\win-wasapi.dll : True
+présent COPYING.txt : True
+présent ffmpeg\ffmpeg.exe : True
+présent ffmpeg\LICENSE.txt : True
+ancien resources.neu retiré : True
+ancien extensions retiré : True
+ancien neutralinojs.log retiré : True
+raccourci Bureau : True
+Applications installées : 4.2.0
+désinstallé (MyChurch.exe supprimé) : True

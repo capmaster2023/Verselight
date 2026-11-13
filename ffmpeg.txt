@@ -1,0 +1,13 @@
+FFmpeg 8.0.1 essentials (gyan.dev) : SHA-256 e2aaeaa0fdbc397d4794828086424d4aaa2102cef1fb6874f6ffd29c0b88b673
+ffmpeg version 8.0.1-essentials_build-www.gyan.dev Copyright (c) 2000-2025 the FFmpeg developers
+V....D libx264              libx264 H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10 (codec h264)
+V....D libx264rgb           libx264 H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10 RGB (codec h264)
+V....D h264_amf             AMD AMF H.264 Encoder (codec h264)
+V....D h264_nvenc           NVIDIA NVENC H.264 encoder (codec h264)
+V..... h264_qsv             H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10 (Intel Quick Sync Video acceleration) (codec h264)
+VFS..D mjpeg                MJPEG (Motion JPEG)
+V..... mjpeg_qsv            MJPEG (Intel Quick Sync Video acceleration) (codec mjpeg)
+V....D mjpeg_vaapi          MJPEG (VAAPI) (codec mjpeg)
+A....D aac                  AAC (Advanced Audio Coding)
+A....D aac_mf               AAC via MediaFoundation (codec aac)
+A....D flac                 FLAC (Free Lossless Audio Codec)

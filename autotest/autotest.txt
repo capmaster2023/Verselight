@@ -1,0 +1,238 @@
+  MyChurch 4.2.0 · données : D:\a\_temp\myverse-donnees · 0 chants
+✓ 4.2 : premier lancement vide (0 chants, 0 sources audio)
+✓ 4.2 : Bibles livrées : Louis Segond 1910, King James (anglais)
+  police Serif : Literata · Sans : Atkinson Hyperlegible Next · Titre : Unbounded
+  police de l'interface : Manrope · titres : Manrope · chiffres : IBM Plex Mono
+✓ police Manrope incluse (interface 3.2, design « Pupitre »)
+✓ Manrope : les vrais poids 500, 600, 700, 800 (500, 600, 700, 800)
+✓ police IBM Plex Mono incluse (heures et chronos)
+✓ Manrope : espace très fine U+200A des étiquettes en capitales espacées
+✓ police Literata incluse
+✓ police Atkinson incluse
+  capture 00-accueil-culte.png (1584×861)
+✓ projection indépendante : anciens réglages OBS ignorés
+✓ Display : menu déroulant d'ajout et commandes accessibles
+  capture 00b-display-menu.png (1584×861)
+  capture 01-bible.png (1584×861)
+✓ Jean 3:16 à l'écran : Jean 3:16 (LSG)
+  capture 02-verset.png (1584×861)
+  écrans : HyperVMonitor 1920×1080 @ 0,0 principal
+✓ fenêtre de projection ouverte
+  capture 03-ecran.png (1920×1080)
+✓ Suivant → Jean 3:17 (LSG)
+  capture 04-ecran-suivant.png (1920×1080)
+  capture 05-ecran-bandeau-vert.png (1920×1080)
+✓ versets bilingues : Jean 3:17 (LSG · KJV)
+  capture 06-bilingue.png (1584×861)
+  capture 07-ecran-bilingue.png (1920×1080)
+  capture 08-recherche.png (1584×861)
+✓ liste des chants : 12. Grâce infinie
+✓ chant à l'écran
+  capture 09-chants.png (1584×861)
+  capture 10-ecran-chant.png (1920×1080)
+✓ recherche par numéro 12 : 12. Grâce infinie
+  capture 09b-numero.png (1584×861)
+✓ numéro absent : liste vide
+✓ boutons + devant les chants et les versets : 1 / 1
+✓ déroulé : 4 éléments, le compte à rebours en premier
+✓ heure prévue : 10:30
+✓ compte à rebours : Le culte commence dans / 04:58
+✓ le compte à rebours descend : Le culte commence dans / 04:57
+  capture 19b-ecran-compte.png (1920×1080)
+✓ recherche du culte (Ctrl K) : Jean 3:16
+✓ déroulé : Suivant passe à la lecture · Jean 3:16 (LSG)
+✓ page Culte : toutes les diapositives du culte en vignettes (7 / 7)
+✓ vignette à l'écran : Jean 3:16 · À L'ÉCRAN
+✓ vignette suivante et aperçu « Suivant » : Jean 3:17 / Jean 3:17
+  capture 19-culte.png (1584×861)
+✓ résumé du culte : Accueil · 12. Grâce infinie (2 couplets) · Jean 3:16-17
+✓ textes à partager sur WhatsApp
+✓ déroulé : puis les displays
+  capture 20-culte-displays.png (1584×861)
+  capture 21-ecran-displays.png (1920×1080)
+✓ écran noir (touche B)
+✓ la diapositive suivante rallume l'écran
+✓ barre de gauche large ou compacte selon la fenêtre (1600 px)
+✓ écran principal ajouté au déroulé, proposé dans « Écran par défaut » : Noir* | Fond seul | Fond seul
+✓ clic sur l'écran principal dans « Écran par défaut »
+✓ le choix ne touche pas aux paroles à l'écran · Retour direct : Fond seul
+✓ Retirer de l'écran : retour direct sur l'écran par défaut (fond seul), OBS vide
+✓ vignette et écran live : Fond seul · À L'ÉCRAN · À l'écran : écran par défaut · Fond seul
+  capture 21b-culte-ecran-par-defaut.png (1584×861)
+  capture 21c-ecran-par-defaut.png (1920×1080)
+✓ Précédent remet ce qui a été retiré : Repas fraternel après le culte
+✓ écran par défaut remis à noir, écran principal retiré du déroulé
+✓ MyCam : l'image du téléphone est à l'écran (En direct)
+✓ MyCam : témoin rouge pour le téléphone
+  capture 21d-mycam-direct.png (1584×861)
+  capture 21e-mycam-ecran.png (1920×1080)
+✓ 4.0.1 : display.jpg tenu ouvert par OBS (accès refusé) : MyCam continue (En direct)
+✓ MyCam en hauteur : image tournée d'un quart de tour (360 × 640)
+  capture 21f-mycam-en-hauteur.png (1920×1080)
+✓ MyCam H.264 : décodeur prêt (FFmpeg 62.28.102 (avcodec-62.dll))
+✓ MyCam H.264 : vidéo décodée à l'écran (64 × 48, pixel 134,64,20)
+✓ MyCam H.264 : format affiché (640 × 360 · 2 i/s · H.264 · Wi-Fi · batterie 88 %)
+  capture 21g-mycam-h264.png (1920×1080)
+✓ MyCam retirée : témoin éteint
+  capture 22-ecran-lin.png (1920×1080)
+  capture 22b-ecran-ciel.png (1920×1080)
+✓ écran de scène ouvert
+  capture 23-scene.png (1084×601)
+  capture 24-displays.png (1584×861)
+✓ display ajoutée au déroulé
+✓ display à l'écran : Repas fraternel après le culte / Tout le monde est invité
+✓ double-clic titre Display : en direct
+✓ image Display chargée et projetée
+  capture 25-display-image.png (1584×861)
+✓ grille Display : 2 tuiles (un texte, une image)
+✓ clic sur une tuile de la grille : en direct
+  capture 27-display-grille.png (1584×861)
+  audio : Moteur OBS 33.0.1
+✓ moteur audio OBS démarré dans MyChurch (Moteur OBS 33.0.1)
+✓ 3.1 : OBS accepte les entrées séparées d'une carte son
+✓ ffmpeg livré avec MyChurch (D:\a\Verselight\Verselight\out\MyChurch\ffmpeg\ffmpeg.exe)
+✓ vumètre OBS dans MyChurch : sinus à −6 dBFS (-6.0 / -6.0 dBFS)
+✓ micro et son de l'ordinateur créés dans OBS
+✓ entrées 2 et 3 : chacune sa bande (entrée séparée) ; le micro « toutes ensemble » reste une capture
+  MyVirtualSound « Zoom » : Sortie impossible : Element not found. (0x80070490)
+  capture 32-audio.png (1584×861)
+✓ chaque destination garde sa piste, comme dans OBS : Zoom 1, Culte 2, Prédication 3
+✓ piste de Zoom : reçoit le sinus (-6.0 dBFS)
+✓ enregistrement vidéo « Culte » démarré : Enregistrement vidéo · libx264
+✓ 2e enregistrement en même temps (« Prédication ») : Enregistrement · WAV
+✓ piste 2 (Culte) : reçoit le sinus (-6.0 dBFS)
+✓ piste 3 (Prédication, le micro seul) : pas de sinus (-∞ dBFS)
+  capture 36-enregistrements-en-cours.png (1584×861)
+✓ « Prédication » arrêtée, « Culte » continue
+✓ vidéo MKV finalisée : Culte (test)_2026-11-13_05-54-30.mkv (463354 octets, Terminé : C:\Users\runneradmin\AppData\Local\Temp\mychurch-autotest-8866e616\culte\Culte (test)_2026-11-13_05-54-30.mkv)
+✓ WAV de la prédication : Prédication (test)_2026-11-13_05-54-30.wav (501200 octets)
+✓ MKV relu en entier par ffmpeg : une piste vidéo et une piste audio
+✓ MKV : durée 4.4 s
+    Stream #0:0: Video: h264 (High), yuv420p(tv, progressive), 1280x720, 30 fps, 30 tbr, 1k tbn
+    Stream #0:1: Audio: aac (LC), 48000 Hz, stereo, fltp, start -0.021000
+    Stream #0:0 -> #0:0 (h264 (native) -> wrapped_avframe (native))
+    Stream #0:1 -> #0:1 (aac (native) -> pcm_s16le (native))
+    Stream #0:0: Video: wrapped_avframe, yuv420p(tv, progressive), 1280x720, q=2-31, 200 kb/s, 30 fps, 30 tbn
+    Stream #0:1: Audio: pcm_s16le, 48000 Hz, stereo, s16, 1536 kb/s
+  capture 33-filtres.png (624×661)
+✓ fenêtre Filtres · Micro pasteur
+  capture 34-enregistrement.png (664×912)
+✓ fenêtre Modifier « Culte (test) »
+  capture 35-sortie.png (664×587)
+✓ fenêtre Modifier « Zoom »
+✓ 4.2 : mélangeur vide, rien n'est ajouté tout seul
+  capture 37-audio-vide.png (1584×861)
+✓ deux sources dans le mélangeur, dans l'ordre : Pasteur, Capture audio (sortie)
+✓ comme OBS : horodatage du périphérique (non pour une entrée, oui pour une sortie), pistes 1 à 6 cochées
+✓ la capture audio (sortie) est une source d'OBS
+✓ carte son branchée : la source est active
+✓ débranchée : la source reste (grisée, « Inactif »), rien n'est ajouté ni retiré
+  capture 38-audio-inactive.png (1584×861)
+✓ rebranchée : de nouveau active ; un nouveau micro branché n'est pas ajouté tout seul
+  capture 39-proprietes-capture-sortie.png (644×361)
+✓ fenêtre Propriétés pour « Capture audio (sortie) »
+  capture 39b-nouvelle-capture-entree.png (644×361)
+✓ fenêtre Propriétés pour « Capture audio (entrée) »
+  capture 39c-proprietes-audio-avancees.png (1384×481)
+✓ fenêtre Propriétés audio avancées
+  capture 39d-reglages-audio.png (1584×861)
+✓ clic sur la tuile image : en direct
+  capture 26-ecran-image.png (1920×1080)
+✓ image Display publiée pour la source navigateur OBS
+✓ MyVirtualCam publie automatiquement en 720p
+✓ MyVirtualCam reçoit les pixels réels de la projection
+✓ fenêtre fermée : image effacée et message utile
+✓ onglet Duo : le dossier part en direct (verset + annonce)
+  capture 31-onglet-duo.png (1584×861)
+  capture 31-onglet-duo-ecran.png (1920×1080)
+✓ Retirer de l'écran : le dossier part en entier
+✓ Display : la tuile du dossier Duo l'envoie en direct
+✓ grille Display : la vignette du dossier Duo dessine ses deux éléments (comme à l'écran)
+  capture 31b-grille-duo.png (1584×861)
+  capture 31c-choix-chant.png (584×641)
+✓ fenêtre Choisir un chant
+✓ dossier supprimé : sa tuile Display aussi
+✓ Duo : texte Display épinglé (touche P), écran principal libéré
+✓ Duo : un verset + un texte épinglé
+✓ carte DUO : contenu épinglé affiché (Repas fraternel après le culte)
+  capture 28-duo.png (1584×861)
+  capture 28-duo-ecran.png (1920×1080)
+✓ carte DUO : côte à côte
+  capture 29-duo-cote.png (1584×861)
+  capture 29-duo-cote-ecran.png (1920×1080)
+✓ carte DUO : bas gauche, 50 %
+✓ carte DUO : haut droite, 35 %
+✓ Duo : un verset + une image épinglée
+✓ Duo : image vivante du contenu épinglé (2e capture)
+✓ Duo : image épinglée publiée pour la page OBS (15030 octets)
+✓ MyVirtualCam reçoit l'image du contenu épinglé (200,30,40)
+  capture 30-duo-image.png (1584×861)
+  capture 30-duo-image-ecran.png (1920×1080)
+✓ Duo retiré (touche P) : le verset reste, la 2e capture s'arrête
+  capture 11-vide.png (1584×861)
+✓ clic sur une vignette : en direct (Jean 3:17 (LSG))
+✓ la vignette cliquée passe « À L'ÉCRAN »
+✓ en-tête du déroulé : Culte du dimanche / 15 novembre / 10:30 · 4 éléments · 7 diapositives
+  capture 39-pupitre-culte.png (1584×861)
+✓ bouton de la barre de gauche : thème sombre
+✓ bouton de la barre de gauche : retour au clair
+✓ Display : le + ajoute la source à la grille
+✓ Display : le ✓ la retire de la grille
+  capture 40-reglages.png (1584×861)
+✓ thème sombre appliqué et enregistré
+✓ les pinceaux suivent le thème sombre
+  capture 41-sombre-reglages.png (1584×861)
+  capture 42-sombre-culte.png (1584×861)
+  capture 43-sombre-bible.png (1584×861)
+  capture 44-sombre-chants.png (1584×861)
+  capture 45-sombre-display.png (1584×861)
+  capture 46-sombre-duo.png (1584×861)
+  capture 47-sombre-fenetre.png (884×741)
+✓ fenêtre Réglages
+✓ retour au thème clair
+  capture 48-clair-culte.png (1584×861)
+  capture 49-clair-display.png (1584×861)
+  capture 49b-clair-bible.png (1584×861)
+  capture 49c-clair-chants.png (1584×861)
+  capture 49d-clair-duo.png (1584×861)
+  capture 12-editeur.png (1084×721)
+✓ fenêtre Chant
+  capture 13-decoupe.png (964×521)
+✓ fenêtre Découper la diapositive
+  capture 14-import.png (704×706)
+✓ fenêtre Importer des chants
+  capture 15-bibles.png (704×480)
+✓ fenêtre Bibles
+  capture 17-telephone.png (844×479)
+✓ fenêtre Télécommande Android
+  capture 18-outils.png (884×741)
+✓ fenêtre Réglages
+  PDF : 1. GRACE INFINIE [Couplet 1, Refrain, Couplet 2] | 2. MON DIEU EST BON [Couplet 1, Couplet 2] | 3. YERA YERA [Couplet 1, Refrain]
+✓ recueil PDF : 3 chants numérotés avec refrain
+✓ serveur des téléphones (port 47900)
+✓ sortie OBS (etat.json)
+✓ page OBS (ecran.html)
+
+
+===== journal =====
+[2026-11-13 05:53:48] INFO — démarrage de MyChurch 4.2.0 (Windows) —
+[2026-11-13 05:53:48] INFO écoute des téléphones sur le port 47900
+[2026-11-13 05:53:49] INFO MyCam H.264 : FFmpeg 62.28.102 (avcodec-62.dll)
+[2026-11-13 05:53:49] INFO audio : atténuation de Windows non désactivée (aucune sortie audio ?)
+[2026-11-13 05:53:49] INFO audio : libobs 33.0.1, 48 kHz · stéréo, modules win-wasapi, obs-filters, obs-ffmpeg, pistes actives
+[2026-11-13 05:54:28] INFO OBS : [WASAPISource::TryInitialize]:[default] Failed GetDefaultAudioEndpoint: 80070490
+[2026-11-13 05:54:28] INFO OBS : [audio monitoring: 'MyChurch d809272687a14cd497ab54e28422f3ae'] audio_monitor_init_wasapi: Failed to get device: 80070490
+[2026-11-13 05:54:28] INFO OBS : [WASAPISource::TryInitialize]:[default] Failed GetDefaultAudioEndpoint: 80070490
+[2026-11-13 05:54:28] ERREUR MyVirtualSound : COMException : Element not found. (0x80070490) @ at System.Runtime.InteropServices.Marshal.ThrowExceptionForHR(Int32 errorCode)
+[2026-11-13 05:54:28] ERREUR entrées séparées : ouverture de default : COMException : Element not found. (0x80070490) @ at System.Runtime.InteropServices.Marshal.ThrowExceptionForHR(Int32 errorCode)
+[2026-11-13 05:54:30] ERREUR entrées séparées : ouverture de default : COMException : Element not found. (0x80070490) @ at System.Runtime.InteropServices.Marshal.ThrowExceptionForHR(Int32 errorCode)
+[2026-11-13 05:54:30] ERREUR entrées séparées : ouverture de default : COMException : Element not found. (0x80070490) @ at System.Runtime.InteropServices.Marshal.ThrowExceptionForHR(Int32 errorCode)
+[2026-11-13 05:54:32] ERREUR entrées séparées : ouverture de default : COMException : Element not found. (0x80070490) @ at System.Runtime.InteropServices.Marshal.ThrowExceptionForHR(Int32 errorCode)
+[2026-11-13 05:54:34] ERREUR entrées séparées : ouverture de default : COMException : Element not found. (0x80070490) @ at System.Runtime.InteropServices.Marshal.ThrowExceptionForHR(Int32 errorCode)
+[2026-11-13 05:54:37] ERREUR entrées séparées : ouverture de default : COMException : Element not found. (0x80070490) @ at System.Runtime.InteropServices.Marshal.ThrowExceptionForHR(Int32 errorCode)
+[2026-11-13 05:54:37] ERREUR entrées séparées : ouverture de default : COMException : Element not found. (0x80070490) @ at System.Runtime.InteropServices.Marshal.ThrowExceptionForHR(Int32 errorCode)
+[2026-11-13 05:54:37] INFO OBS : [WASAPISource::TryInitialize]:[{autotest-umc}] Failed to enumerate device: 80070057
+[2026-11-13 05:54:37] INFO OBS : [WASAPISource::TryInitialize]:[default] Failed GetDefaultAudioEndpoint: 80070490
+[2026-11-13 05:54:43] ERREUR Display : IOException : La fenêtre a été fermée. Choisissez à nouveau la fenêtre à capturer. @ at MyVerse.Ui.SourcesDisplay.<>c__DisplayClass22_0.<<ChoisirSource>b__0>d.MoveNext() in D:\a\Verselight\Verselight\windows\MyVerse\SourcesDisplay.cs:line 154
+
+TOUT EST BON

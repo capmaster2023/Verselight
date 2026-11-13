@@ -1,0 +1,118 @@
+chargement LSG + KJV : 96 ms (31102 + 31102 versets)
+
+== Livres
+
+== Recherche
+  index LSG : 560 ms
+  index KJV + KIR : 314 ms
+  20 recherches de 6 mots dans 3 Bibles : 374 ms
+
+== Import Bible
+
+== Chants
+
+== Ranger
+
+== Recueils
+
+== Donnees
+
+== Reglages 1.2
+
+== Transfert
+
+== Regie
+
+== Telephone
+
+== Agenda
+
+== Ecran par defaut 3.3
+
+== Display 6.0
+
+== Dossiers Duo
+
+== Duo
+
+== Enregistrements et sorties
+
+== MyCam H.264 (4.1)
+  décodeur : FFmpeg 62.28.102 (avcodec-62.dll)
+[h264 @ 0000023A042ABF40] QP 4294966471 out of range
+[h264 @ 0000023A042ABF40] no frame!
+
+== MyCam 4.0
+
+== Audio simplifié comme OBS (4.2)
+
+== Audio OBS
+  libobs 33.0.1 · modules : win-wasapi, obs-filters, obs-ffmpeg · pistes : actives
+    obs│ 100 CoInitializeEx failed: 0x80010106
+    obs│ 300 CPU Name: AMD EPYC 9V74 80-Core Processor
+    obs│ 300 CPU Speed: 2596MHz
+    obs│ 300 Physical Cores: 2, Logical Cores: 4
+    obs│ 300 Physical Memory: 16378MB Total, 12469MB Free
+    obs│ 300 Windows Version: 10.0 Build 26100 (release: 24H2; revision: 33674; 64-bit)
+    obs│ 300 Running as administrator: true
+    obs│ 300 Windows 10/11 Gaming Features:
+    obs│ 300 	Game Mode: Probably On (no reg key set)
+    obs│ 300 ---------------------------------
+    obs│ 300 audio settings reset:
+	samples per sec: 48000
+	speakers:        2
+	max buffering:   960 milliseconds
+	buffering type:  dynamically increasing
+    obs│ 300 ---------------------------------
+    obs│ 300 Initializing D3D11...
+    obs│ 300 Available Video Adapters:
+    obs│ 300 Loading up D3D11 on adapter Microsoft Basic Render Driver (0)
+    obs│ 300 D3D11 loaded successfully, feature level used: b000
+    obs│ 300 DXGI increase maximum frame latency success
+    obs│ 300 D3D11 GPU priority setup failed (not admin?)
+    obs│ 300 ---------------------------------
+    obs│ 300 video settings reset:
+	base resolution:   64x64
+	output resolution: 64x64
+	downscale filter:  Bilinear
+	fps:               10/1
+	format:            NV12
+	YUV mode:          Rec. 709/Partial
+    obs│ 300 NV12 texture support not available
+    obs│ 300 P010 texture support not available
+    obs│ 300 MyChurch : entrées séparées disponibles (une bande par entrée de carte son)
+    obs│ 300 [Media Source 'MyChurch f4596139c4de445c97336a297f76828e']: settings:
+	input:                   C:\Users\runneradmin\AppData\Local\Temp\mychurch-obs-0e708db0c6234d4c97df8cc37c5884ec\sinus.wav
+	input_format:            (null)
+	speed:                   100
+	is_looping:              yes
+	is_linear_alpha:         no
+	is_hw_decoding:          no
+	is_clear_on_media_end:   yes
+	restart_on_activate:     no
+	close_when_inactive:     no
+	full_decode:             no
+	ffmpeg_options:
+    obs│ 200 [audio monitoring: 'MyChurch f4596139c4de445c97336a297f76828e'] audio_monitor_init_wasapi: Failed to get device: 80070490
+    obs│ 300 [Media Source 'MyChurch fab8ddef87b548a4a32d77049b2641f9']: settings:
+	input:                   C:\Users\runneradmin\AppData\Local\Temp\mychurch-obs-0e708db0c6234d4c97df8cc37c5884ec\sinus.wav
+	input_format:            (null)
+	speed:                   100
+	is_looping:              yes
+	is_linear_alpha:         no
+	is_hw_decoding:          no
+	is_clear_on_media_end:   yes
+	restart_on_activate:     no
+	close_when_inactive:     no
+	full_decode:             no
+	ffmpeg_options:
+    obs│ 300 adding 21 milliseconds of audio buffering, total audio buffering is now 21 milliseconds (source: MyChurch c0896b0a57494a1eab0356de3bf576cb)
+    obs│ 300 [win-wasapi: 'MyChurch c0896b0a57494a1eab0356de3bf576cb'] update settings:
+	device id: default
+	use device timing: 0
+    obs│ 300 WASAPI: Device '' Terminated
+    obs│ 300 Freeing OBS context data
+
+== Enregistrement
+
+559/559 vérifications réussies — tout est bon
