@@ -27,15 +27,15 @@ public sealed class ProprietesAudioWindow : FenetreDialogue
 
     static readonly (string Titre, double Largeur)[] Colonnes =
     {
-        ("Nom", 220), ("État", 76), ("Volume", 132), ("Mono", 56), ("Balance", 180), ("Décalage de synchronisation", 176), ("Monitoring audio", 262), ("Pistes", 250),
+        ("Nom", 200), ("État", 70), ("Volume", 130), ("Mono", 56), ("Balance", 170), ("Décalage de synchronisation", 150), ("Monitoring audio", 250), ("Pistes", 290),
     };
 
     public ProprietesAudioWindow()
     {
         Title = "Propriétés audio avancées";
-        Width = 1420;
-        Height = 520;
         MinWidth = 820;
+        Width = Math.Min(1400, Math.Max(MinWidth, SystemParameters.WorkArea.Width - 40));
+        Height = 520;
         MinHeight = 300;
         ResizeMode = ResizeMode.CanResize;
         Background = Pinceau("Page");
@@ -82,11 +82,11 @@ public sealed class ProprietesAudioWindow : FenetreDialogue
         table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         for (int c = 0; c < Colonnes.Length; c++)
         {
-            var titre = new TextBlock { Text = Colonnes[c].Titre, FontSize = 13.5, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+            var titre = new TextBlock { Text = Colonnes[c].Titre, FontSize = 13.5, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Bottom };
             if (Colonnes[c].Titre == "Volume")
             {
                 // « Volume ☐ % » : comme OBS, la case affiche les volumes en pourcentage
-                var entete = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 10, 8) };
+                var entete = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 10, 8), VerticalAlignment = VerticalAlignment.Bottom };
                 entete.Children.Add(titre);
                 var pc = new CheckBox { Content = "%", IsChecked = enPourcent, FontSize = 13.5, Margin = new Thickness(10, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, ToolTip = "Volume en pourcentage" };
                 pc.Click += (_, _) => { enPourcent = pc.IsChecked == true; Remplir(); };
@@ -130,7 +130,7 @@ public sealed class ProprietesAudioWindow : FenetreDialogue
         // nom
         var nom = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = marge, ToolTip = AudioPanel.Description(s) };
         nom.Children.Add(IconeHautParleur());
-        nom.Children.Add(new TextBlock { Text = s.Name, FontSize = 14, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 186, VerticalAlignment = VerticalAlignment.Center });
+        nom.Children.Add(new TextBlock { Text = s.Name, FontSize = 14, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 164, VerticalAlignment = VerticalAlignment.Center });
         Placer(nom, r, 0);
 
         // état, comme OBS : « Actif » ou « Inactif »
@@ -220,7 +220,7 @@ public sealed class ProprietesAudioWindow : FenetreDialogue
         for (int t = 1; t <= AudioConfiguration.Pistes; t++)
         {
             int piste = t;
-            var cb = new CheckBox { Content = t.ToString(), IsChecked = s.DansPiste(t), FontSize = 13.5, Margin = new Thickness(0, 0, 12, 0), ToolTip = Destinations(piste) };
+            var cb = new CheckBox { Content = t.ToString(), IsChecked = s.DansPiste(t), FontSize = 13.5, Margin = new Thickness(0, 0, 10, 0), ToolTip = Destinations(piste) };
             cb.Click += (_, _) =>
             {
                 if (cb.IsChecked == true) s.Tracks |= 1 << (piste - 1);

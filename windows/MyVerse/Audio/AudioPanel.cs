@@ -25,7 +25,7 @@ public sealed class AudioPanel : Border
     static Style S(string cle) => MainWindow.Style_(cle);
     static readonly CultureInfo Fr = CultureInfo.GetCultureInfo("fr-CA");
     const string Vide = "Le mélangeur est vide : « + Source audio » pour ajouter une capture audio (entrée ou sortie) ou un média.";
-    const double LargeurBande = 104, HauteurVu = 176;
+    const double LargeurBande = 108, HauteurVu = 176;
 
     /// <summary>Une bande verticale du mélangeur.</summary>
     sealed class Bande
@@ -295,9 +295,9 @@ public sealed class AudioPanel : Border
 
         // sourdine, monitoring, menu ⋮
         var boutons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 12, 0, 0) };
-        b.Muet = BoutonM(32, 28);
+        b.Muet = BoutonM(30, 28);
         b.CasqueIcone = IconeCasque();
-        b.Casque = new Button { Style = S("Btn"), Width = 32, Height = 28, Padding = new Thickness(0), Margin = new Thickness(4, 0, 0, 0), Content = b.CasqueIcone };
+        b.Casque = new Button { Style = S("Btn"), Width = 30, Height = 28, Padding = new Thickness(0), Margin = new Thickness(4, 0, 0, 0), Content = b.CasqueIcone };
         b.Menu = new Button
         {
             Style = S("BtnPlat"), Width = 24, Height = 28, Padding = new Thickness(0), Margin = new Thickness(2, 0, 0, 0), HorizontalContentAlignment = HorizontalAlignment.Center,
