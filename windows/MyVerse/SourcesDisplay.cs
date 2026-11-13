@@ -28,6 +28,7 @@ public sealed class SourcesDisplay : IDisposable
     SourceDisplay? source;
     int generation;
     long dernierExport;
+    int exportEnCours;
 
     public void Choisir(EtatEcran etat) => ChoisirSource(etat.Mode == "media" ? etat.Media : null);
 
@@ -172,20 +173,34 @@ public sealed class SourcesDisplay : IDisposable
         });
     }
 
-    /// <summary>Image MyCam : le JPEG décodé, tourné d'un quart de tour au besoin (téléphone en hauteur ou à l'horizontale), en miroir au besoin.</summary>
+    /// <summary>
+    /// Image MyCam : les pixels H.264 décodés (MyChurch 4.1) ou le JPEG décodé, tournés d'un quart de tour au besoin
+    /// (téléphone en hauteur ou à l'horizontale), en miroir au besoin ; réduits à <paramref name="largeur"/> pour les vignettes.
+    /// </summary>
     public static BitmapSource? DecoderMyCam(MyCams.Cadre c, int largeur = 0)
     {
         try
         {
-            using var flux = new MemoryStream(c.Jpeg, false);
-            var image = new BitmapImage();
-            image.BeginInit();
-            image.CacheOption = BitmapCacheOption.OnLoad;
-            image.StreamSource = flux;
-            if (largeur > 0) image.DecodePixelWidth = largeur;
-            image.Rotation = c.Rotation switch { 1 => Rotation.Rotate90, 2 => Rotation.Rotate180, 3 => Rotation.Rotate270, _ => Rotation.Rotate0 };
-            image.EndInit();
-            BitmapSource b = image;
+            BitmapSource b;
+            if (c.Pixels is { } px)
+            {
+                b = BitmapSource.Create(c.Largeur, c.Hauteur, 96, 96, PixelFormats.Bgr32, null, px, c.Largeur * 4);
+                double finale = c.Rotation % 2 == 1 ? c.Hauteur : c.Largeur;
+                if (largeur > 0 && largeur < finale) b = new TransformedBitmap(b, new ScaleTransform(largeur / finale, largeur / finale));
+                if (c.Rotation != 0) b = new TransformedBitmap(b, new RotateTransform(90 * c.Rotation));
+            }
+            else
+            {
+                using var flux = new MemoryStream(c.Jpeg, false);
+                var image = new BitmapImage();
+                image.BeginInit();
+                image.CacheOption = BitmapCacheOption.OnLoad;
+                image.StreamSource = flux;
+                if (largeur > 0) image.DecodePixelWidth = largeur;
+                image.Rotation = c.Rotation switch { 1 => Rotation.Rotate90, 2 => Rotation.Rotate180, 3 => Rotation.Rotate270, _ => Rotation.Rotate0 };
+                image.EndInit();
+                b = image;
+            }
             if (c.Miroir) b = new TransformedBitmap(b, new ScaleTransform(-1, 1));
             b.Freeze();
             return b;
@@ -205,8 +220,14 @@ public sealed class SourcesDisplay : IDisposable
             Image = b; Statut = "En direct"; Change?.Invoke();
         });
         if (export.Length == 0 || g != generation || !App.SortieObs.Prete || Environment.TickCount64 - dernierExport < 100) return;
+        // 4.1 : l'image de la page OBS s'écrit à côté, sans retenir l'image suivante de la caméra ; si la précédente s'écrit encore, celle-ci est sautée
+        if (Interlocked.CompareExchange(ref exportEnCours, 1, 0) != 0) return;
         dernierExport = Environment.TickCount64;
-        await Exporter(b, g);
+        _ = Task.Run(async () =>
+        {
+            try { await Exporter(b, g); }
+            finally { Volatile.Write(ref exportEnCours, 0); }
+        });
     }
 
     /// <summary>

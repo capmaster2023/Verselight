@@ -8,16 +8,23 @@ import android.content.pm.PackageManager
 import android.graphics.ImageFormat
 import android.graphics.Rect
 import android.graphics.YuvImage
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CaptureRequest
+import android.net.wifi.WifiManager
 import android.os.BatteryManager
 import android.os.Build
 import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.util.Range
 import android.util.Size
 import android.view.OrientationEventListener
 import android.view.Surface
 import androidx.activity.ComponentActivity
+import androidx.camera.camera2.interop.Camera2CameraInfo
+import androidx.camera.camera2.interop.Camera2Interop
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.FocusMeteringAction
@@ -40,10 +47,12 @@ import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * MyCam : le téléphone devient une caméra de MyChurch, comme DroidCam.
- * CameraX → images JPEG (en-tête « MC ») → la connexion WebSocket déjà authentifiée avec le PC.
+ * CameraX → vidéo H.264 de l'encodeur matériel (MyChurch 4.1 sur le PC), sinon images JPEG (en-tête « MC »)
+ * → la connexion WebSocket déjà authentifiée avec le PC. La caméra est tenue à la cadence choisie, même dans la pénombre.
  * Le PC renvoie le témoin (rouge : à l'écran, orange : ensuite) et les messages de la régie.
  */
 object MyCam {
@@ -76,6 +85,10 @@ object MyCam {
     val portrait = MutableStateFlow(true)
     /** Qualité JPEG du moment (elle baisse quand le Wi-Fi ne suit pas, puis remonte). */
     val qualiteImage = MutableStateFlow(0)
+    /** Format envoyé : « H.264 » ou « JPEG » (vide sans diffusion). */
+    val format = MutableStateFlow("")
+    /** Débit H.264 du moment en kb/s (il baisse quand le Wi-Fi ne suit pas, puis remonte) ; 0 en JPEG. */
+    val debit = MutableStateFlow(0)
 
     private var activite: ComponentActivity? = null
     private var remote: Remote? = null
@@ -90,7 +103,7 @@ object MyCam {
     private var boucles = false
     @Volatile private var rotationCible = Surface.ROTATION_0
     @Volatile private var dernierEnvoi = 0L
-    @Volatile private var envoyees = 0
+    private val envoyees = AtomicInteger(0)
     @Volatile private var infoDemandee = false
     /** Dernière image donnée par la caméra (même sautée) : la caméra vit. */
     @Volatile private var dernierCadre = 0L
@@ -100,6 +113,24 @@ object MyCam {
     private var derniereBaisse = 0L
     /** Octets en attente d'envoi au-delà desquels une image est sautée : au plus ~1 image d'avance, pour un retard minimal. */
     private const val SEUIL_FILE = 150_000L
+
+    // H.264 (MyChurch 4.1)
+    private const val H264_ENVOYE = 0
+    private const val H264_SAUTE = 1
+    private const val H264_IMPOSSIBLE = 2
+    private val verrouEncodeur = Any()
+    private var encodeur: EncodeurH264? = null
+    /** H.264 abandonné pour cette diffusion : encodeur en panne, ou le PC demande le JPEG. */
+    @Volatile private var h264Refuse = false
+    /** Zone et cadence que l'encodeur de ce téléphone refuse (JPEG pour elles seulement). */
+    @Volatile private var tailleRefusee = ""
+    /** Le PC attend une image clé (début, reprise, image perdue). */
+    @Volatile private var cleDemandee = false
+    @Volatile private var rotationEnvoi = 0
+    private var derniereCle = 0L
+    private var debitCible = 0
+    private var dernierReglage = 0L
+    private var wifi: WifiManager.WifiLock? = null
 
     private class Tampon : ByteArrayOutputStream(256 * 1024) {
         val octets: ByteArray get() = buf
@@ -143,6 +174,7 @@ object MyCam {
             fermer()
             appliquer()
         }
+        if (diffuse.value) wifiRapide(true)
     }
 
     fun detacher(a: ComponentActivity) {
@@ -150,6 +182,7 @@ object MyCam {
         orientation?.disable()
         orientation = null
         fermer()
+        wifiRapide(false)
         activite = null
     }
 
@@ -180,6 +213,10 @@ object MyCam {
         }
         diffuse.value = true
         depuis.value = System.currentTimeMillis()
+        h264Refuse = false
+        tailleRefusee = ""
+        cleDemandee = true
+        wifiRapide(true)
         appliquer()
         infoDemandee = true
         Bulles.dire("MyCam diffuse vers « ${r.pcName.value.ifBlank { "le PC" }} »")
@@ -189,18 +226,35 @@ object MyCam {
         if (!diffuse.value) return
         diffuse.value = false
         depuis.value = 0L
+        fermerEncodeur()
+        wifiRapide(false)
+        format.value = ""
         infoDemandee = true
         envoyerInfo()
         appliquer()
     }
 
-    /** Reconnexion au PC : on redit tout de suite qui on est (nom, image, batterie). */
+    /** Reconnexion au PC : on redit tout de suite qui on est (nom, image, batterie) ; la vidéo repart d'une image clé. */
     fun reconnecte() {
         infoDemandee = true
+        cleDemandee = true
     }
 
-    /** Résolution ou cadence changée dans les réglages. */
+    /** Le PC (MyChurch 4.1) attend une image clé : son décodeur démarre, reprend, ou a perdu le fil. */
+    fun demanderCle() {
+        cleDemandee = true
+    }
+
+    /** Le PC ne décode pas le H.264 (FFmpeg absent) : images JPEG pour cette diffusion. */
+    fun formatDuPc(codec: String) {
+        if (codec == "jpeg") refuserH264("le PC demande des images JPEG")
+    }
+
+    /** Résolution, cadence ou format changés dans les réglages. */
     fun reconfigurer() {
+        h264Refuse = false
+        tailleRefusee = ""
+        fermerEncodeur()
         if (camera != null) {
             fermer()
             appliquer()
@@ -277,6 +331,7 @@ object MyCam {
         }, ContextCompat.getMainExecutor(a))
     }
 
+    @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
     private fun ouvrir(p: ProcessCameraProvider, a: ComponentActivity) {
         val store = remote?.store ?: return
         val voulue = if (store.camResolution >= 1080) Size(1920, 1080) else Size(1280, 720)
@@ -284,17 +339,22 @@ object MyCam {
             .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
             .setResolutionStrategy(ResolutionStrategy(voulue, ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER))
             .build()
-        val prev = Preview.Builder()
+        val selecteur = if (avant.value) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
+        val prevB = Preview.Builder()
             .setResolutionSelector(ResolutionSelector.Builder().setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY).build())
-            .build()
-        val an = ImageAnalysis.Builder()
+        val anB = ImageAnalysis.Builder()
             .setResolutionSelector(choix)
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
             .setTargetRotation(rotationCible)
-            .build()
+        // la cadence choisie tenue même dans la pénombre de l'église (sans ceci, l'exposition automatique descend vers 10-15 i/s)
+        plageFps(p, selecteur, store.camFps.coerceIn(5, 30))?.let { plage ->
+            Camera2Interop.Extender(prevB).setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, plage)
+            Camera2Interop.Extender(anB).setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, plage)
+        }
+        val prev = prevB.build()
+        val an = anB.build()
         an.setAnalyzer(executeur) { img -> traiter(img) }
-        val selecteur = if (avant.value) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
         try {
             val cam = p.bindToLifecycle(a, selecteur, prev, an)
             camera = cam
@@ -327,11 +387,25 @@ object MyCam {
         }
     }
 
+    /**
+     * Plage de cadence de l'exposition automatique : celle dont le haut est la cadence voulue (ou le plus proche au-dessus)
+     * et le bas le plus haut possible — idéalement [30, 30] : la caméra garde 30 i/s et monte la sensibilité au lieu d'allonger la pose.
+     */
+    @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
+    private fun plageFps(p: ProcessCameraProvider, selecteur: CameraSelector, voulu: Int): Range<Int>? = try {
+        val info = selecteur.filter(p.availableCameraInfos).firstOrNull()
+        val plages = info?.let { Camera2CameraInfo.from(it).getCameraCharacteristic(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES) }
+        plages?.filter { it.upper >= voulu }?.minWithOrNull(compareBy<Range<Int>>({ it.upper }, { -it.lower }))
+    } catch (e: Exception) {
+        null
+    }
+
     private fun fermer() {
         val a = activite
         val c = camera
         camera = null
         ouverte.value = false
+        fermerEncodeur()
         if (a != null && c != null) c.cameraInfo.zoomState.removeObservers(a)
         val prev = apercu
         val an = analyse
@@ -359,22 +433,11 @@ object MyCam {
             dernierCadre = maintenant
             val r = remote ?: return
             if (!diffuse.value) return
-            val intervalle = 1000L / r.store.camFps.coerceIn(5, 30)
-            if (maintenant - dernierEnvoi < intervalle - 4) return
+            val cadence = r.store.camFps.coerceIn(5, 30)
+            if (maintenant - dernierEnvoi < 1000L / cadence - 4) return
             if (!r.pret()) return
             val w = img.width
             val h = img.height
-            val max = if (h >= 1080 || w >= 1920) 70 else 76
-            if (qualite == 0 || qualite > max) qualite = max
-            // le Wi-Fi ne suit pas (plus d'une image en attente) : cette image est sautée et la qualité baisse, pour garder le direct
-            if (r.fileEnvoi() > SEUIL_FILE) {
-                if (maintenant - derniereBaisse > 400) {
-                    qualite = (qualite - 6).coerceAtLeast(40)
-                    derniereBaisse = maintenant
-                    bonnes = 0
-                }
-                return
-            }
             val rotation = (img.imageInfo.rotationDegrees / 90) and 3
             // téléphone à la verticale : la bande 16:9 du milieu, comme le viseur (l'image debout est en hauteur ;
             // sa bande horizontale est une bande verticale du capteur)
@@ -383,26 +446,168 @@ object MyCam {
                 val x0 = ((w - bw) / 2) and 1.inv()
                 Rect(x0, 0, x0 + bw, h)
             } else Rect(0, 0, w, h)
-            val yuv = versNv21(img)
-            tampon.reset()
-            tampon.write(byteArrayOf('M'.code.toByte(), 'C'.code.toByte(), 1, rotation.toByte()))
-            YuvImage(yuv, ImageFormat.NV21, w, h, null).compressToJpeg(zone, qualite, tampon)
-            if (r.sendBinary(tampon.octets, tampon.longueur)) {
-                dernierEnvoi = maintenant
-                envoyees++
-                // tout passe : la qualité remonte doucement
-                if (++bonnes >= 45 && qualite < max) {
-                    qualite = (qualite + 3).coerceAtMost(max)
-                    bonnes = 0
+            if (veutH264(r)) {
+                when (h264(r, img, zone, rotation, cadence, maintenant)) {
+                    H264_ENVOYE -> {
+                        dernierEnvoi = maintenant
+                        return
+                    }
+                    H264_SAUTE -> return
                 }
-            }
-            if (qualiteImage.value != qualite) qualiteImage.value = qualite
-            val t = if (rotation % 2 == 1) "${zone.height()} × ${zone.width()}" else "${zone.width()} × ${zone.height()}"
-            if (taille.value != t) taille.value = t
+            } else if (encodeur != null) fermerEncodeur()
+            jpeg(r, img, zone, rotation, maintenant)
         } catch (e: Exception) {
             erreur.value = "Image : ${e.message ?: e.javaClass.simpleName}"
         } finally {
             img.close()
+        }
+    }
+
+    /** Images JPEG une à une (PC en MyChurch 4.0, ou H.264 indisponible). */
+    private fun jpeg(r: Remote, img: ImageProxy, zone: Rect, rotation: Int, maintenant: Long) {
+        val w = img.width
+        val h = img.height
+        val max = if (h >= 1080 || w >= 1920) 70 else 76
+        if (qualite == 0 || qualite > max) qualite = max
+        if (format.value != "JPEG") format.value = "JPEG"
+        // le Wi-Fi ne suit pas (plus d'une image en attente) : cette image est sautée et la qualité baisse, pour garder le direct
+        if (r.fileEnvoi() > SEUIL_FILE) {
+            if (maintenant - derniereBaisse > 400) {
+                qualite = (qualite - 6).coerceAtLeast(40)
+                derniereBaisse = maintenant
+                bonnes = 0
+            }
+            return
+        }
+        val yuv = versNv21(img)
+        tampon.reset()
+        tampon.write(byteArrayOf('M'.code.toByte(), 'C'.code.toByte(), 1, rotation.toByte()))
+        YuvImage(yuv, ImageFormat.NV21, w, h, null).compressToJpeg(zone, qualite, tampon)
+        if (r.sendBinary(tampon.octets, tampon.longueur)) {
+            dernierEnvoi = maintenant
+            envoyees.incrementAndGet()
+            // tout passe : la qualité remonte doucement
+            if (++bonnes >= 45 && qualite < max) {
+                qualite = (qualite + 3).coerceAtMost(max)
+                bonnes = 0
+            }
+        }
+        if (qualiteImage.value != qualite) qualiteImage.value = qualite
+        afficherTaille(zone, rotation)
+    }
+
+    private fun afficherTaille(zone: Rect, rotation: Int) {
+        val t = if (rotation % 2 == 1) "${zone.height()} × ${zone.width()}" else "${zone.width()} × ${zone.height()}"
+        if (taille.value != t) taille.value = t
+    }
+
+    /** Le PC décode le H.264 (MyChurch 4.1), le réglage le demande, et l'encodeur de ce téléphone n'a pas lâché. */
+    private fun veutH264(r: Remote) = r.store.camFormat != "jpeg" && !h264Refuse && "h264" in r.codecsPc.value
+
+    /** Une image vers l'encodeur H.264 (fil de la caméra) : envoyée, sautée (Wi-Fi ou encodeur en retard), ou impossible (JPEG). */
+    private fun h264(r: Remote, img: ImageProxy, voulue: Rect, rotation: Int, cadence: Int, maintenant: Long): Int {
+        synchronized(verrouEncodeur) {
+            var e = encodeur
+            e?.panne?.let { p ->
+                fermerEncodeurVerrouille()
+                refuserH264("encodeur en panne : $p")
+                return H264_IMPOSSIBLE
+            }
+            if (e != null && (e.voulueL != voulue.width() || e.voulueH != voulue.height() || e.fps != cadence)) {
+                // téléphone tourné (autre zone) ou cadence changée : nouvel encodeur, qui commence par une image clé
+                fermerEncodeurVerrouille()
+                e = null
+            }
+            if (e == null) {
+                if (!ouverte.value) return H264_SAUTE
+                val cle = "${voulue.width()}×${voulue.height()}@$cadence"
+                if (cle == tailleRefusee) return H264_IMPOSSIBLE
+                e = try {
+                    EncodeurH264.creer(voulue.width(), voulue.height(), cadence) { donnees, n, cleImage -> sortieH264(donnees, n, cleImage) }
+                } catch (ex: Exception) {
+                    tailleRefusee = cle
+                    Bulles.dire("Ce téléphone refuse le H.264 en ${voulue.width()} × ${voulue.height()} : MyCam envoie des images JPEG.")
+                    return H264_IMPOSSIBLE
+                }
+                encodeur = e
+                debitCible = e.debit
+                dernierReglage = maintenant
+                cleDemandee = false
+                debit.value = e.debit / 1000
+                format.value = "H.264"
+            }
+            rotationEnvoi = rotation
+            // le Wi-Fi ne suit pas (plus de ~1/8 s de vidéo en attente) : image sautée et débit en baisse ; il remonte quand tout passe
+            if (r.fileEnvoi() > maxOf(48_000L, e.debit / 64L)) {
+                if (maintenant - dernierReglage > 500) {
+                    e.reglerDebit(maxOf(e.debitMin, e.debit * 3 / 4))
+                    dernierReglage = maintenant
+                    debit.value = e.debit / 1000
+                }
+                return H264_SAUTE
+            }
+            if (e.debit < debitCible && maintenant - dernierReglage > 4000) {
+                e.reglerDebit(minOf(debitCible, e.debit * 5 / 4))
+                dernierReglage = maintenant
+                debit.value = e.debit / 1000
+            }
+            if (cleDemandee && maintenant - derniereCle > 500) {
+                cleDemandee = false
+                derniereCle = maintenant
+                e.demanderCle()
+            }
+            val zone = e.zone(voulue)
+            afficherTaille(zone, rotation)
+            return if (e.encoder(img, zone, img.imageInfo.timestamp / 1000)) H264_ENVOYE else H264_SAUTE
+        }
+    }
+
+    /** Une unité d'accès H.264 sortie de l'encodeur (son fil) : en-tête MyCam version 2, puis vers le PC. */
+    private fun sortieH264(donnees: ByteArray, n: Int, cle: Boolean) {
+        val r = remote ?: return
+        if (!diffuse.value) return
+        donnees[0] = 'M'.code.toByte()
+        donnees[1] = 'C'.code.toByte()
+        donnees[2] = 2
+        donnees[3] = (rotationEnvoi or (if (cle) 8 else 0)).toByte()
+        if (r.sendBinary(donnees, n)) envoyees.incrementAndGet()
+        // une image perdue casse la suite des images P sur le PC : on repart d'une image clé
+        else cleDemandee = true
+    }
+
+    private fun refuserH264(raison: String) {
+        if (h264Refuse) return
+        h264Refuse = true
+        Bulles.dire("H.264 indisponible ($raison) : MyCam envoie des images JPEG.")
+    }
+
+    private fun fermerEncodeur() {
+        synchronized(verrouEncodeur) { fermerEncodeurVerrouille() }
+    }
+
+    private fun fermerEncodeurVerrouille() {
+        encodeur?.fermer()
+        encodeur = null
+        debit.value = 0
+    }
+
+    /** Pendant la diffusion, le Wi-Fi du téléphone ne s'assoupit pas entre deux images (sinon : saccades et retard). */
+    private fun wifiRapide(actif: Boolean) {
+        try {
+            if (!actif) {
+                wifi?.let { if (it.isHeld) it.release() }
+                wifi = null
+                return
+            }
+            if (wifi?.isHeld == true) return
+            val wm = activite?.applicationContext?.getSystemService(WifiManager::class.java) ?: return
+            @Suppress("DEPRECATION")
+            val mode = if (Build.VERSION.SDK_INT >= 29) WifiManager.WIFI_MODE_FULL_LOW_LATENCY else WifiManager.WIFI_MODE_FULL_HIGH_PERF
+            wifi = wm.createWifiLock(mode, "MyChurch:MyCam").apply {
+                setReferenceCounted(false)
+                acquire()
+            }
+        } catch (e: Exception) {
         }
     }
 
@@ -464,8 +669,8 @@ object MyCam {
     private suspend fun compter() {
         while (true) {
             delay(1000)
-            fps.value = if (diffuse.value) envoyees else 0
-            envoyees = 0
+            val n = envoyees.getAndSet(0)
+            fps.value = if (diffuse.value) n else 0
             // caméra bloquée : plus aucune image depuis 3 s pendant la diffusion (application au premier plan) → on la rouvre
             val maintenant = SystemClock.elapsedRealtime()
             val active = activite?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.STARTED) == true
@@ -546,6 +751,8 @@ object MyCam {
             "lien" to r.lien(),
             "avant" to avant.value,
             "depuis" to depuis.value,
+            "codec" to format.value,
+            "debit" to debit.value,
         )
     }
 }

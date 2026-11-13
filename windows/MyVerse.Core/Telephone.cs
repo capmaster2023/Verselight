@@ -179,7 +179,19 @@ public sealed class Telephone : IDisposable
         this.surUi = surUi;
         store = new AppareilsJumeles(dossier);
         NomPc = nomPc ?? Environment.GetEnvironmentVariable("COMPUTERNAME") ?? Dns.GetHostName();
+        Cameras.Demande += EnvoyerCamera;
     }
+
+    /// <summary>MyCam : message du décodeur pour un téléphone (image clé demandée, retour au JPEG).</summary>
+    void EnvoyerCamera(string deviceId, JsonObject m)
+    {
+        Connexion? p;
+        lock (phones) p = phones.LastOrDefault(x => x.DeviceId == deviceId);
+        if (p != null) _ = Envoyer(p, m);
+    }
+
+    /// <summary>Formats d'image MyCam que ce PC sait afficher : « h264 » si le FFmpeg d'OBS est là, toujours « jpeg ».</summary>
+    static JsonArray Codecs() => MyCams.H264 ? new JsonArray("h264", "jpeg") : new JsonArray("jpeg");
 
     // ------------------------------------------------------------ outils
     public static string B64(byte[] b) => Convert.ToBase64String(b).TrimEnd('=').Replace('+', '-').Replace('/', '_');
@@ -242,6 +254,8 @@ public sealed class Telephone : IDisposable
             return;
         }
         Journal.Info($"écoute des téléphones sur le port {Port}");
+        // MyCam H.264 : le FFmpeg d'OBS est chargé et vérifié d'avance, le premier téléphone n'attend pas
+        _ = Task.Run(() => Journal.Info("MyCam H.264 : " + (DecodeurH264.Disponible ? DecodeurH264.Etat : "indisponible, images JPEG (" + DecodeurH264.Etat + ")")));
         _ = Accepter(ecoute);
         try
         {
@@ -748,7 +762,7 @@ boucle();
         lock (phones) phones.Add(p);
         try
         {
-            await Envoyer(p, new JsonObject { ["t"] = "welcome", ["v"] = Protocole, ["pcName"] = NomPc, ["paired"] = jumelage, ["proto"] = Fonctions });
+            await Envoyer(p, new JsonObject { ["t"] = "welcome", ["v"] = Protocole, ["pcName"] = NomPc, ["paired"] = jumelage, ["proto"] = Fonctions, ["codecs"] = Codecs() });
             if (dernierEtat.Length > 0) await Envoyer(p, dernierEtat);
             Prevenir();
 

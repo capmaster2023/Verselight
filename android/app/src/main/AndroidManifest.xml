@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- MyCam : vibrer quand la caméra passe à l'écran -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- MyCam : le Wi-Fi reste en mode rapide pendant la diffusion (WifiLock) -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 

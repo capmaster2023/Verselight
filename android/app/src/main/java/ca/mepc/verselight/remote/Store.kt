@@ -84,6 +84,11 @@ class Store(context: Context) {
         get() = prefs.getBoolean("camRemplir", true)
         set(v) = prefs.edit().putBoolean("camRemplir", v).apply()
 
+    /** Format des images MyCam : « h264 » (vidéo comme DroidCam, environ 10 fois plus légère, PC en 4.1) ou « jpeg » (images une à une). */
+    var camFormat: String
+        get() = prefs.getString("camFormat", "h264") ?: "h264"
+        set(v) = prefs.edit().putString("camFormat", v).apply()
+
     /** Grille des tiers sur le viseur. */
     var camGrille: Boolean
         get() = prefs.getBoolean("camGrille", true)

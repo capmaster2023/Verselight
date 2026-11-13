@@ -306,6 +306,7 @@ fun MyCamOnglet(remote: Remote) {
     val eMin by MyCam.expoMin.collectAsState()
     val eMax by MyCam.expoMax.collectAsState()
     val fps by MyCam.fps.collectAsState()
+    val codec by MyCam.format.collectAsState()
     val taille by MyCam.taille.collectAsState()
     val batterie by MyCam.batterie.collectAsState()
     val portrait by MyCam.portrait.collectAsState()
@@ -346,7 +347,7 @@ fun MyCamOnglet(remote: Remote) {
                         }
                     } else {
                         Viseur(Modifier.fillMaxSize(), grille) {
-                            Info(listOf(taille, if (diffuse) "$fps i/s" else "").filter { it.isNotBlank() }.joinToString(" · ").ifBlank { "MyCam" }, Modifier.align(Alignment.TopStart).padding(8.dp))
+                            Info(listOf(taille, if (diffuse) "$fps i/s" else "", if (diffuse) codec else "").filter { it.isNotBlank() }.joinToString(" · ").ifBlank { "MyCam" }, Modifier.align(Alignment.TopStart).padding(8.dp))
                             if (batterie >= 0) Info("$batterie %", Modifier.align(Alignment.TopEnd).padding(8.dp))
                             Info(if (remote.store.camUsb) "Câble USB" else "Wi-Fi", Modifier.align(Alignment.BottomStart).padding(8.dp))
                             Touche(
@@ -485,6 +486,7 @@ fun MyCamPleinEcran(remote: Remote) {
     val eMin by MyCam.expoMin.collectAsState()
     val eMax by MyCam.expoMax.collectAsState()
     val fps by MyCam.fps.collectAsState()
+    val codec by MyCam.format.collectAsState()
     val taille by MyCam.taille.collectAsState()
     val batterie by MyCam.batterie.collectAsState()
     val temperature by MyCam.temperature.collectAsState()
@@ -502,6 +504,7 @@ fun MyCamPleinEcran(remote: Remote) {
                 if (t.anneau == C.RougeVif) T(t.droite, taille = 14.sp, poids = FontWeight.ExtraBold, couleur = Color.White)
                 T(taille.ifBlank { "—" }, taille = 11.5.sp, poids = FontWeight.Bold, couleur = C.CamBrume2, centre = true)
                 if (diffuse) T("$fps i/s", taille = 11.5.sp, poids = FontWeight.Bold, couleur = C.CamBrume2)
+                if (diffuse && codec.isNotEmpty()) T(codec, taille = 11.5.sp, poids = FontWeight.Bold, couleur = C.CamBrume2)
                 T(if (remote.store.camUsb) "USB" else "Wi-Fi", taille = 11.5.sp, poids = FontWeight.Bold, couleur = C.CamBrume2)
                 if (batterie >= 0) T("$batterie %", taille = 11.5.sp, poids = FontWeight.Bold, couleur = C.CamBrume2)
                 if (temperature > 0) T(String.format(Locale.FRANCE, "%.0f °C", temperature), taille = 11.5.sp, poids = FontWeight.Bold, couleur = if (temperature >= 42) C.CamAmbreVif else C.CamBrume2)
@@ -603,6 +606,7 @@ private fun MyCamReglages(remote: Remote, fermer: () -> Unit) {
     var messages by remember { mutableStateOf(store.camMessages) }
     var grille by remember { mutableStateOf(store.camGrille) }
     var remplir by remember { mutableStateOf(store.camRemplir) }
+    var formatVideo by remember { mutableStateOf(store.camFormat) }
     BackHandler { fermer() }
     fun enregistrerNom() {
         store.camNom = nom
@@ -662,6 +666,17 @@ private fun MyCamReglages(remote: Remote, fermer: () -> Unit) {
                     store.camFps = fps
                     MyCam.reconfigurer()
                 }
+                T("Format vidéo", taille = 13.5.sp, poids = FontWeight.Bold, couleur = C.CamTexte)
+                Segments(listOf("H.264", "JPEG"), if (formatVideo == "jpeg") 1 else 0) { i ->
+                    formatVideo = if (i == 1) "jpeg" else "h264"
+                    store.camFormat = formatVideo
+                    MyCam.reconfigurer()
+                }
+                T(
+                    if (formatVideo == "jpeg") "JPEG : des images une à une, plus lourdes. Pour un PC en MyChurch 4.0."
+                    else "H.264 : de la vidéo fluide, comme DroidCam, environ 10 fois plus légère que le JPEG. Demande MyChurch 4.1 sur le PC (sinon, JPEG automatiquement).",
+                    taille = 12.sp, couleur = C.CamBrume, interligne = 17.sp,
+                )
                 T("720p à 30 i/s : le bon choix sur le Wi-Fi de l’église. 1080p demande un Wi-Fi 5 GHz ou le câble. Si le Wi-Fi faiblit, la qualité baisse un moment pour garder le direct.", taille = 12.sp, couleur = C.CamBrume, interligne = 17.sp)
                 LigneReglage("Toujours en 16:9, comme le viseur", "Téléphone à la verticale : l’image est recadrée pour remplir l’écran de l’église", remplir, sombre = true) {
                     remplir = it

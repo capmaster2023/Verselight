@@ -49,6 +49,8 @@ class Remote(private val context: Context, val store: Store) {
     val journal = MutableStateFlow<List<String>>(emptyList())  // journal d'erreurs (Réglages › Journal)
     /** Protocole du PC : 1 = MyChurch 3.3 et avant, 2 = 4.0 (déroulé, écran par défaut, noir, MyCam). */
     val proto = MutableStateFlow(1)
+    /** Formats d'image MyCam que le PC sait afficher (« h264 » depuis MyChurch 4.1, toujours « jpeg »). */
+    val codecsPc = MutableStateFlow(setOf("jpeg"))
     /** Le déroulé du culte (réponse « agenda » du PC). */
     val agenda = MutableStateFlow<JSONObject?>(null)
     /** Les sources Display du PC (réponse « displays »). */
@@ -177,7 +179,7 @@ class Remote(private val context: Context, val store: Store) {
         wake.trySend(Unit)
     }
 
-    /** MyCam : une image (en-tête MC + JPEG) vers le PC. Faux si le PC n'est pas joignable ou si la file d'envoi est pleine. */
+    /** MyCam : une image (en-tête MC + JPEG ou H.264) vers le PC. Faux si le PC n'est pas joignable ou si la file d'envoi est pleine. */
     fun sendBinary(data: ByteArray, len: Int): Boolean {
         val s = socket ?: return false
         if (s.queueSize() > 1_200_000L) return false
@@ -315,6 +317,7 @@ class Remote(private val context: Context, val store: Store) {
             pcName.value = name
             info.value = ""
             proto.value = w.optInt("proto", 1)
+            codecsPc.value = w.optJSONArray("codecs")?.let { a -> (0 until a.length()).map { a.optString(it) }.toSet() } ?: setOf("jpeg")
             agendaVu = -1
             socket = ws
             link.value = Link.CONNECTED
@@ -353,6 +356,8 @@ class Remote(private val context: Context, val store: Store) {
                             events.tryEmit(m)
                         }
                         "cam.tally" -> temoin.value = m.optString("etat", "off")
+                        "cam.cle" -> MyCam.demanderCle()
+                        "cam.format" -> MyCam.formatDuPc(m.optString("codec"))
                         "cam.msg" -> {
                             messagesCam.value = (messagesCam.value.filter { it.optString("id") != m.optString("id") } + m).takeLast(3)
                             events.tryEmit(m)
@@ -578,12 +583,15 @@ class Remote(private val context: Context, val store: Store) {
     private fun hmac(key: ByteArray, msg: String) = b64(hmacRaw(key, msg))
 }
 
-/** Prises TCP au tampon d'envoi réduit (256 Ko) : les images MyCam ne s'empilent pas des secondes durant dans le téléphone. */
+/**
+ * Prises TCP au tampon d'envoi réduit (64 Ko, doublés par Android) : les images MyCam ne s'empilent pas dans le téléphone
+ * (avant la 4.1 : 256 Ko, soit jusqu'à une demi-seconde de retard quand le Wi-Fi faiblissait).
+ */
 private class PetitTamponEnvoi : javax.net.SocketFactory() {
     private val defaut: javax.net.SocketFactory = javax.net.SocketFactory.getDefault()
     private fun regler(s: java.net.Socket): java.net.Socket = s.apply {
         try {
-            sendBufferSize = 256 * 1024
+            sendBufferSize = 64 * 1024
             tcpNoDelay = true
         } catch (e: Exception) {
         }

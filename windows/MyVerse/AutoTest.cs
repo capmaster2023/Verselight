@@ -585,6 +585,33 @@ public static class AutoTest
                 await Attendre(500);
                 Ok(App.Sources.Image is { PixelWidth: 360, PixelHeight: 640 }, "MyCam en hauteur : image tournée d'un quart de tour (" + App.Sources.Image?.PixelWidth + " × " + App.Sources.Image?.PixelHeight + ")");
                 if (w.Ecran != null) Capture(w.Ecran, "21f-mycam-en-hauteur.png");
+                // 4.1 : MyCam en H.264, comme DroidCam : le FFmpeg d'OBS livré avec MyChurch (obs\bin\64bit\avcodec-*.dll) décode la vidéo du téléphone
+                Ok(MyCams.H264, "MyCam H.264 : décodeur prêt (" + DecodeurH264.Etat + ")");
+                if (MyCams.H264)
+                {
+                    byte[] Au(byte[] au, bool cle, int rotation)
+                    {
+                        var b = new byte[au.Length + 4];
+                        b[0] = (byte)'M'; b[1] = (byte)'C'; b[2] = 2; b[3] = (byte)(rotation | (cle ? 8 : 0));
+                        au.CopyTo(b, 4);
+                        return b;
+                    }
+                    for (int k = 0; k < DecodeurH264.Mire.Length; k++)
+                    {
+                        var au = Au(DecodeurH264.Mire[k], k == 0, 0);
+                        cams.Recevoir("autotest-cam", "Téléphone test", au, au.Length);
+                        await Attendre(120);
+                    }
+                    await Attendre(400);
+                    var vue = App.Sources.Image;
+                    var pixel = new byte[4];
+                    if (vue is { PixelWidth: 64, PixelHeight: 48 }) vue.CopyPixels(new Int32Rect(32, 24, 1, 1), pixel, 4, 0);
+                    var attendu = DecodeurH264.CouleursMire[^1];
+                    Ok(vue is { PixelWidth: 64, PixelHeight: 48 } && DecodeurH264.Proche(pixel, 1, 0, 0, attendu),
+                        $"MyCam H.264 : vidéo décodée à l'écran ({vue?.PixelWidth} × {vue?.PixelHeight}, pixel {pixel[0]},{pixel[1]},{pixel[2]})");
+                    Ok(cams.InfoDe("autotest-cam") is { Codec: "H.264" }, "MyCam H.264 : format affiché (" + cams.InfoDe("autotest-cam")?.Resume + ")");
+                    if (w.Ecran != null) Capture(w.Ecran, "21g-mycam-h264.png");
+                }
                 R.Effacer();
                 await Attendre(500);
                 Ok(R.TemoinMyCam("autotest-cam") == "off", "MyCam retirée : témoin éteint");

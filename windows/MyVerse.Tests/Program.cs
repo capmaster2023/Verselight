@@ -1151,6 +1151,82 @@ if (Actif())
     Ok(relu30.Contains("\"sortiesVirtuelles\"") && relu30.Contains("\"enregistrements\"") && !relu30.Contains("\"virtualSound\""), "enregistré sous les nouveaux noms");
 }
 
+Groupe("MyCam H.264 (4.1)");
+if (Actif())
+{
+    // en-tête version 2 : une unité d'accès H.264 (Annex B), bit 3 = image clé
+    Ok(MyCams.LireEntete(new byte[] { (byte)'M', (byte)'C', 2, 1 | 8, 0, 0, 0, 1, 0x67, 0x42 }) is { H264: true, Cle: true, Rotation: 1, Miroir: false, Debut: 4 }, "en-tête MC 2 : H.264, image clé, quart de tour");
+    Ok(MyCams.LireEntete(new byte[] { (byte)'M', (byte)'C', 2, 4, 0, 0, 1, 0x41 }) is { H264: true, Cle: false, Miroir: true }, "en-tête MC 2 : code de début court (00 00 01), miroir");
+    Ok(MyCams.LireEntete(new byte[] { (byte)'M', (byte)'C', 2, 0, 0xFF, 0xD8, 0, 0 }) == null, "en-tête MC 2 : pas du H.264, refusé");
+    Ok(MyCams.LireEntete(new byte[] { (byte)'M', (byte)'C', 3, 0, 0, 0, 0, 1 }) == null, "en-tête : version inconnue refusée");
+    Ok(MyCams.LireEntete(new byte[] { (byte)'M', (byte)'C', 1, 0, 0xFF, 0xD8, 0, 0 }) is { H264: false, Cle: false }, "en-tête MC 1 : toujours le JPEG");
+
+    // FFmpeg : celui d'OBS (MYCHURCH_OBS) sous Windows, celui du système sous Linux
+    bool ffmpegAttendu = OperatingSystem.IsWindows() ? Environment.GetEnvironmentVariable("MYCHURCH_OBS") != null
+        : new[] { "/usr/lib/x86_64-linux-gnu", "/usr/lib64", "/usr/lib" }.Any(d => Directory.Exists(d) && Directory.GetFiles(d, "libavcodec.so.*").Length > 0);
+    Console.WriteLine($"  décodeur : {DecodeurH264.Etat}");
+    if (!ffmpegAttendu && !DecodeurH264.Disponible) Console.WriteLine("  (FFmpeg absent : essais du décodage H.264 non faits)");
+    else
+    {
+        Ok(DecodeurH264.Disponible, "FFmpeg chargé, la mire H.264 se décode (couleurs vérifiées)", DecodeurH264.Etat);
+        using var dec = DecodeurH264.Creer();
+        Ok(dec != null, "décodeur H.264 créé");
+        if (dec != null)
+        {
+            var m = DecodeurH264.Mire;
+            var c = DecodeurH264.CouleursMire;
+            for (int k = 0; k < m.Length; k++)
+            {
+                var px = dec.Decoder(m[k], 0, m[k].Length, out var l, out var h);
+                Ok(px != null && l == 64 && h == 48 && px.Length == 64 * 48 * 4 && DecodeurH264.Proche(px, l, 32, 24, c[k]) && DecodeurH264.Proche(px, l, 2, 2, c[k]),
+                    $"image {k} ({(k == 0 ? "clé" : "P")}) : 64 × 48 BGRA, couleurs plein écart BT.601 comme le JPEG",
+                    px == null ? "rien" : $"{l} × {h}, centre {px[(24 * 64 + 32) * 4]},{px[(24 * 64 + 32) * 4 + 1]},{px[(24 * 64 + 32) * 4 + 2]}");
+            }
+            var bidon = new byte[] { 0, 0, 0, 1, 0x65, 0x88, 0x84, 0, 0x33, 0xFF, 1, 2, 3, 4 };
+            Ok(dec.Decoder(bidon, 0, bidon.Length, out _, out _) == null, "données invalides : aucune image, pas de plantage");
+            Ok(dec.Decoder(bidon, 0, 0, out _, out _) == null && dec.Decoder(bidon, 10, 9, out _, out _) == null, "longueurs incohérentes refusées");
+        }
+
+        // MyCams : P avant la clé → rien, image clé demandée ; clé → BGRA tourné ; P → image suivante ; arrêt → décodeur libéré
+        byte[] Au(byte[] au, bool cle, int rotation = 0)
+        {
+            var b = new byte[au.Length + 4];
+            b[0] = (byte)'M'; b[1] = (byte)'C'; b[2] = 2; b[3] = (byte)(rotation | (cle ? 8 : 0));
+            au.CopyTo(b, 4);
+            return b;
+        }
+        var camsH = new MyCams();
+        var demandes = new List<string>();
+        camsH.Demande += (id, j) => { lock (demandes) demandes.Add(id + ":" + (string?)j["t"]); };
+        var p1 = Au(DecodeurH264.Mire[1], false);
+        Ok(camsH.Recevoir("tel-h264", "Pixel", p1, p1.Length), "H.264 : message MyCam reconnu");
+        Ok(camsH.Dernier("tel-h264") == null && demandes.Contains("tel-h264:cam.cle"), "H.264 sans image clé : rien d'affiché, image clé demandée au téléphone", string.Join(",", demandes));
+        camsH.Recevoir("tel-h264", "Pixel", p1, p1.Length);
+        Egal(demandes.Count(x => x == "tel-h264:cam.cle"), 1, "image clé demandée au plus une fois par seconde");
+        var k0 = Au(DecodeurH264.Mire[0], true, 1);
+        camsH.Recevoir("tel-h264", "Pixel", k0, k0.Length);
+        var ch = camsH.Dernier("tel-h264");
+        Ok(ch is { Pixels: not null, Largeur: 64, Hauteur: 48, Rotation: 1, Jpeg.Length: 0 } && DecodeurH264.Proche(ch.Pixels, 64, 32, 24, DecodeurH264.CouleursMire[0]),
+            "H.264 : image clé décodée en BGRA, quart de tour gardé");
+        Ok(camsH.InfoDe("tel-h264") is { EnDirect: true, Codec: "H.264" } i && i.Resume.Contains("H.264"), "H.264 : le téléphone diffuse, format affiché", camsH.InfoDe("tel-h264")?.Resume);
+        long n0 = ch?.Numero ?? 0;
+        var p2 = Au(DecodeurH264.Mire[2], false, 1);
+        camsH.Recevoir("tel-h264", "Pixel", p1, p1.Length);
+        camsH.Recevoir("tel-h264", "Pixel", p2, p2.Length);
+        var ch2 = camsH.Dernier("tel-h264");
+        Ok(ch2 is { Pixels: not null } && ch2.Numero == n0 + 2 && DecodeurH264.Proche(ch2.Pixels, 64, 32, 24, DecodeurH264.CouleursMire[2]), "H.264 : images P décodées à la suite");
+        camsH.Infos("tel-h264", "Pixel", System.Text.Json.Nodes.JsonNode.Parse("""{"t":"cam.info","diffuse":false}""")!.AsObject());
+        Ok(camsH.Dernier("tel-h264") == null, "diffusion arrêtée : plus d'image");
+        demandes.Clear();
+        camsH.Recevoir("tel-h264", "Pixel", p2, p2.Length);
+        Ok(camsH.Dernier("tel-h264") == null && demandes.Contains("tel-h264:cam.cle"), "reprise : le nouveau décodeur attend une image clé", string.Join(",", demandes));
+        camsH.Recevoir("tel-h264", "Pixel", k0, k0.Length);
+        Ok(camsH.Dernier("tel-h264") is { Pixels: not null }, "reprise : l'image clé repart");
+        camsH.Deconnecte("tel-h264");
+        Ok(camsH.Dernier("tel-h264") == null && camsH.InfoDe("tel-h264") is { EnDirect: false }, "déconnecté : décodeur libéré, plus d'image");
+    }
+}
+
 Groupe("MyCam 4.0");
 if (Actif())
 {
@@ -1249,6 +1325,8 @@ if (Actif())
     await Env(new { t = "auth", mac = Telephone.MacClient(cle, (string)ch!["nonce"]!, "tel-cam") });
     var w = await Rec("welcome");
     Egal((int?)w?["proto"], 2, "bienvenue : fonctions 4.0 annoncées");
+    var codecsPc = w?["codecs"]?.AsArray().Select(x => (string?)x).ToList() ?? new();
+    Ok(codecsPc.Contains("jpeg") && codecsPc.Contains("h264") == MyCams.H264, "bienvenue : formats MyCam annoncés (H.264 si FFmpeg est là)", string.Join(",", codecsPc));
     await Env(new { t = "state.get" });
     var st = await Rec("state");
     Ok(st?["defauts"]?.AsArray().Count >= 2 && (string?)st?["defaut"]?["id"] == "noir" && st?["noir"] is not null && st?["agendaV"] is not null, "état : écran par défaut, noir, déroulé");
