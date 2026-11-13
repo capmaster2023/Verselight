@@ -75,112 +75,62 @@ public static class AutoTest
     }
 
     /// <summary>
-    /// Le mélangeur dans MyChurch (3.0.1) : trois sources (dont un sinus à −6 dBFS joué par OBS), une sortie MyVirtualSound,
-    /// deux enregistrements qui tournent en même temps (une vidéo MKV avec la projection et deux sources Display, un WAV qui
-    /// coupe les autres sources), puis les fichiers relus par le ffmpeg livré avec MyChurch. Captures du panneau et des fenêtres.
+    /// MyChurch 4.2 : l'audio simplifié comme OBS. Mélangeur vide (rien n'est ajouté tout seul), propriétés d'une capture audio
+    /// (périphérique, horodatage), source inactive quand son périphérique est débranché (relevé simulé : la machine du CI n'a pas
+    /// de carte son), propriétés audio avancées (pistes 1 à 6) et Réglages › Audio réduit au périphérique de monitoring.
     /// </summary>
-    /// <summary>
-    /// MyChurch 4.0 : l'audio comme OBS 32. Périphériques globaux créés au premier démarrage, carte son branchée ajoutée toute seule
-    /// (relevé simulé : la machine du CI n'a pas de micro), inactive quand elle est débranchée, épingler et masquer, disposition horizontale,
-    /// appuyer pour parler, balance et synchro, fréquence au prochain démarrage, propriétés audio avancées et page Réglages › Audio.
-    /// </summary>
-    static async Task TestAudioObs32(MainWindow w)
+    static async Task TestAudioSimple(MainWindow w)
     {
         var cfg = App.Audio.Config;
         var avant = MyVerse.Audio.AudioConfiguration.Copy(cfg);
         try
         {
             cfg.Sources.Clear(); cfg.Profiles.Clear(); cfg.VirtualSounds.Clear();
-            cfg.GlobalsInitialized = false;
-            cfg.ShowHidden = false; cfg.ShowInactive = false; cfg.HiddenRight = false; cfg.InactiveRight = false; cfg.VerticalLayout = true;
-            Ok(cfg.InitialiserGlobaux() && cfg.Globale("bureau1") != null && cfg.Globale("micro1") != null, "4.0 : premier démarrage, « Audio du bureau » et « Micro/Aux » créés comme dans OBS");
             App.Audio.Apply();
             w.MontrerAudio();
             var pa = w.PanneauAudio!;
             pa.Rafraichir();
             await Attendre(500);
-            Ok(pa.TestBandes.SequenceEqual(new[] { "Audio du bureau", "Micro/Aux" }) && pa.TestStatut("Micro/Aux").StartsWith("GLOBALE"), "mélangeur : les deux globales, étiquetées GLOBALE (" + string.Join(", ", pa.TestBandes) + ")");
-            if (App.Audio.Running) Ok(App.Audio.InputReady(cfg.Globale("micro1")!.Id) && App.Audio.InputReady(cfg.Globale("bureau1")!.Id), "les globales sont des sources d'OBS");
+            Ok(pa.TestBandes.Count == 0, "4.2 : mélangeur vide, rien n'est ajouté tout seul");
+            Capture(w, "37-audio-vide.png");
 
-            // une carte son branchée (relevé simulé)
-            cfg.AutoAddInputs = true; cfg.KnownInputsReady = false; cfg.KnownInputs.Clear();
+            // une entrée de carte son et le son de l'ordinateur, comme deux sources d'OBS
+            var umc = new MyVerse.Audio.AudioSource { Name = "Pasteur", Kind = MyVerse.Audio.AudioInputKind.Microphone, DeviceId = "{autotest-umc}", DeviceName = "Line In (Behringer UMC404HD)" };
+            var sortie = new MyVerse.Audio.AudioSource { Name = "Capture audio (sortie)", Kind = MyVerse.Audio.AudioInputKind.Sortie, DeviceId = "default" };
+            cfg.Sources.Add(umc); cfg.Sources.Add(sortie);
+            App.Audio.Apply(); pa.Rafraichir();
+            await Attendre(500);
+            Ok(pa.TestBandes.SequenceEqual(new[] { "Pasteur", "Capture audio (sortie)" }), "deux sources dans le mélangeur, dans l'ordre : " + string.Join(", ", pa.TestBandes));
+            Ok(!umc.Horodatage && sortie.Horodatage && umc.Tracks == 0b111111 && sortie.Tracks == 0b111111, "comme OBS : horodatage du périphérique (non pour une entrée, oui pour une sortie), pistes 1 à 6 cochées");
+            if (App.Audio.Running) Ok(App.Audio.InputReady(sortie.Id), "la capture audio (sortie) est une source d'OBS");
+            // débranchée, puis rebranchée
             var webcam = new MyVerse.Audio.AudioDevice("{autotest-webcam}", "Microphone (Webcam C920)");
             var carte = new MyVerse.Audio.AudioDevice("{autotest-umc}", "Line In (Behringer UMC404HD)");
             var hp = new MyVerse.Audio.AudioDevice("{autotest-hp}", "Haut-parleurs (Realtek)");
-            App.Audio.Traiter(new() { webcam }, new() { hp }, true);
-            Ok(cfg.KnownInputsReady && cfg.Sources.Count == 2, "premier relevé : ce qui est déjà branché est noté, rien n'est ajouté");
-            App.Audio.Traiter(new() { webcam, carte }, new() { hp }, true);
+            App.Audio.Traiter(new() { webcam, carte }, new() { hp });
+            Ok(!App.Audio.Inactive(umc), "carte son branchée : la source est active");
+            App.Audio.Traiter(new() { webcam }, new() { hp });
             await Attendre(400);
-            var umc = cfg.Sources.FirstOrDefault(x => x.DeviceId == "{autotest-umc}");
-            Ok(umc is { Name: "Behringer UMC404HD" } && pa.TestBandes.Contains("Behringer UMC404HD"), "carte son branchée : ajoutée toute seule au mélangeur (" + string.Join(", ", pa.TestBandes) + ")");
-            Ok(pa.TestStatut("Behringer UMC404HD") == "ACTIVE", "étiquette ACTIVE (" + pa.TestStatut("Behringer UMC404HD") + ")");
-            if (App.Audio.Running && umc != null) Ok(App.Audio.InputReady(umc.Id), "la carte son branchée est une source d'OBS");
-            Capture(w, "37-obs32-entree-branchee.png");
-            App.Audio.Traiter(new() { webcam }, new() { hp }, true);
-            await Attendre(400);
-            Ok(umc != null && App.Audio.Inactive(umc) && !pa.TestBandes.Contains("Behringer UMC404HD"), "débranchée : inactive, elle quitte le mélangeur (option d'OBS 32.1)");
-            cfg.ShowInactive = true; App.Audio.Apply(); pa.Rafraichir();
-            Ok(pa.TestStatut("Behringer UMC404HD") == "INACTIVE", "« Afficher les sources inactives » : elle revient, étiquetée INACTIVE");
-            App.Audio.Traiter(new() { webcam, carte }, new() { hp }, true);
-            await Attendre(400);
-            Ok(umc != null && !App.Audio.Inactive(umc) && cfg.Sources.Count(x => x.DeviceId == "{autotest-umc}") == 1, "rebranchée : de nouveau active, sans deuxième bande");
+            Ok(App.Audio.Inactive(umc) && pa.TestBandes.Contains("Pasteur") && cfg.Sources.Count == 2, "débranchée : la source reste (grisée, « Inactif »), rien n'est ajouté ni retiré");
+            Capture(w, "38-audio-inactive.png");
+            App.Audio.Traiter(new() { webcam, carte, new MyVerse.Audio.AudioDevice("{autotest-usb}", "Microphone (Blue Yeti)") }, new() { hp });
+            Ok(!App.Audio.Inactive(umc) && cfg.Sources.Count == 2, "rebranchée : de nouveau active ; un nouveau micro branché n'est pas ajouté tout seul");
 
-            // épingler et masquer
-            var pasteur = new MyVerse.Audio.AudioSource { Name = "Pasteur", Kind = MyVerse.Audio.AudioInputKind.Microphone, DeviceId = "default", Hidden = true };
-            var chorale = new MyVerse.Audio.AudioSource { Name = "Chorale", Kind = MyVerse.Audio.AudioInputKind.Microphone, DeviceId = "default", Pinned = true };
-            cfg.Sources.Add(pasteur); cfg.Sources.Add(chorale);
-            App.Audio.Apply(); pa.Rafraichir();
-            Ok(pa.TestBandes.SequenceEqual(new[] { "Audio du bureau", "Micro/Aux", "Chorale", "Behringer UMC404HD" }), "épinglée juste après les globales, masquée cachée : " + string.Join(", ", pa.TestBandes));
-            Ok(pa.TestStatut("Chorale") == "ÉPINGLÉE", "étiquette ÉPINGLÉE");
-            cfg.ShowHidden = true; App.Audio.Apply(); pa.Rafraichir();
-            Ok(pa.TestStatut("Pasteur") == "MASQUÉE" && pa.TestBandes.Count == 5, "« Afficher les sources masquées » : étiquette MASQUÉE");
-            await Attendre(400);
-            Capture(w, "38-obs32-melangeur.png");
-            cfg.VerticalLayout = false; App.Audio.Apply(); pa.Rafraichir();
-            await Attendre(500);
-            Ok(pa.TestHorizontal, "disposition horizontale (bouton de la barre du mélangeur, comme OBS)");
-            Capture(w, "38b-obs32-horizontal.png");
-            cfg.VerticalLayout = true; App.Audio.Apply(); pa.Rafraichir();
-
-            if (App.Audio.Running)
-            {
-                // appuyer pour parler : touche relâchée, la source est coupée sans toucher à sa sourdine
-                pasteur.PushToTalk = true; pasteur.PushToTalkKey = "F24"; pasteur.PushToTalkDelayMs = 0;
-                App.Audio.Apply();
-                for (int i = 0; i < 30 && !App.Audio.CoupeeParRaccourci(pasteur.Id); i++) await Attendre(50);
-                Ok(App.Audio.CoupeeParRaccourci(pasteur.Id) && !pasteur.Muted, "appuyer pour parler (F24 relâchée) : « Pasteur » coupée, sourdine intacte");
-                pasteur.PushToTalk = false; App.Audio.Apply();
-                for (int i = 0; i < 30 && App.Audio.CoupeeParRaccourci(pasteur.Id); i++) await Attendre(50);
-                Ok(!App.Audio.CoupeeParRaccourci(pasteur.Id), "raccourci désactivé : le son revient");
-                pasteur.Balance = 0.2; pasteur.SyncOffsetMs = 150; cfg.PeakMeter = "reelle"; cfg.MeterDecay = "lente";
-                App.Audio.Apply();
-                Ok(App.Audio.InputReady(pasteur.Id) && Math.Abs(Audio.Vumetre.Retombee - 8.57) < 0.01, "balance, décalage de synchro, crête réelle et retombée lente appliqués");
-            }
-            Ok(App.Audio.Format.StartsWith("48 kHz") && !App.Audio.RedemarrageRequis, "moteur : " + App.Audio.Format);
-            cfg.SampleRate = 44100;
-            Ok(App.Audio.RedemarrageRequis, "44,1 kHz choisi : redémarrage demandé, comme dans OBS");
-            cfg.SampleRate = 48000;
-            Note("atténuation de Windows désactivée : " + (Audio.AttenuationWindows.Desactiver(true) ? "oui" : "non (pas de sortie audio sur cette machine)"));
-            Audio.AttenuationWindows.Desactiver(false);
-            Ok(Audio.Touches.Afficher("Ctrl+Shift+D1") == "Ctrl + Maj + 1" && Audio.Touches.Afficher("Souris4") == "Souris 4" && !Audio.Touches.Enfoncee("F24"), "touches des raccourcis lues et affichées en français");
-
-            await Fenetre(w, () => new Audio.ProprietesAudioWindow(), "39-proprietes-audio-avancees.png");
+            // les fenêtres d'OBS
+            await Fenetre(w, () => new Audio.ProprietesSourceWindow(sortie, false), "39-proprietes-capture-sortie.png");
+            await Fenetre(w, () => new Audio.ProprietesSourceWindow(new MyVerse.Audio.AudioSource { Kind = MyVerse.Audio.AudioInputKind.Microphone, Name = cfg.NomLibre("Capture audio (entrée)") }, true), "39b-nouvelle-capture-entree.png");
+            await Fenetre(w, () => new Audio.ProprietesAudioWindow(), "39c-proprietes-audio-avancees.png");
             w.TestPage("reglages");
             w.Reglages.Aller("audio", false);
             await Attendre(1200);
-            Capture(w, "39b-reglages-audio-obs32.png");
+            Capture(w, "39d-reglages-audio.png");
         }
-        catch (Exception x) { Echec("audio comme OBS 32 : " + x); }
+        catch (Exception x) { Echec("audio simplifié comme OBS : " + x); }
         finally
         {
             cfg.Sources.Clear(); cfg.Sources.AddRange(avant.Sources);
             cfg.Profiles.Clear(); cfg.Profiles.AddRange(avant.Profiles);
             cfg.VirtualSounds.Clear(); cfg.VirtualSounds.AddRange(avant.VirtualSounds);
-            cfg.GlobalsInitialized = avant.GlobalsInitialized; cfg.KnownInputs = avant.KnownInputs; cfg.KnownInputsReady = avant.KnownInputsReady;
-            cfg.ShowHidden = avant.ShowHidden; cfg.ShowInactive = avant.ShowInactive; cfg.HiddenRight = avant.HiddenRight; cfg.InactiveRight = avant.InactiveRight;
-            cfg.VerticalLayout = avant.VerticalLayout; cfg.AutoAddInputs = avant.AutoAddInputs;
-            cfg.SampleRate = avant.SampleRate; cfg.Channels = avant.Channels; cfg.MeterDecay = avant.MeterDecay; cfg.PeakMeter = avant.PeakMeter;
-            cfg.DisableDucking = avant.DisableDucking; cfg.LowLatency = avant.LowLatency;
             App.Audio.OublierReleve();
             App.Audio.Apply();
             w.MontrerAudio();
@@ -214,12 +164,14 @@ public static class AutoTest
             // 3.1 : deux entrées séparées de la même carte son, chacune sur sa bande
             var chorale = new MyVerse.Audio.AudioSource { Name = "Chorale", Kind = MyVerse.Audio.AudioInputKind.Microphone, DeviceId = "default", Channel = 2 };
             var piano = new MyVerse.Audio.AudioSource { Name = "Piano", Kind = MyVerse.Audio.AudioInputKind.Microphone, DeviceId = "default", Channel = 3, VolumeDb = -6 };
+            // 4.2 : comme dans OBS, chaque source coche ses pistes : le sinus va dans les pistes 1 (Zoom) et 2 (Culte), le micro dans 2 et 3 (Prédication)
+            media.Tracks = 0b000011; micro.Tracks = 0b000110; chorale.Tracks = piano.Tracks = ordi.Tracks = 0b000010;
             cfg.Sources.Clear();
             cfg.Sources.Add(micro); cfg.Sources.Add(chorale); cfg.Sources.Add(piano); cfg.Sources.Add(ordi); cfg.Sources.Add(media);
-            // créés comme par l'utilisateur : une sortie « Zoom » (le sinus), un enregistrement vidéo du culte, un WAV de la prédication
-            var zoom = new MyVerse.Audio.VirtualSoundSettings { Name = "Zoom", Enabled = true, DeviceId = "default", SourceIds = { media.Id } };
-            var culte = new MyVerse.Audio.RecordingProfile { Name = "Culte (test)", SourceIds = { micro.Id, media.Id }, DisplayIds = { MyVerse.Audio.RecordingProfile.Projection, texte.Id, image.Id }, Directory = Path.Combine(dossierTest, "culte") };
-            var predication = new MyVerse.Audio.RecordingProfile { Name = "Prédication (test)", SourceIds = { micro.Id }, MuteOthers = true, Directory = Path.Combine(dossierTest, "predication") };
+            // créés comme par l'utilisateur : une sortie « Zoom » (piste 1), un enregistrement vidéo du culte (piste 2), un WAV de la prédication (piste 3)
+            var zoom = new MyVerse.Audio.VirtualSoundSettings { Name = "Zoom", Enabled = true, DeviceId = "default", Track = 1 };
+            var culte = new MyVerse.Audio.RecordingProfile { Name = "Culte (test)", Track = 2, DisplayIds = { MyVerse.Audio.RecordingProfile.Projection, texte.Id, image.Id }, Directory = Path.Combine(dossierTest, "culte") };
+            var predication = new MyVerse.Audio.RecordingProfile { Name = "Prédication (test)", Track = 3, Directory = Path.Combine(dossierTest, "predication") };
             cfg.VirtualSounds.Clear(); cfg.VirtualSounds.Add(zoom);
             cfg.Profiles.Clear(); cfg.Profiles.Add(culte); cfg.Profiles.Add(predication);
             App.Audio.Apply();
@@ -236,7 +188,7 @@ public static class AutoTest
                 Capture(w, "32-audio.png");
                 if (App.Audio.TracksActive)
                 {
-                    Ok(zoom.Track > 0 && culte.Track == 0 && predication.Track == 0, $"pistes automatiques : Zoom a la piste {zoom.Track}, les enregistrements arrêtés n'en ont pas");
+                    Ok(zoom.Track == 1 && culte.Track == 2 && predication.Track == 3, $"chaque destination garde sa piste, comme dans OBS : Zoom {zoom.Track}, Culte {culte.Track}, Prédication {predication.Track}");
                     float p = float.NegativeInfinity;
                     for (int i = 0; i < 25 && !(p > -12); i++) { await Attendre(200); p = App.Audio.TrackLevel(zoom.Track - 1); }
                     Ok(p > -12, $"piste de Zoom : reçoit le sinus ({p:0.0} dBFS)");
@@ -246,14 +198,15 @@ public static class AutoTest
                     Ok(App.Audio.Recorder.Active(culte.Id), "enregistrement vidéo « Culte » démarré : " + App.Audio.Recorder.Message(culte.Id));
                     await App.Audio.Recorder.ToggleAsync(predication);
                     Ok(App.Audio.Recorder.Active(predication.Id), "2e enregistrement en même temps (« Prédication ») : " + App.Audio.Recorder.Message(predication.Id));
-                    Ok(App.Audio.SourdinesForcees.Contains(media.Id) && App.Audio.SourdinesForcees.Contains(ordi.Id) && !App.Audio.SourdinesForcees.Contains(micro.Id),
-                        "« Prédication » coupe les autres sources partout (le sinus et l'ordinateur), pas le micro");
-                    Ok(culte.Track > 0 && predication.Track > 0 && culte.Track != predication.Track && culte.Track != zoom.Track && predication.Track != zoom.Track,
-                        $"une piste d'OBS par mélange : Culte {culte.Track}, Prédication {predication.Track}, Zoom {zoom.Track}");
+                    float p2 = float.NegativeInfinity, p3 = 0;
+                    for (int i = 0; i < 25 && !(p2 > -12); i++) { await Attendre(200); p2 = App.Audio.TrackLevel(1); }
+                    p3 = App.Audio.TrackLevel(2);
+                    Ok(p2 > -12, $"piste 2 (Culte) : reçoit le sinus ({p2:0.0} dBFS)");
+                    Ok(float.IsNegativeInfinity(p3) || p3 < -40, $"piste 3 (Prédication, le micro seul) : pas de sinus ({p3:0.0} dBFS)");
                     await Attendre(1500);
                     Capture(w, "36-enregistrements-en-cours.png");
                     await App.Audio.Recorder.ToggleAsync(predication);
-                    Ok(!App.Audio.SourdinesForcees.Contains(media.Id) && predication.Track == 0, "« Prédication » arrêtée : le sinus revient, sa piste est libérée");
+                    Ok(!App.Audio.Recorder.Active(predication.Id) && App.Audio.Recorder.Active(culte.Id), "« Prédication » arrêtée, « Culte » continue");
                     await Attendre(2500);
                     await App.Audio.Recorder.ToggleAsync(culte);
                     string? video = App.Audio.Recorder.LastFile(culte.Id), wav = App.Audio.Recorder.LastFile(predication.Id);
@@ -358,6 +311,16 @@ public static class AutoTest
         try
         {
             Note($"MyChurch {App.Version} · données : {App.Donnees.Dossier} · {App.Donnees.Chants.Count} chants");
+            // 4.2 : au premier lancement, MyChurch est vide ; seules les Bibles libres de droits LSG 1910 et King James sont livrées
+            Ok(App.Donnees.Chants.Count == 0 && App.Audio.Config.Sources.Count == 0 && App.Donnees.Annonces.Count == 0, $"4.2 : premier lancement vide ({App.Donnees.Chants.Count} chants, {App.Audio.Config.Sources.Count} sources audio)");
+            Ok(App.Bibles.Toutes().Select(b => b.Id).SequenceEqual(new[] { "lsg", "kjv" }), "4.2 : Bibles livrées : " + string.Join(", ", App.Bibles.Toutes().Select(b => b.Nom)));
+            // des chants pour la suite du test (comme un recueil importé par l'utilisateur)
+            R.AjouterChants(new[]
+            {
+                new Chant { Title = "12. Grâce infinie", Sections = { new Section { Label = "Couplet 1", Text = "Grâce infinie, ô quel doux son\nQui sauva un pécheur" }, new Section { Label = "Refrain", Text = "Gloire à Dieu\nGloire à Dieu" } } },
+                new Chant { Title = "45. Mon Dieu est bon", Sections = { new Section { Label = "Couplet 1", Text = "Mon Dieu est bon\nIl est bon tout le temps" }, new Section { Label = "Couplet 2", Text = "Il est fidèle\nÀ toujours" } } },
+                new Chant { Title = "154. À toi la gloire", Sections = { new Section { Label = "Couplet 1", Text = "À toi la gloire\nÔ Ressuscité" }, new Section { Label = "Refrain", Text = "À toi la gloire" } } },
+            }, "Recueil de test");
             Note("police Serif : " + Police("Serif") + " · Sans : " + Police("Sans") + " · Titre : " + Police("Titre"));
             Note("police de l'interface : " + Police("Ui") + " · titres : " + Police("Grotesk") + " · chiffres : " + Police("Mono"));
             Ok(Police("Ui").Contains("Manrope") && Police("Grotesk").Contains("Manrope"), "police Manrope incluse (interface 3.2, design « Pupitre »)");
@@ -677,8 +640,8 @@ public static class AutoTest
 
             // 3.0 : panneau Audio sous la grille, sur le vrai moteur d'OBS (dossier « obs » à côté de MyChurch.exe)
             await TestAudio(w, an, img);
-            // 4.0 : l'audio comme OBS 32 (périphériques globaux, entrées branchées, mélangeur 32.1, propriétés avancées, raccourcis, réglages)
-            await TestAudioObs32(w);
+            // 4.2 : l'audio simplifié comme OBS (propriétés d'une source, propriétés audio avancées, Réglages › Audio)
+            await TestAudioSimple(w);
             w.TestCliquerTuile(1);
             await Attendre(1300);
             Ok(R.Etat.Mode == "media" && App.Sources.Image != null, "clic sur la tuile image : en direct");

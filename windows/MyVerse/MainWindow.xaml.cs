@@ -119,11 +119,6 @@ public partial class MainWindow : Window
         // le mélangeur audio (moteur OBS) : dans Display, sous la grille
         PanneauAudio = new Audio.AudioPanel();
         AudioHote.Child = PanneauAudio;
-        // MyChurch 4.0 : une entrée audio branchée apparaît toute seule dans le mélangeur (Réglages › Audio)
-        App.Audio.EntreesAjoutees += ajoutees => Dispatcher.BeginInvoke(new Action(() =>
-            Toast(ajoutees.Count == 1
-                ? $"Nouvelle entrée audio : « {ajoutees[0].Name} » ajoutée au mélangeur."
-                : $"{ajoutees.Count} nouvelles entrées audio ajoutées au mélangeur : {string.Join(", ", ajoutees.Select(x => "« " + x.Name + " »"))}.")));
         AudioBref.Content = new Audio.AudioBref();
         AudioListeHote.Content = new Audio.AudioListe();
         Reglages = new ReglagesPage();
@@ -416,8 +411,6 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------ raccourcis clavier
     void Clavier(object sender, KeyEventArgs e)
     {
-        // Réglages › Audio : le bouton d'un raccourci attend sa touche (B, Échap… ne doivent rien faire d'autre)
-        if (Keyboard.FocusedElement is Audio.BoutonTouche { EnAttente: true }) return;
         if (e.Key == Key.K && Keyboard.Modifiers == ModifierKeys.Control)
         {
             OuvrirCommande();
@@ -811,7 +804,8 @@ public partial class MainWindow : Window
                   : R.Filtrer("", rec ?? "\u0001");
         ListeChants.ItemsSource = liste;
         if (chantOuvert != null) ListeChants.SelectedItem = liste.FirstOrDefault(c => c.Id == chantOuvert);
-        ListeVide.Text = q.Length > 0 ? "Aucun chant trouvé." : num.Length > 0 ? $"Aucun chant n° {num} dans ce recueil." : "";
+        ListeVide.Text = q.Length > 0 ? "Aucun chant trouvé." : num.Length > 0 ? $"Aucun chant n° {num} dans ce recueil."
+            : R.Chants.Count == 0 ? "Aucun chant pour l'instant : « + Importer chants ou recueil » ou « + Nouveau chant »." : "";
         ListeVide.Visibility = liste.Count == 0 && ListeVide.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -1037,12 +1031,12 @@ public partial class MainWindow : Window
 
     /// <summary>La page Réglages (apparence, audio, MyVirtualSound, enregistrements, mise à jour, transfert, journal, licences).</summary>
     public ReglagesPage Reglages { get; }
-    /// <summary>Réglages › Audio (périphériques).</summary>
+    /// <summary>Réglages › Audio (périphérique de monitoring audio).</summary>
     public void OuvrirParametres() { MontrerOnglet("reglages"); Reglages.Aller("audio", false); }
     /// <summary>Le mélangeur audio de Display.</summary>
     public Audio.AudioPanel? PanneauAudio { get; private set; }
-    /// <summary>« + Micros » de la colonne de contrôle : cocher les entrées de la carte son (une bande par entrée).</summary>
-    public void AjouterMicros() => PanneauAudio?.AjouterMicros();
+    /// <summary>« + Source » de la colonne de contrôle : le même menu que « + Source audio » du mélangeur, comme le « + » d'OBS.</summary>
+    public void AjouterSource(UIElement cible) => PanneauAudio?.MenuAjouter(cible);
     /// <summary>Montre le mélangeur : onglet Display, panneau Audio déplié.</summary>
     public void MontrerAudio()
     {

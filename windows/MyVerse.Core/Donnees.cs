@@ -62,6 +62,7 @@ public sealed class Reglages
     [JsonPropertyName("obs")] public ReglagesObs Obs { get; set; } = new();
     [JsonPropertyName("ecran")] public EcranChoisi? Ecran { get; set; }
     [JsonPropertyName("lignesDiapo")] public int LignesDiapo { get; set; }
+    /// <summary>Avant la 4.2, les recueils de l'église étaient ajoutés au premier démarrage. Depuis, MyChurch démarre vide (seulement les Bibles LSG et KJV).</summary>
     [JsonPropertyName("inclus")] public bool Inclus { get; set; }
     [JsonPropertyName("fenetre")] public PositionFenetre? Fenetre { get; set; }
     [JsonPropertyName("recueil")] public string Recueil { get; set; } = "";
@@ -77,7 +78,8 @@ public sealed class Reglages
 
 /// <summary>
 /// Données de MyVerse dans %APPDATA%\VerseLight : réglages, chants, versets découpés.
-/// Au premier démarrage de la 4.0 : reprise des données de la 3.x (myverse-donnees.json).
+/// Au premier démarrage : MyChurch est vide (aucun chant, aucune source), seules les Bibles libres de droits Louis Segond 1910 et King James
+/// sont livrées. Les données de la 3.x (myverse-donnees.json) sont reprises s'il y en a.
 /// </summary>
 public sealed class Donnees
 {
@@ -139,17 +141,9 @@ public sealed class Donnees
             try { d.Migrer(); }
             catch (Exception e) { Journal.Erreur("reprise des données de la 3.x", e); }
         }
-        bool ajoutInclus = false;
-        if (!d.Reglages.Inclus)
-        {
-            // recueils de l'église (VideoPsalm) ajoutés une fois au premier démarrage
-            var inclus = Lire<List<Chant>>(Path.Combine(ressources, "chants-inclus.json")) ?? new List<Chant>();
-            foreach (var c in inclus) { c.Id = Chant.NouvelId(); d.Chants.Add(c); }
-            d.Reglages.Inclus = true;
-            ajoutInclus = true;
-        }
-        d.Corriger(); // après l'ajout des recueils inclus : leurs titres sont aussi nettoyés
-        if (ajoutInclus) d.SauverChants();
+        // 4.2 : plus aucun chant ajouté au premier démarrage, le logiciel démarre vide
+        d.Reglages.Inclus = true;
+        d.Corriger();
         if (nouveau || !File.Exists(d.FReglages)) d.SauverReglages();
         return d;
     }

@@ -233,8 +233,7 @@ if (Actif())
     try { ChantsFormats.ParseSongFile("x.pro", "\u0001\u0002binaire"); Ok(false, "ProPresenter 7 refusé"); }
     catch (InvalidDataException) { Ok(true, "ProPresenter 7 refusé"); }
 
-    var inclus = System.Text.Json.JsonSerializer.Deserialize<List<Chant>>(File.ReadAllText(Path.Combine(res, "chants-inclus.json")))!;
-    Ok(inclus.Count > 800, $"chants inclus : {inclus.Count}");
+    Ok(!File.Exists(Path.Combine(res, "chants-inclus.json")), "4.2 : aucun recueil de chants livré avec MyChurch");
 }
 
 // ------------------------------------------------------------------ rangement automatique
@@ -302,7 +301,11 @@ Groupe("Donnees");
 if (Actif())
 {
     var d0 = Donnees.Charger(Temp(), res);
-    Ok(d0.Chants.Count > 800, $"premier démarrage : chants de l'église ajoutés ({d0.Chants.Count})");
+    Ok(d0.Chants.Count == 0 && d0.Agendas.Count == 0 && d0.Annonces.Count == 0 && d0.Duos.Count == 0, $"4.2 : premier démarrage vide, aucun chant ({d0.Chants.Count})");
+    Ok(d0.Reglages.Audio.Sources.Count == 0 && d0.Reglages.Audio.Profiles.Count == 0 && d0.Reglages.Audio.VirtualSounds.Count == 0, "4.2 : premier démarrage, mélangeur vide (aucune source créée)");
+    var bibles0 = new Bibles(d0).Toutes();
+    Ok(bibles0.Count == 2 && bibles0.Any(b => b.Id == "lsg" && b.Integree) && bibles0.Any(b => b.Id == "kjv" && b.Integree), "4.2 : seulement les Bibles libres de droits Louis Segond 1910 et King James", string.Join(", ", bibles0.Select(b => b.Id)));
+    Egal(d0.Reglages.Bibles.Principale, "lsg", "Bible principale : Louis Segond 1910");
     Egal(d0.Reglages.Theme, "nuit", "thème par défaut");
     var dir = Temp();
     Directory.CreateDirectory(Path.Combine(dir, "bibles"));
@@ -381,7 +384,6 @@ if (Actif())
     Egal(a12.Sources.Count, 0, "1.2 : le mélangeur OBS repart vide (anciennes sources ignorées)");
     Egal(a12.Profiles.Count, 0, "1.2 : anciens profils d'enregistrement non repris (aucun préréglage)");
     Egal(a12.MonitorDeviceId, "default", "1.2 : écoute au casque sur le périphérique par défaut");
-    Ok(a12.MicrophoneId == "default" && a12.OutputId == "default", "1.2 : micro et sortie proposés = périphériques Windows par défaut");
     Egal(a12.Version, MyVerse.Audio.AudioConfiguration.Actuelle, "1.2 : version des réglages audio mise à jour");
     // nouvelles sources : enregistrées sous « obsSources » et relues telles quelles
     a12.Sources.Add(new MyVerse.Audio.AudioSource { Name = "Chaire", Kind = MyVerse.Audio.AudioInputKind.Microphone, Tracks = 5, Monitoring = MyVerse.Audio.AudioMonitoring.Only,
@@ -521,6 +523,10 @@ if (Actif())
     var don = Donnees.Charger(Temp(), res);
     var bib = new Bibles(don);
     var rg = new Regie(don, bib);
+    // 4.2 : MyChurch démarre sans chant ; quelques chants pour le téléphone
+    rg.AjouterChants(new[] {
+        new Chant { Title = "1 - Grâce infinie", Sections = { new Section { Label = "Couplet 1", Text = "Grâce infinie\nô quel doux son" }, new Section { Label = "Refrain", Text = "Gloire à Dieu" } } },
+        new Chant { Title = "12 - Mon Dieu est bon", Sections = { new Section { Label = "Couplet 1", Text = "Mon Dieu est bon" } } } }, "Recueil de test");
     using var tel = new Telephone(don.Dossier, rg, f => f(), "PC-TEST");
     tel.Demarrer();
     Ok(tel.Port >= 47900 && tel.Port <= 47909, $"écoute sur le port {tel.Port}");
@@ -950,6 +956,7 @@ if (Actif())
 {
     var don = Donnees.Charger(Temp(), res);
     var rg = new Regie(don, new Bibles(don));
+    rg.AjouterChants(new[] { new Chant { Title = "7 - Chant du Duo", Sections = { new Section { Label = "Couplet 1", Text = "Ligne A" }, new Section { Label = "Refrain", Text = "Ligne B" } } } }, "Recueil de test");
     int changes = 0; string dit = "";
     rg.Change += () => changes++;
     rg.Message += m => dit = m;
@@ -1104,51 +1111,47 @@ if (Actif())
     Ok(ancien.Sources.Count == 1 && ancien.Sources[0].Channel == 0, "réglages de la 3.0 : un micro garde toutes ses entrées ensemble");
     var cfg = new MyVerse.Audio.AudioConfiguration();
     foreach (var n in new[] { "guitare", "piano", "chanteur", "pasteur" }) cfg.Sources.Add(new MyVerse.Audio.AudioSource { Id = n, Name = n });
-    var louange = new MyVerse.Audio.RecordingProfile { Name = "Louange", SourceIds = { "guitare", "piano", "chanteur" } };
-    var predication = new MyVerse.Audio.RecordingProfile { Name = "Prédication", SourceIds = { "pasteur" }, MuteOthers = true, DisplayIds = { "projection", "camera1" }, Layout = "cote" };
+    var louange = new MyVerse.Audio.RecordingProfile { Name = "Louange", Track = 2 };
+    var predication = new MyVerse.Audio.RecordingProfile { Name = "Prédication", Track = 3, DisplayIds = { "projection", "camera1" }, Layout = "cote" };
     cfg.Profiles.Add(louange); cfg.Profiles.Add(predication);
-    var zoom = new MyVerse.Audio.VirtualSoundSettings { Name = "Zoom", Enabled = true, SourceIds = { "pasteur", "inconnue" } };
-    var flux = new MyVerse.Audio.VirtualSoundSettings { Name = "Direct YouTube", SourceIds = { "guitare", "piano", "chanteur" } };
+    var zoom = new MyVerse.Audio.VirtualSoundSettings { Name = "Zoom", Enabled = true, Track = 9 };
+    var flux = new MyVerse.Audio.VirtualSoundSettings { Name = "Direct YouTube", Track = 2 };
     cfg.VirtualSounds.Add(zoom); cfg.VirtualSounds.Add(flux);
     cfg.Normalize();
     Ok(louange.AudioOnly && louange.Format == "wav" && !predication.AudioOnly && predication.Format == "mkv", "sans source Display : son seulement (WAV) ; avec : vidéo MKV");
-    Ok(zoom.SourceIds.SequenceEqual(new[] { "pasteur" }), "sources inconnues retirées");
     Ok(louange.Directory.EndsWith("Louange"), "dossier propre à chaque enregistrement : Vidéos\\MyChurch\\Louange");
     var vis = predication.VisuelsDisplay();
     Ok(vis.Count == 2 && vis[0].Kind == "projection" && vis[1].Kind == "annonce" && vis[1].Annonce == "camera1" && vis[1].X == 0.5, "vidéo : la projection et la caméra côte à côte");
-    // pistes d'OBS : une par mélange différent en cours
-    Ok(cfg.AttribuerPistes(Array.Empty<string>()) && zoom.Track > 0 && louange.Track == 0 && flux.Track == 0, "rien n'enregistre : seule la sortie Zoom activée a une piste");
-    var z = zoom.Track;
-    Ok(cfg.Sources.First(x => x.Id == "pasteur").Tracks == 1 << (z - 1) && cfg.Sources.First(x => x.Id == "guitare").Tracks == 0, "le pasteur va dans la piste de Zoom, la guitare nulle part");
-    Ok(cfg.AttribuerPistes(new[] { louange.Id }) && louange.Track > 0 && louange.Track != z && zoom.Track == z, "Louange démarre : une deuxième piste, Zoom garde la sienne");
-    var l = louange.Track;
-    flux.Enabled = true;
-    Ok(cfg.AttribuerPistes(new[] { louange.Id }) && flux.Track == l && cfg.Melanges(new[] { louange.Id }) == 2, "mêmes sources que Louange : la sortie YouTube partage sa piste");
-    Ok(cfg.AttribuerPistes(new[] { louange.Id, predication.Id }) && predication.Track == z && louange.Track == l, "Prédication (pasteur seul) partage la piste de Zoom ; Louange ne change pas de piste");
-    Ok(cfg.Sources.First(x => x.Id == "piano").Tracks == 1 << (l - 1), "le piano va seulement dans la piste de Louange");
-    // couper les autres sources
-    var coupees = cfg.SourcesCoupees(new[] { predication.Id });
-    Ok(coupees.SetEquals(new[] { "guitare", "piano", "chanteur" }), "Prédication en cours : guitare, piano et chanteur coupés partout");
-    Ok(cfg.SourcesCoupees(new[] { louange.Id }).Count == 0, "Louange (sans l'option) ne coupe rien");
-    var obs = cfg.AvecSourdines(coupees);
-    Ok(obs.Sources.Count(x => x.Muted) == 3 && cfg.Sources.All(x => !x.Muted), "OBS reçoit les sourdines ; les réglages de l'utilisateur ne changent pas");
-    // plus de 6 mélanges différents
+    // 4.2 : comme dans OBS, chaque destination prend une piste et chaque source coche ses pistes
+    Ok(louange.Track == 2 && predication.Track == 3 && flux.Track == 2 && zoom.Track == 1, "chaque destination garde sa piste (piste inconnue ramenée à 1)", $"{louange.Track} {predication.Track} {flux.Track} {zoom.Track}");
+    Ok(cfg.Sources.All(x => x.Tracks == MyVerse.Audio.AudioConfiguration.ToutesLesPistes), "par défaut, chaque source va dans les 6 pistes (comme OBS)");
+    foreach (var x in cfg.Sources) x.Tracks = x.Id == "pasteur" ? 0b000101 : 0b000011;
+    Egal(string.Join(",", cfg.SourcesDeLaPiste(3).Select(x => x.Id)), "pasteur", "piste 3 (Prédication) : le pasteur seul");
+    Egal(string.Join(",", cfg.SourcesDeLaPiste(2).Select(x => x.Id)), "guitare,piano,chanteur", "piste 2 (Louange et YouTube) : les musiciens");
+    cfg.Sources.First(x => x.Id == "guitare").Monitoring = MyVerse.Audio.AudioMonitoring.Only;
+    Egal(string.Join(",", cfg.SourcesDeLaPiste(2).Select(x => x.Id)), "piano,chanteur", "monitoring uniquement : la source ne va dans aucune piste");
+    var piste = cfg.Sources.First(x => x.Id == "piano");
+    piste.Tracks = 0x7FF; cfg.Normalize();
+    Egal(piste.Tracks, MyVerse.Audio.AudioConfiguration.ToutesLesPistes, "pistes au-delà de 6 ignorées");
+    var relu = System.Text.Json.JsonSerializer.Deserialize<MyVerse.Audio.AudioConfiguration>(System.Text.Json.JsonSerializer.Serialize(cfg, Donnees.Json), Donnees.Json)!;
+    relu.Normalize();
+    Ok(relu.Profiles[0].Track == 2 && relu.Sources.First(x => x.Id == "pasteur").Tracks == 0b000101, "pistes relues");
+    // plus de 5 enregistrements ou 4 sorties
     var trop = new MyVerse.Audio.AudioConfiguration();
-    for (int i = 0; i < 9; i++) trop.Sources.Add(new MyVerse.Audio.AudioSource { Id = "s" + i });
-    for (int i = 0; i < 7; i++) trop.Profiles.Add(new MyVerse.Audio.RecordingProfile { SourceIds = { "s" + i } });
-    for (int i = 0; i < 6; i++) trop.VirtualSounds.Add(new MyVerse.Audio.VirtualSoundSettings { SourceIds = { "s" + i, "s8" } });
+    for (int i = 0; i < 7; i++) trop.Profiles.Add(new MyVerse.Audio.RecordingProfile());
+    for (int i = 0; i < 6; i++) trop.VirtualSounds.Add(new MyVerse.Audio.VirtualSoundSettings());
     trop.Normalize();
     Ok(trop.Profiles.Count == 5 && trop.VirtualSounds.Count == 4, "5 enregistrements et 4 sorties au plus");
-    trop.VirtualSounds.ForEach(v => v.Enabled = true);
-    Ok(!trop.AttribuerPistes(trop.Profiles.Select(p => p.Id)) && trop.Profiles.Concat<MyVerse.Audio.IDestinationAudio>(trop.VirtualSounds).Count(d => d.Track > 0) == 6, "9 mélanges différents : 6 pistes données, les autres refusées");
     // réglages de la 3.0.0 : une seule sortie MyVirtualSound sur une piste choisie à la main
     var json30 = """{"version":3,"virtualSound":{"enabled":true,"deviceId":"","track":2},"obsSources":[{"id":"a","name":"Micro","tracks":2},{"id":"b","name":"Ordi","tracks":1}],"profiles":[{"name":"Enregistrement","track":1}]}""";
     var a30 = System.Text.Json.JsonSerializer.Deserialize<MyVerse.Audio.AudioConfiguration>(json30, Donnees.Json)!;
     a30.Normalize();
-    Ok(a30.VirtualSounds.Count == 1 && a30.VirtualSounds[0].Name == "Zoom" && a30.VirtualSounds[0].Enabled && a30.VirtualSounds[0].SourceIds.SequenceEqual(new[] { "a" }), "3.0.0 : la sortie MyVirtualSound devient « Zoom » avec les sources de son ancienne piste");
+    var z30 = a30.VirtualSounds.FirstOrDefault();
+    Ok(a30.VirtualSounds.Count == 1 && z30 is { Name: "Zoom", Enabled: true, Track: 1 } && a30.Sources[0].DansPiste(1) && !a30.Sources[1].DansPiste(1),
+        "3.0.0 : la sortie MyVirtualSound devient « Zoom », sur une piste avec les sources de son ancienne piste");
     Ok(a30.Profiles.Count == 0 && a30.AncienneSortie == null && a30.Version == MyVerse.Audio.AudioConfiguration.Actuelle, "3.0.0 : le profil automatique n'est pas repris");
     var relu30 = System.Text.Json.JsonSerializer.Serialize(a30, Donnees.Json);
-    Ok(relu30.Contains("\"sortiesVirtuelles\"") && relu30.Contains("\"enregistrements\"") && !relu30.Contains("\"virtualSound\""), "enregistré sous les nouveaux noms");
+    Ok(relu30.Contains("\"sortiesVirtuelles\"") && relu30.Contains("\"enregistrements\"") && !relu30.Contains("\"virtualSound\"") && !relu30.Contains("SourceIds"), "enregistré sous les nouveaux noms, sans les anciennes listes de sources");
 }
 
 Groupe("MyCam H.264 (4.1)");
@@ -1384,144 +1387,76 @@ if (Actif())
     Ok(tel.Cameras.InfoDe("tel-cam") is { Diffuse: false }, "téléphone parti : MyCam ne diffuse plus");
 }
 
-Groupe("Audio comme OBS 32 (4.0)");
+Groupe("Audio simplifié comme OBS (4.2)");
 if (Actif())
 {
-    var a = new MyVerse.Audio.AudioConfiguration();
-    a.Normalize();
-    Ok(a.SampleRate == 48000 && a.Channels == "stereo" && a.HautParleurs == 2 && a.MeterDecay == "rapide" && a.PeakMeter == "echantillon",
-        "réglages d'OBS par défaut : 48 kHz, stéréo, retombée rapide, crête d'échantillon");
-    Ok(a.AutoAddInputs && a.VerticalLayout && !a.ShowHidden && !a.ShowInactive && !a.LowLatency && !a.DisableDucking,
-        "par défaut : entrées branchées ajoutées toutes seules, mélangeur vertical, masquées et inactives cachées");
-    Ok(Math.Abs(a.RetombeeDbParSeconde - 23.53) < 1e-9, "retombée rapide d'OBS : 23,53 dB/s");
-    a.SampleRate = 96000; a.Channels = "9.1"; a.MeterDecay = "?"; a.PeakMeter = "?"; a.Normalize();
-    Ok(a.SampleRate == 48000 && a.Channels == "stereo" && a.MeterDecay == "rapide" && a.PeakMeter == "echantillon", "valeurs inconnues ramenées à celles d'OBS par défaut");
-    a.SampleRate = 44100; a.Channels = "5.1"; a.MeterDecay = "lente"; a.PeakMeter = "reelle"; a.Normalize();
-    Ok(a.SampleRate == 44100 && a.HautParleurs == 6 && Math.Abs(a.RetombeeDbParSeconde - 8.57) < 1e-9 && a.TypeCrete == 1, "44,1 kHz, 5.1 (speaker_layout 6), retombée lente, crête réelle gardés");
-    a.Channels = "7.1"; a.Normalize();
-    Egal(a.HautParleurs, 8, "7.1 : speaker_layout 8 de libobs");
-    var vieux = new MyVerse.Audio.AudioConfiguration { Version = 2, SampleRate = 44100, Channels = "5.1" };
-    vieux.Normalize();
-    Ok(vieux.SampleRate == 48000 && vieux.Channels == "stereo" && vieux.Version == MyVerse.Audio.AudioConfiguration.Actuelle, "réglages d'avant la 4.0 : la fréquence de la 1.2 bêta n'est pas reprise");
-
-    // périphériques globaux
-    var g = new MyVerse.Audio.AudioConfiguration();
-    Ok(g.InitialiserGlobaux() && g.GlobalsInitialized, "premier démarrage : périphériques globaux créés, comme OBS");
-    var bureau = g.Globale("bureau1"); var micro = g.Globale("micro1");
-    Ok(bureau is { Kind: MyVerse.Audio.AudioInputKind.Sortie, DeviceId: "default", Name: "Audio du bureau" } && micro is { Kind: MyVerse.Audio.AudioInputKind.Microphone, DeviceId: "default", Name: "Micro/Aux" },
-        "« Audio du bureau » (sortie) et « Micro/Aux » (micro) sur les périphériques par défaut");
-    Ok(!g.InitialiserGlobaux() && g.Sources.Count == 2, "une seule fois : pas de doublon au démarrage suivant");
-    var plein = new MyVerse.Audio.AudioConfiguration { Sources = { new MyVerse.Audio.AudioSource { Name = "Pasteur" } } };
-    Ok(!plein.InitialiserGlobaux() && plein.Sources.Count == 1 && plein.GlobalsInitialized, "mélangeur déjà rempli (mise à jour) : rien n'est ajouté");
-    var autre = new MyVerse.Audio.AudioSource { Name = "Chorale" };
-    g.Sources.Add(autre);
-    var m2 = g.RegleGlobal("micro2", "{usb}", "Microphone (Blue Yeti)");
-    Ok(m2 != null && g.Sources.IndexOf(m2) == 2 && g.Sources[3] == autre && m2.DeviceName == "Microphone (Blue Yeti)", "Micro/Aux 2 réglé : placé avec les globaux, avant les autres sources");
-    var zoomG = new MyVerse.Audio.VirtualSoundSettings { Name = "Zoom", SourceIds = { m2!.Id, autre.Id } };
-    g.VirtualSounds.Add(zoomG);
-    Ok(g.RegleGlobal("micro2", null) == null && g.Globale("micro2") == null && !zoomG.SourceIds.Contains(m2.Id) && zoomG.SourceIds.Contains(autre.Id), "« Désactivé » : la source quitte le mélangeur et ses sorties");
-    var re = g.RegleGlobal("bureau1", "{hdmi}", "Haut-parleurs (HDMI)");
-    Ok(re == bureau && g.Sources.Count(x => x.Global == "bureau1") == 1 && bureau!.DeviceId == "{hdmi}", "changer le périphérique d'un global garde sa bande (volume, filtres, destinations)");
-    g.RegleGlobal("bureau1", "default");
-    Ok(bureau!.DeviceId == "default" && bureau.DeviceName == "", "retour à « Par défaut »");
-    var faux = new MyVerse.Audio.AudioSource { Name = "Double", Global = "micro1", Kind = MyVerse.Audio.AudioInputKind.Sortie, Channel = 3, Hidden = true };
-    var inconnu = new MyVerse.Audio.AudioSource { Name = "X", Global = "micro9" };
-    g.Sources.Add(faux); g.Sources.Add(inconnu); g.Normalize();
-    Ok(faux.Global == "" && inconnu.Global == "" && micro!.Kind == MyVerse.Audio.AudioInputKind.Microphone && micro.Channel == 0, "un seul global par emplacement ; emplacement inconnu ramené à une source ordinaire");
-    var tordu = g.RegleGlobal("micro3", "default")!;
-    tordu.Kind = MyVerse.Audio.AudioInputKind.Media; tordu.Channel = 2; tordu.Hidden = true; tordu.Pinned = true; g.Normalize();
-    Ok(tordu.Kind == MyVerse.Audio.AudioInputKind.Microphone && tordu.Channel == 0 && !tordu.Hidden, "un global reste un micro entier, jamais masqué");
-    var bornes = new MyVerse.Audio.AudioSource { Balance = 3, SyncOffsetMs = 50000, PushToTalkDelayMs = -5, PushToMuteDelayMs = 99999, PushToTalkKey = new string('x', 80) };
-    var bornes2 = new MyVerse.Audio.AudioSource { Balance = double.NaN, SyncOffsetMs = -5000 };
-    g.Sources.Add(bornes); g.Sources.Add(bornes2); g.Normalize();
+    // une nouvelle source : comme dans OBS
+    var e = new MyVerse.Audio.AudioSource { Kind = MyVerse.Audio.AudioInputKind.Microphone };
+    var so = new MyVerse.Audio.AudioSource { Kind = MyVerse.Audio.AudioInputKind.Sortie };
+    var me = new MyVerse.Audio.AudioSource { Kind = MyVerse.Audio.AudioInputKind.Media };
+    Ok(e.Tracks == 0b111111 && e.UseDeviceTiming == null && !e.Horodatage && so.Horodatage && !me.Horodatage,
+        "nouvelle source : pistes 1 à 6, horodatage du périphérique comme OBS (non pour une entrée, oui pour une sortie)");
+    e.UseDeviceTiming = true; so.UseDeviceTiming = false;
+    Ok(e.Horodatage && !so.Horodatage, "« Utiliser l'horodatage du périphérique » choisi : gardé");
+    Egal(MyVerse.Audio.AudioConfiguration.NomType(e) + " | " + MyVerse.Audio.AudioConfiguration.NomType(so) + " | " + MyVerse.Audio.AudioConfiguration.NomType(me),
+        "Capture audio (entrée) | Capture audio (sortie) | Média", "noms des types de sources d'OBS");
+    var noms = new MyVerse.Audio.AudioConfiguration();
+    noms.Sources.Add(new MyVerse.Audio.AudioSource { Name = "Capture audio (entrée)" });
+    Egal(noms.NomLibre("Capture audio (entrée)"), "Capture audio (entrée) 2", "nom suivant, comme OBS");
+    var bornes = new MyVerse.Audio.AudioSource { Balance = 3, SyncOffsetMs = 50000, Kind = MyVerse.Audio.AudioInputKind.Media, UseDeviceTiming = true };
+    var bornes2 = new MyVerse.Audio.AudioSource { Balance = double.NaN, SyncOffsetMs = -5000, Channel = 99 };
+    noms.Sources.Add(bornes); noms.Sources.Add(bornes2); noms.Normalize();
     Ok(bornes.Balance == 1 && bornes2.Balance == 0.5 && bornes.SyncOffsetMs == 20000 && bornes2.SyncOffsetMs == -950, "balance (0 à 1) et décalage de synchro (−950 à 20 000 ms) dans les bornes d'OBS");
-    Ok(bornes.PushToTalkDelayMs == 0 && bornes.PushToMuteDelayMs == 10000 && bornes.PushToTalkKey == "", "délais des raccourcis bornés, touche illisible oubliée");
+    Ok(bornes.UseDeviceTiming == null && bornes2.Channel == MyVerse.Audio.AudioConfiguration.MaxEntrees, "un média n'a pas d'horodatage de périphérique ; entrée bornée");
 
-    // le mélangeur d'OBS 32.1 : globales, épinglées, masquées, inactives
-    var mx = new MyVerse.Audio.AudioConfiguration();
-    var sa = new MyVerse.Audio.AudioSource { Name = "A" };
-    var sh = new MyVerse.Audio.AudioSource { Name = "Masquée", Hidden = true };
-    var si = new MyVerse.Audio.AudioSource { Name = "Débranchée", DeviceId = "{absent}" };
-    var sp = new MyVerse.Audio.AudioSource { Name = "Épinglée", Pinned = true };
-    var sz = new MyVerse.Audio.AudioSource { Name = "Z" };
-    mx.Sources.AddRange(new[] { sa, sh, si, sp, sz });
-    mx.RegleGlobal("micro1", "default"); mx.RegleGlobal("bureau1", "default");
-    mx.Normalize();
-    bool Inact(MyVerse.Audio.AudioSource x) => x.DeviceId == "{absent}";
-    string Ordre() => string.Join(",", mx.Affichage(Inact).Select(x => x.Name));
-    Egal(Ordre(), "Audio du bureau,Micro/Aux,Épinglée,A,Z", "OBS 32.1 : globales puis épinglées, masquées et inactives cachées");
-    mx.ShowHidden = true;
-    Egal(Ordre(), "Audio du bureau,Micro/Aux,Épinglée,A,Masquée,Z", "« Afficher les sources masquées » : à sa place");
-    mx.HiddenRight = true;
-    Egal(Ordre(), "Audio du bureau,Micro/Aux,Épinglée,A,Z,Masquée", "« Garder les sources masquées à droite »");
-    mx.ShowInactive = true; mx.InactiveRight = true;
-    Egal(Ordre(), "Audio du bureau,Micro/Aux,Épinglée,A,Z,Masquée,Débranchée", "« Afficher les sources inactives » et à droite");
-    mx.InactiveRight = false;
-    Egal(Ordre(), "Audio du bureau,Micro/Aux,Épinglée,A,Débranchée,Z,Masquée", "inactive à sa place sans « garder à droite »");
-    si.Pinned = true; mx.ShowInactive = false;
-    Ok(mx.Affichage(Inact).Contains(si), "une source épinglée reste affichée même débranchée");
-    Ok(MyVerse.Audio.AudioConfiguration.Etat(mx.Globale("micro1")!, true) == MyVerse.Audio.EtatMelangeur.Globale
-        && MyVerse.Audio.AudioConfiguration.Etat(si, true) == MyVerse.Audio.EtatMelangeur.Epinglee
-        && MyVerse.Audio.AudioConfiguration.Etat(sh, false) == MyVerse.Audio.EtatMelangeur.Masquee
-        && MyVerse.Audio.AudioConfiguration.Etat(sz, true) == MyVerse.Audio.EtatMelangeur.Inactive
-        && MyVerse.Audio.AudioConfiguration.Etat(sa, false) == MyVerse.Audio.EtatMelangeur.Active, "étiquettes d'OBS : Globale, Épinglée, Masquée, Inactive, Active");
-
-    // une entrée branchée s'ajoute toute seule
-    var hp = new MyVerse.Audio.AudioConfiguration();
-    var yeti = new MyVerse.Audio.AudioDevice("{yeti}", "Microphone (Blue Yeti)");
-    var webcam = new MyVerse.Audio.AudioDevice("{cam}", "Microphone (Webcam C920)");
-    var usb = new MyVerse.Audio.AudioDevice("{usb}", "Line In (Behringer UMC404HD)");
-    Ok(hp.NouvellesEntrees(new[] { yeti, webcam }).Count == 0 && hp.KnownInputsReady && hp.KnownInputs.Count == 2, "premier relevé : ce qui est déjà branché est noté, rien n'est ajouté");
-    var nv = hp.NouvellesEntrees(new[] { yeti, webcam, usb });
-    Ok(nv.Count == 1 && nv[0] == usb, "carte son branchée ensuite : reconnue comme nouvelle");
-    Ok(hp.NouvellesEntrees(new[] { yeti, usb }).Count == 0 && hp.NouvellesEntrees(new[] { yeti, webcam, usb }).Count == 0, "débranchée puis rebranchée : pas une nouvelle entrée");
-    var ajoutee = hp.AjouterEntree(usb);
-    Ok(ajoutee is { Kind: MyVerse.Audio.AudioInputKind.Microphone, DeviceId: "{usb}", Channel: 0, Name: "Behringer UMC404HD" }, "ajoutée au mélangeur : une bande stéréo au nom court du périphérique");
-    Ok(hp.AjouterEntree(usb) == null, "déjà dans le mélangeur : pas de deuxième bande");
-    hp.Sources.Add(new MyVerse.Audio.AudioSource { Name = "Blue Yeti" });
-    Egal(hp.AjouterEntree(yeti)?.Name, "Blue Yeti 2", "nom déjà pris : « Blue Yeti 2 »");
-    while (hp.Sources.Count < MyVerse.Audio.AudioConfiguration.MaxSources) hp.Sources.Add(new MyVerse.Audio.AudioSource());
-    Ok(hp.AjouterEntree(webcam) == null, "mélangeur plein (32 bandes) : rien n'est ajouté");
-
-    // appuyer pour parler / appuyer pour couper le son (règle de libobs)
-    var ptt = new MyVerse.Audio.AudioSource { PushToTalk = true, PushToTalkDelayMs = 300 };
-    var et = new MyVerse.Audio.EtatRaccourcis();
-    Ok(et.Coupee(ptt, false, false, 0), "appuyer pour parler : coupée tant que la touche n'est pas enfoncée");
-    Ok(!et.Coupee(ptt, true, false, 10), "touche enfoncée : le son passe");
-    Ok(!et.Coupee(ptt, false, false, 20) && !et.Coupee(ptt, false, false, 319), "touche relâchée : le son passe encore pendant le délai (300 ms)");
-    Ok(et.Coupee(ptt, false, false, 320), "délai écoulé : coupée");
-    var ptm = new MyVerse.Audio.AudioSource { PushToMute = true };
-    var et2 = new MyVerse.Audio.EtatRaccourcis();
-    Ok(!et2.Coupee(ptm, false, false, 0) && et2.Coupee(ptm, false, true, 5) && !et2.Coupee(ptm, false, false, 6), "appuyer pour couper le son : coupée seulement touche enfoncée (délai 0)");
-    Ok(!new MyVerse.Audio.EtatRaccourcis().Coupee(new MyVerse.Audio.AudioSource(), false, false, 0), "sans raccourci : jamais coupée");
-
-    // fréquence du moteur : les blocs de 10 ms suivent
-    MyVerse.Audio.AudioBlock.Configurer(44100);
-    Ok(MyVerse.Audio.AudioBlock.Rate == 44100 && MyVerse.Audio.AudioBlock.Frames == 441 && MyVerse.Audio.AudioBlock.Samples == 882, "44,1 kHz : blocs de 441 trames stéréo");
-    MyVerse.Audio.AudioBlock.Configurer(12345);
-    Egal(MyVerse.Audio.AudioBlock.Rate, 48000, "fréquence inconnue : 48 kHz");
-
-    // tout est enregistré
-    var dirA = Temp();
-    var dA4 = Donnees.Charger(dirA, res);
-    var c4 = dA4.Reglages.Audio;
-    c4.SampleRate = 44100; c4.Channels = "5.1"; c4.MeterDecay = "moyenne"; c4.PeakMeter = "reelle"; c4.DisableDucking = true; c4.LowLatency = true;
-    c4.ShowHidden = true; c4.InactiveRight = true; c4.VerticalLayout = false; c4.AutoAddInputs = false;
-    c4.NouvellesEntrees(new[] { yeti });
-    c4.InitialiserGlobaux();
-    var pa = new MyVerse.Audio.AudioSource { Name = "Pasteur", Pinned = true, Balance = 0.25, SyncOffsetMs = 120, PushToTalk = true, PushToTalkDelayMs = 250, PushToTalkKey = "Ctrl+F13" };
-    c4.Sources.Add(pa); c4.Normalize();
-    dA4.SauverReglages();
-    var json4 = File.ReadAllText(Path.Combine(dirA, "reglages.json"));
-    var r4 = Donnees.Charger(dirA, res).Reglages.Audio; r4.Normalize();
-    var pr4 = r4.Sources.FirstOrDefault(x => x.Name == "Pasteur");
-    Ok(r4.SampleRate == 44100 && r4.Channels == "5.1" && r4.MeterDecay == "moyenne" && r4.PeakMeter == "reelle" && r4.DisableDucking && r4.LowLatency,
-        "Réglages › Audio relus (fréquence, canaux, vumètres, avancé)");
-    Ok(r4.ShowHidden && r4.InactiveRight && !r4.VerticalLayout && !r4.AutoAddInputs && r4.KnownInputsReady && r4.KnownInputs.Contains("{yeti}") && r4.GlobalsInitialized,
-        "options du mélangeur, entrées connues et globaux relus");
-    Ok(r4.Globale("bureau1") != null && r4.Globale("micro1") != null, "périphériques globaux relus");
-    Ok(pr4 is { Pinned: true, Balance: 0.25, SyncOffsetMs: 120, PushToTalk: true, PushToTalkDelayMs: 250, PushToTalkKey: "Ctrl+F13" }, "épinglée, balance, synchro et appuyer pour parler relus");
-    Ok(!json4.Contains("\"sources\""), "toujours aucune liste « sources » dans le fichier (réservée à la 1.2 bêta)");
+    // réglages de la 4.1 (audio « comme OBS 32 ») : tout ce qui a disparu est oublié, les mélanges sont gardés en pistes
+    var dir41 = Temp();
+    File.WriteAllText(Path.Combine(dir41, "reglages.json"), """
+    {"version":4,"theme":"nuit","audio":{"Version":5,"SampleRate":44100,"Channels":"5.1","MeterDecay":"lente","PeakMeter":"reelle","DisableDucking":true,"LowLatency":true,
+      "AutoAddInputs":true,"KnownInputs":["{yeti}"],"KnownInputsReady":true,"GlobalsInitialized":true,"ShowHidden":true,"ShowInactive":false,"HiddenRight":true,"InactiveRight":false,
+      "VerticalLayout":false,"FfmpegPath":"C:\\ffmpeg.exe","MonitorDeviceId":"{casque}","MonitorDeviceName":"Casque (USB)","MicrophoneId":"default","OutputId":"default","PanelVisible":true,
+      "obsSources":[
+        {"Id":"bureau","Name":"Audio du bureau","Kind":1,"DeviceId":"default","Global":"bureau1","Tracks":3},
+        {"Id":"micro","Name":"Micro/Aux","Kind":0,"DeviceId":"default","Global":"micro1","Tracks":0},
+        {"Id":"pasteur","Name":"Pasteur","Kind":0,"DeviceId":"{umc}","DeviceName":"Line (UMC404HD)","Channel":1,"Hidden":true,"Pinned":false,"PushToTalk":true,"PushToTalkKey":"F13","Balance":0.25,"SyncOffsetMs":120,"VolumeDb":-3},
+        {"Id":"chorale","Name":"Chorale","Kind":0,"DeviceId":"{umc}","Channel":2,"Pinned":true,"Monitoring":2},
+        {"Id":"guitare","Name":"Guitare","Kind":0,"DeviceId":"{umc}","Channel":3,"Mono":true}],
+      "enregistrements":[
+        {"Id":"culte","Name":"Culte","Track":0,"SourceIds":["pasteur","chorale","guitare","bureau","inconnue"],"MuteOthers":false,"Format":"wav"},
+        {"Id":"predication","Name":"Prédication","Track":4,"SourceIds":["pasteur"],"MuteOthers":true,"Format":"flac"}],
+      "sortiesVirtuelles":[{"Id":"zoom","Name":"Zoom","Enabled":true,"Track":2,"SourceIds":["chorale","pasteur"],"MuteOthers":true,"VolumeDb":-2}]}}
+    """);
+    var d41 = Donnees.Charger(dir41, res);
+    var a41 = d41.Reglages.Audio;
+    a41.Normalize();
+    Egal(string.Join(",", a41.Sources.Select(x => x.Name)), "Audio du bureau,Micro/Aux,Pasteur,Chorale,Guitare", "4.1 : toutes les sources gardées, dans le même ordre (les globales et les masquées deviennent des sources ordinaires)");
+    var pasteur41 = a41.Sources.First(x => x.Id == "pasteur");
+    Ok(pasteur41 is { Channel: 1, Balance: 0.25, SyncOffsetMs: 120, VolumeDb: -3, DeviceId: "{umc}" } && a41.Sources.First(x => x.Id == "guitare").Mono && a41.Sources.First(x => x.Id == "chorale").Monitoring == MyVerse.Audio.AudioMonitoring.AndOutput,
+        "4.1 : entrée, volume, balance, synchro, mono et monitoring gardés");
+    var culte41 = a41.Profiles.First(x => x.Id == "culte"); var pred41 = a41.Profiles.First(x => x.Id == "predication"); var zoom41 = a41.VirtualSounds.First();
+    Ok(culte41.Track == 1 && pred41.Track == 2 && zoom41.Track == 3, "4.1 : un mélange différent par piste (Culte 1, Prédication 2, Zoom 3)", $"{culte41.Track} {pred41.Track} {zoom41.Track}");
+    string Pistes(string id) => string.Concat(Enumerable.Range(1, 6).Select(t => a41.Sources.First(x => x.Id == id).DansPiste(t) ? t.ToString() : "·"));
+    Egal(Pistes("pasteur"), "123456", "Pasteur : dans Culte, Prédication et Zoom (et les pistes libres)");
+    Egal(Pistes("chorale"), "1·3456", "Chorale : Culte et Zoom");
+    Egal(Pistes("guitare"), "1··456", "Guitare : Culte seulement");
+    Egal(Pistes("bureau"), "1··456", "Audio du bureau : Culte seulement");
+    Egal(Pistes("micro"), "···456", "Micro/Aux : dans aucun mélange, seulement les pistes libres");
+    Ok(a41.MonitorDeviceId == "{casque}" && a41.MonitorDeviceName == "Casque (USB)" && zoom41 is { Enabled: true, VolumeDb: -2 }, "4.1 : périphérique de monitoring et sortie Zoom gardés");
+    Egal(a41.Version, MyVerse.Audio.AudioConfiguration.Actuelle, "4.1 : réglages audio passés en version 6");
+    d41.SauverReglages();
+    var json42 = File.ReadAllText(Path.Combine(dir41, "reglages.json"));
+    var oublies = new[] { "SampleRate", "Channels", "MeterDecay", "PeakMeter", "DisableDucking", "LowLatency", "AutoAddInputs", "KnownInputs", "GlobalsInitialized", "ShowHidden", "HiddenRight", "VerticalLayout", "FfmpegPath", "MicrophoneId", "\"Global\"", "Pinned", "Hidden", "PushToTalk", "MuteOthers", "SourceIds" };
+    Ok(oublies.All(x => !json42.Contains(x)), "4.2 : les réglages disparus ne sont plus écrits", string.Join(", ", oublies.Where(json42.Contains)));
+    var r42 = Donnees.Charger(dir41, res).Reglages.Audio; r42.Normalize();
+    Ok(r42.Sources.First(x => x.Id == "chorale").Tracks == a41.Sources.First(x => x.Id == "chorale").Tracks && r42.Profiles[1].Track == 2, "4.2 relue : les pistes ne sont pas recalculées");
+    r42.Sources[0].UseDeviceTiming = false; r42.Sources[1].UseDeviceTiming = true;
+    var dir42 = Temp();
+    var d42 = Donnees.Charger(dir42, res);
+    d42.Reglages.Audio.Sources.AddRange(r42.Sources);
+    d42.SauverReglages();
+    var r42b = Donnees.Charger(dir42, res).Reglages.Audio; r42b.Normalize();
+    Ok(r42b.Sources[0].UseDeviceTiming == false && r42b.Sources[1].UseDeviceTiming == true && r42b.Sources[2].UseDeviceTiming == null, "horodatage du périphérique relu");
+    Ok(!File.ReadAllText(Path.Combine(dir42, "reglages.json")).Contains("Horodatage"), "« Horodatage » (valeur calculée) n'est pas écrit");
 }
 
 Groupe("Audio OBS");

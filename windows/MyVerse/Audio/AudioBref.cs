@@ -9,7 +9,7 @@ namespace MyVerse.Ui.Audio;
 /// <summary>
 /// Barre du bas (design « Pupitre », MyChurch 3.2) : les enregistrements (● / ■, nom, chrono) et les sorties MyVirtualSound
 /// (« A · Zoom actif ») en pastilles. Un clic démarre ou arrête l'enregistrement, active ou coupe la sortie.
-/// Leurs réglages sont dans Réglages › Audio, et le mélangeur complet dans Display.
+/// Ils se créent dans Display › Audio, avec le mélangeur.
 /// </summary>
 public sealed class AudioBref : StackPanel
 {
@@ -51,10 +51,10 @@ public sealed class AudioBref : StackPanel
             {
                 var lien = new Button
                 {
-                    Style = S("BtnPlat"), Content = "Enregistrements et sortie Zoom : Réglages › Audio", FontSize = 13, Foreground = P("Brume"), Padding = new Thickness(8, 6, 8, 6),
+                    Style = S("BtnPlat"), Content = "Enregistrements et sortie Zoom : Display › Audio", FontSize = 13, Foreground = P("Brume"), Padding = new Thickness(8, 6, 8, 6),
                     ToolTip = "Créer un enregistrement du culte ou une sortie MyVirtualSound",
                 };
-                lien.Click += (_, _) => (Application.Current.MainWindow as MainWindow)?.OuvrirParametres();
+                lien.Click += (_, _) => (Application.Current.MainWindow as MainWindow)?.MontrerAudio();
                 Children.Add(lien);
             }
         }
@@ -94,15 +94,7 @@ public sealed class AudioBref : StackPanel
         b.IsEnabled = !r.Busy(p.Id);
         b.ToolTip = (actif ? $"Arrêter « {p.Name} »" : $"Démarrer « {p.Name} »") + " · " + AudioPanel.Resume(p);
         if (actif) { b.BorderBrush = P("Direct"); b.Foreground = P("Direct"); }
-        b.Click += (_, _) =>
-        {
-            if (!A.Recorder.Active(p.Id) && p.SourceIds.Count == 0 && p.DisplayIds.Count == 0)
-            {
-                (Application.Current.MainWindow as MainWindow)?.Toast($"« {p.Name} » n'a aucune source : choisissez-les dans Display › Audio.");
-                return;
-            }
-            _ = A.Recorder.ToggleAsync(p);
-        };
+        b.Click += (_, _) => _ = A.Recorder.ToggleAsync(p);
         chronos.Add(() =>
         {
             bool a = r.Active(p.Id);

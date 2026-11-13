@@ -67,14 +67,11 @@ public static class ObsTests
         return (blocs, g, d);
     }
 
-    /// <summary>MyChurch 4.0 : ce que règlent les propriétés audio avancées et les raccourcis d'OBS (balance, synchro, appuyer pour parler, type de crête).</summary>
-    static void ReglagesObs32(ObsMixer m, AudioConfiguration c, AudioSource s, Action<bool, string, string?> ok)
+    /// <summary>Ce que règlent les propriétés audio avancées d'OBS : balance et décalage de synchronisation.</summary>
+    static void ReglagesAvances(ObsMixer m, AudioConfiguration c, AudioSource s, Action<bool, string, string?> ok)
     {
         s.Muted = false; s.VolumeDb = 0; s.Filters.Clear(); s.Monitoring = AudioMonitoring.Off; s.Tracks = 1;
-        c.PeakMeter = "reelle"; m.Apply(c);
-        float v = Attendre(m, () => m.Level(s.Id).L, x => x > -8 && x < -3);
-        ok(v > -8 && v < -3, "crête réelle (type de crête d'OBS) : le vumètre lit toujours le sinus à −6 dBFS", v.ToString("0.0"));
-        c.PeakMeter = "echantillon"; m.Apply(c);
+        m.Apply(c);
         if (!m.TracksActive) return;
         Attendre(m, () => m.TrackLevel(0), x => x > -8);
         s.Balance = 0; m.Apply(c);
@@ -85,52 +82,12 @@ public static class ObsTests
         Thread.Sleep(400);
         (n, g, d) = Mesurer(m, 0, 600);
         ok(n > 20 && d > 0.3 && g < 0.02, "balance tout à droite : le côté gauche se tait", $"gauche {g:0.000}, droite {d:0.00}");
-        s.Balance = 0.5; m.Apply(c);
-        m.Raccourci(s.Id, true);
-        v = Attendre(m, () => m.TrackLevel(0), x => x < -80 || float.IsNegativeInfinity(x));
-        ok((v < -80 || float.IsNegativeInfinity(v)) && m.CoupeeParRaccourci(s.Id) && !s.Muted, "appuyer pour parler (touche relâchée) : la piste se tait sans toucher à la sourdine", v.ToString("0.0"));
-        m.Apply(c);
-        v = Attendre(m, () => m.TrackLevel(0), x => x < -80 || float.IsNegativeInfinity(x), 600);
-        ok(v < -80 || float.IsNegativeInfinity(v), "un changement de réglage garde la coupure du raccourci", v.ToString("0.0"));
-        m.Raccourci(s.Id, false);
-        v = Attendre(m, () => m.TrackLevel(0), x => x > -8);
-        ok(v > -8 && !m.CoupeeParRaccourci(s.Id), "touche enfoncée : le son revient", v.ToString("0.0"));
+        s.Balance = 0.5;
         s.SyncOffsetMs = 300; m.Apply(c);
         Thread.Sleep(500);
-        v = Attendre(m, () => m.TrackLevel(0), x => x > -8);
+        float v = Attendre(m, () => m.TrackLevel(0), x => x > -8);
         ok(v > -8, "décalage de synchronisation de 300 ms accepté par OBS (le son passe toujours)", v.ToString("0.0"));
         s.SyncOffsetMs = 0; m.Apply(c);
-    }
-
-    /// <summary>Un moteur redémarré à une autre fréquence ou d'autres canaux : les pistes arrivent toujours en stéréo, par blocs de 10 ms.</summary>
-    static void AutreFormat(ObsPaths chemins, string dossier, int rate, string canaux, bool faibleLatence, Action<bool, string, string?> ok)
-    {
-        var c = new AudioConfiguration { SampleRate = rate, Channels = canaux, LowLatency = faibleLatence };
-        c.Normalize();
-        var m = new ObsMixer();
-        string quoi = $"{rate / 1000.0:0.#} kHz {canaux}" + (faibleLatence ? " faible latence" : "");
-        try
-        {
-            m.Start(chemins, c.SampleRate, c.HautParleurs, c.LowLatency);
-            ok(m.Running && m.SampleRate == rate && m.Speakers == c.HautParleurs && AudioBlock.Rate == rate && AudioBlock.Samples == rate / 50,
-                $"moteur redémarré en {quoi}", $"{m.SampleRate} Hz, speakers {m.Speakers}, bloc {AudioBlock.Samples}");
-            if (faibleLatence) ok(m.LowLatency, "mise en mémoire tampon à faible latence acceptée (obs_reset_audio2)", null);
-            var s = new AudioSource { Name = "Sinus", Kind = AudioInputKind.Media, MediaPath = Sinus(dossier), Loop = true, Tracks = 1 };
-            c.Sources.Add(s); c.Normalize(); m.Apply(c);
-            float v = Attendre(m, () => m.Level(s.Id).L, x => x > -12 && x < -3);
-            ok(v > -12 && v < -3, $"{quoi} : vumètre OBS sur le sinus", v.ToString("0.0"));
-            if (m.TracksActive)
-            {
-                Attendre(m, () => m.TrackLevel(0), x => x > -20);
-                var (n, g, d) = Mesurer(m, 0, 700);
-                ok(n > 30 && g > 0.1 && d > 0.1, $"{quoi} : la piste arrive en stéréo à l'enregistrement, par blocs de 10 ms", $"{n} blocs de {AudioBlock.Samples}, crêtes {g:0.00} / {d:0.00}");
-            }
-        }
-        catch (Exception e) { ok(false, "moteur en " + quoi, e.Message); }
-        finally
-        {
-            try { m.Dispose(); } catch (Exception e) { ok(false, "arrêt du moteur en " + quoi, e.Message); }
-        }
     }
 
     /// <summary>MyChurch 3.1 : chaque entrée d'une carte son est sa propre bande (type de source « entrée » de MyChurch, son poussé).</summary>
@@ -261,7 +218,20 @@ public static class ObsTests
                 ok(v > -8, "sourdine retirée : le son revient dans la piste", v.ToString("0.0"));
             }
 
-            ReglagesObs32(m, c, s, ok);
+            ReglagesAvances(m, c, s, ok);
+
+            // pistes cochées comme dans OBS : toutes par défaut, la piste d'un enregistrement ne reçoit que ses sources
+            var t = new AudioSource { Name = "Toutes les pistes", Kind = AudioInputKind.Media, MediaPath = s.MediaPath, Loop = true };
+            ok(t.Tracks == AudioConfiguration.ToutesLesPistes, "nouvelle source : pistes 1 à 6 cochées, comme dans OBS", t.Tracks.ToString());
+            if (m.TracksActive)
+            {
+                s.Tracks = 0b000100; c.Sources.Add(t); t.Tracks = 0b000001; m.Apply(c);
+                v = Attendre(m, () => m.TrackLevel(2), x => x > -8);
+                float p2 = Attendre(m, () => m.TrackLevel(1), x => x < -80 || float.IsNegativeInfinity(x));
+                ok(v > -8 && (p2 < -80 || float.IsNegativeInfinity(p2)), "piste 3 cochée pour une source, piste 2 pour aucune : la piste 2 se tait", $"p2 {p2:0.0}, p3 {v:0.0}");
+                c.Sources.Remove(t); s.Tracks = 1; m.Apply(c);
+            }
+            else c.Sources.Remove(t);
 
             c.Sources.Clear(); m.Apply(c);
             ok(!m.Has(s.Id), "source retirée d'OBS", null);
@@ -272,13 +242,6 @@ public static class ObsTests
         finally
         {
             try { m.Dispose(); ok(!m.Running, "libobs s'arrête proprement", null); } catch (Exception e) { ok(false, "arrêt de libobs", e.Message); }
-            // 4.0 : les autres formats du moteur (Réglages › Audio › Général d'OBS), chacun sur un moteur redémarré
-            if (!m.Running)
-            {
-                AutreFormat(chemins, dossier, 44100, "5.1", true, ok);
-                AutreFormat(chemins, dossier, 48000, "mono", false, ok);
-                AudioBlock.Configurer(48000);
-            }
             try { Directory.Delete(dossier, true); } catch (Exception) { }
             if (Environment.GetEnvironmentVariable("TOUT") == "1" || journal.Any(l => l.StartsWith("100")))
                 lock (journal) foreach (var l in journal.TakeLast(60)) Console.WriteLine("    obs│ " + l.TrimEnd());

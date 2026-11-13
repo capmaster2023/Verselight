@@ -1,9 +1,12 @@
-MYCHURCH 3.2.0
+MYCHURCH 4.2.0
+
+PREMIER LANCEMENT
+MyChurch démarre vide : aucun chant, aucune source, aucun enregistrement. Seules deux Bibles libres de droits sont livrées : Louis Segond 1910 (français) et King James (anglais). Les chants s'ajoutent avec + Importer chants ou recueil (ou + Nouveau chant), les autres Bibles avec + Importer une Bible.
 
 INTERFACE (DESIGN « PUPITRE »)
 Les pages sont dans la barre de gauche : Culte, Bible, Chants, Display, Duo ; en bas Sombre / Clair et Réglages.
 Page Culte : le déroulé en cartes à gauche, toutes les diapositives du culte en vignettes au centre (rouge = à l'écran, ambre = suivant ; un clic affiche).
-À droite, sur toutes les pages : un petit écran EN DIRECT, la diapositive SUIVANT, Précédent / Suivant, Noir / Retirer de l'écran, puis l'audio en bref (vumètre et M = sourdine pour chaque micro, + Micros).
+À droite, sur toutes les pages : un petit écran EN DIRECT, la diapositive SUIVANT, Précédent / Suivant, Noir / Retirer de l'écran, puis l'audio en bref (vumètre et M = sourdine pour chaque source, + Source).
 En bas : les enregistrements (un clic démarre ou arrête), les sorties MyVirtualSound (A · Zoom), l'écran de projection, les téléphones, l'écran de scène et l'heure.
 Thème clair par défaut. Le bouton Sombre de la barre de gauche (ou Réglages > Apparence) passe en sombre, tout de suite et dans toutes les fenêtres.
 
@@ -13,22 +16,22 @@ Dans Projection (en bas à droite), choisissez votre écran ou Nouvelle fenêtre
 DISPLAY
 Le menu + Ajouter une source propose Nouveau texte, Images, Vidéos, Périphérique de capture vidéo, Capture de fenêtre et MyVirtualCam. Dans la bibliothèque, + ajoute une source à la grille (le bouton devient ✓ ; un clic sur ✓ la retire). Modifier est dans le clic droit. Un clic sur une vignette affiche son contenu; le clic droit propose les autres actions.
 
-AUDIO (MOTEUR OBS)
-Le panneau Audio est dans Display, sous la grille. Le son est traité par libobs, la bibliothèque d'OBS Studio 33.0.1 (dossier « obs » à côté de MyChurch.exe).
-- Un micro par bande : + Source audio > Micros (une bande par entrée). Une carte son à plusieurs entrées (Behringer, Focusrite…) montre une case par entrée ; chaque entrée cochée devient sa propre bande, comme dans OBS. Clic droit sur une bande > Entrée pour en changer, ou Toutes les entrées ensemble.
-- Mélangeur vertical, comme OBS. Il démarre vide : + Source audio ajoute des micros, le son d'une sortie (son de l'ordinateur), un fichier audio ou vidéo, ou le son de la vidéo projetée depuis Display.
-- Chaque bande : son volume en dB, une échelle de 0 à -60 dB, 2 vumètres, un fader de -60 à +6 dB (double-clic : 0 dB), M = sourdine, casque = écoute (coupée, écoute seule, écoute et sortie), Filtres.
-- Pastilles sous chaque bande : 1 à 5 = enregistrements, A à D = sorties MyVirtualSound. Un clic envoie la source dans cette destination ou l'en retire.
-- Clic droit sur une bande : renommer, changer de périphérique ou de fichier, mono, relancer le média, vers la gauche, vers la droite, supprimer.
+AUDIO (MOTEUR OBS, SIMPLIFIÉ COMME OBS)
+Le panneau Audio est dans Display, sous la grille. Le son est traité par libobs, la bibliothèque d'OBS Studio 33.0.1 (dossier « obs » à côté de MyChurch.exe), avec les réglages par défaut d'OBS (48 kHz, stéréo).
+- + Source audio, comme le + des sources d'OBS : Capture audio (entrée), Capture audio (sortie), Média, ou le son de la vidéo projetée depuis Display.
+- Propriétés d'une capture audio, comme dans OBS : Périphérique (Par défaut ou un périphérique) et Utiliser l'horodatage du périphérique. Pour une carte son à plusieurs entrées (Behringer, Focusrite…), Entrée : toutes, ou une seule (un micro par source).
+- Chaque bande du mélangeur : son nom, son volume, 2 vumètres, un fader de -60 à +6 dB (double-clic : 0 dB), M = sourdine, casque = monitoring, ⋮ = Propriétés, Filtres, Renommer, Propriétés audio avancées, déplacer, Supprimer.
+- La roue dentée ⚙ ouvre les Propriétés audio avancées, comme dans OBS : état, volume (dB ou %), mono, balance, décalage de synchronisation, monitoring audio et pistes 1 à 6. Une nouvelle source va dans les 6 pistes.
 - Filtres d'OBS : réduction du bruit (RNNoise ou Speex), noise gate, compresseur, limiteur. Ils s'appliquent de haut en bas, en direct.
+- Une source dont le périphérique est débranché devient « Inactif » (grisée) et revient quand il est rebranché. Rien n'est ajouté tout seul.
 - Si le dossier « obs » manque, le panneau propose Réparer le moteur audio (réinstallation, données gardées).
 
 ENREGISTREMENTS
-Rien n'est préréglé. + Créer un enregistrement : son nom, ses sources audio, l'option « Couper les autres sources pendant cet enregistrement » (les autres sources sont coupées partout tant qu'il tourne), et ses sources Display pour une vidéo MKV (la 1re en grand ; incrustation ou côte à côte ; synchro du son pour une caméra en retard). Sans source Display : WAV ou FLAC. Dossier par défaut : Vidéos\MyChurch\<nom>.
+Rien n'est préréglé. + Créer un enregistrement : son nom, sa piste audio (1 à 6, comme dans OBS) et ses sources Display pour une vidéo MKV (la 1re en grand ; incrustation ou côte à côte ; synchro du son pour une caméra en retard). Sans source Display : WAV ou FLAC. Dossier par défaut : Vidéos\MyChurch\<nom>.
 Jusqu'à 5 enregistrements, qui peuvent tourner en même temps. FFmpeg 8.0.1 est inclus (dossier « ffmpeg ») : rien à installer.
 
 MYVIRTUALSOUND (ZOOM)
-+ Créer une sortie : son nom, son câble audio virtuel (ou une sortie), ses sources, « couper les autres sources ». Jusqu'à 4 sorties, actives en même temps si besoin. Zoom, Teams ou un navigateur la reçoivent comme un micro : dans Zoom, choisissez « CABLE Output » comme microphone.
++ Créer une sortie : son nom, son câble audio virtuel (ou une sortie) et sa piste audio (1 à 6). Jusqu'à 4 sorties, actives en même temps si besoin. Zoom, Teams ou un navigateur la reçoivent comme un micro : dans Zoom, choisissez « CABLE Output » comme microphone.
 VB-CABLE n'est pas inclus dans MyChurch. Réglages > MyVirtualSound > Installer VB-CABLE télécharge le paquet officiel et lance son installateur (accord administrateur de Windows), seulement quand vous cliquez.
 VB-CABLE est un logiciel de VB-Audio Software (www.vb-cable.com), distribué en donationware : chacun paie ce qu'il veut s'il le trouve utile.
 
@@ -41,7 +44,7 @@ MYVIRTUALCAM
 La caméra virtuelle reçoit automatiquement la sortie de MyChurch, Duo compris. L'installation demande l'autorisation Windows une fois. En version portable, utilisez + Ajouter une source > Caméra virtuelle MyVirtualCam pour l'enregistrer. Elle reste sélectionnable avec une image noire quand MyChurch est fermé. Le son passe par MyVirtualSound.
 
 RÉGLAGES
-Le bouton Réglages, en bas de la barre de gauche, ouvre la page Réglages avec son sommaire : apparence (clair ou sombre), périphériques audio, MyVirtualSound (VB-CABLE), enregistrements (dossier, ffmpeg), projection (écrans), téléphone, mise à jour, transfert vers un autre ordinateur, journal d'erreurs, code source et licences.
+Le bouton Réglages, en bas de la barre de gauche, ouvre la page Réglages avec son sommaire : apparence (clair ou sombre), périphérique de monitoring audio (casque), MyVirtualSound (VB-CABLE), enregistrements (dossier), projection (écrans), téléphone, mise à jour, transfert vers un autre ordinateur, journal d'erreurs, code source et licences.
 
 MISE À JOUR
 Les chants, Bibles, réglages et jumelages sont conservés. Une caméra virtuelle déjà utilisée est renommée avant remplacement. Fermez puis rouvrez le logiciel vidéo qui l'utilise pour charger la nouvelle version.

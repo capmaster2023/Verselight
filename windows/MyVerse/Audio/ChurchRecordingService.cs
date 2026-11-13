@@ -7,7 +7,7 @@ public enum ChurchRecordingState { Ready, Preparing, Recording, Finalizing, Erro
 
 /// <summary>
 /// Les enregistrements créés par l'utilisateur (5 au plus), qui peuvent tourner en même temps.
-/// Chacun reçoit le mélange de ses sources (une piste d'OBS) et, s'il a des sources Display, une vidéo composée (MKV).
+/// Comme dans OBS, chacun enregistre sa piste (1 à 6) et, s'il a des sources Display, une vidéo composée (MKV).
 /// </summary>
 public sealed class ChurchRecordingService : IDisposable
 {
@@ -20,7 +20,7 @@ public sealed class ChurchRecordingService : IDisposable
         public RecordingProfile? Profile;
         public Action<float[]>? Consumer;
         public int Piste;
-        /// <summary>Compte dans les pistes et les sourdines dès le démarrage, jusqu'à l'arrêt.</summary>
+        /// <summary>L'enregistrement démarre ou tourne (jusqu'à l'arrêt).</summary>
         public bool Reserve;
         public ChurchRecordingState State = ChurchRecordingState.Ready;
         public string Message = "Prêt";
@@ -44,7 +44,7 @@ public sealed class ChurchRecordingService : IDisposable
         }
     }
 
-    /// <summary>Les enregistrements qui tournent ou qui démarrent (ils ont une piste d'OBS et appliquent « couper les autres sources »).</summary>
+    /// <summary>Les enregistrements qui tournent ou qui démarrent.</summary>
     public IReadOnlyCollection<string> Reserves { get { lock (runs) return runs.Where(r => r.Value.Reserve).Select(r => r.Key).ToList(); } }
     public bool Active(string id) => Get(id).Session != null;
     public bool AnyActive { get { lock (runs) return runs.Values.Any(r => r.Session != null); } }
@@ -71,8 +71,6 @@ public sealed class ChurchRecordingService : IDisposable
             Status(run, ChurchRecordingState.Preparing, "Vérification…");
             if (!audio.Running) throw new IOException("Le moteur audio OBS n'est pas démarré.");
             if (!audio.TracksActive) throw new IOException("Les pistes d'OBS sont indisponibles sur cet ordinateur (carte graphique) : enregistrement impossible.");
-            if (profile.SourceIds.Count == 0 && profile.DisplayIds.Count == 0) throw new IOException("Cet enregistrement n'a aucune source : « Modifier » pour en choisir.");
-            // réserver une piste d'OBS (et couper les autres sources si l'option est choisie)
             run.Reserve = true;
             audio.Apply(false);
             var actuel = audio.Config.Profiles.FirstOrDefault(p => p.Id == profile.Id) ?? throw new IOException("Cet enregistrement a été supprimé.");
@@ -120,8 +118,7 @@ public sealed class ChurchRecordingService : IDisposable
         finally { run.Operation.Release(); }
     }
 
-    /// <summary>Après chaque changement de réglages : un enregistrement en cours suit sa piste d'OBS si elle a changé
-    /// (sources ajoutées ou retirées pendant l'enregistrement).</summary>
+    /// <summary>Après chaque changement de réglages : un enregistrement en cours suit sa piste si elle a été changée dans « Modifier ».</summary>
     public void SuivrePistes()
     {
         List<(Run Run, RecordingProfile Profil)> actifs;
@@ -192,7 +189,7 @@ public sealed class ChurchRecordingService : IDisposable
         if (run.Consumer != null && run.Piste > 0) audio.RemoveTrackConsumer(run.Piste - 1, run.Consumer);
         var current = Interlocked.Exchange(ref run.Session, null);
         run.Reserve = false;
-        audio.Apply(false); // la piste se libère, les sources coupées par cet enregistrement reviennent
+        audio.Apply(false);
         if (current == null) return;
         Status(run, ChurchRecordingState.Finalizing, "Finalisation…");
         try { await current.StopAsync(); Status(run, ChurchRecordingState.Ready, "Terminé : " + current.Path); }

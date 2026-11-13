@@ -86,7 +86,7 @@ public sealed class VirtualSound : IDisposable
             signature = voulu;
             if (voulu == "\u0000")
             {
-                Status = !v.Enabled ? "Désactivée" : !audio.Running ? "En attente du moteur OBS" : "Plus de piste d'OBS libre (6 mélanges différents au plus)";
+                Status = !v.Enabled ? "Désactivée" : "En attente du moteur OBS";
                 return;
             }
             try

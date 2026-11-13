@@ -89,25 +89,19 @@ public abstract class FenetreDestination : FenetreDialogue
         return new CheckBox { Content = contenu, IsChecked = coche, Margin = new Thickness(0, 0, 12, 10), HorizontalAlignment = HorizontalAlignment.Left };
     }
 
-    /// <summary>Les sources du mélangeur à cocher (deux colonnes).</summary>
-    protected List<(CheckBox Case, string Id)> SourcesAudio(IEnumerable<string> cochees)
+    /// <summary>« Piste audio », comme dans les paramètres de sortie d'OBS : piste 1 à 6, et les sources qui vont dans la piste choisie.</summary>
+    protected ComboBox ChoixPiste(int actuelle)
     {
-        var liste = new List<(CheckBox, string)>();
-        var deja = cochees.ToHashSet();
-        if (C.Sources.Count == 0)
-        {
-            Corps.Children.Add(Note("Le mélangeur est vide : ajoutez d'abord vos sources avec « + Source audio » (micro, son d'une sortie, média).", 0));
-            return liste;
-        }
-        var grille = new UniformGrid { Columns = 2 };
-        foreach (var s in C.Sources)
-        {
-            var cb = Case(s.Name, AudioPanel.Genre(s), deja.Contains(s.Id));
-            liste.Add((cb, s.Id));
-            grille.Children.Add(cb);
-        }
-        Corps.Children.Add(grille);
-        return liste;
+        var cb = new ComboBox { MinHeight = 40 };
+        for (int t = 1; t <= AudioConfiguration.Pistes; t++) cb.Items.Add(new ComboBoxItem { Content = $"Piste {t}", Tag = t });
+        cb.SelectedIndex = Math.Clamp(actuelle, 1, AudioConfiguration.Pistes) - 1;
+        Corps.Children.Add(cb);
+        var note = Note("", 8);
+        void Maj() => note.Text = AudioPanel.SourcesPiste(cb.SelectedIndex + 1) + ". Les pistes de chaque source se cochent dans les propriétés audio avancées (⚙ du mélangeur), comme dans OBS.";
+        cb.SelectionChanged += (_, _) => Maj();
+        Maj();
+        Corps.Children.Add(note);
+        return cb;
     }
 
     protected void Erreur(string message)
@@ -120,17 +114,16 @@ public abstract class FenetreDestination : FenetreDialogue
 }
 
 /// <summary>
-/// Créer ou modifier un enregistrement : son nom, ses sources audio, « couper les autres sources », ses sources Display
+/// Créer ou modifier un enregistrement : son nom, sa piste audio (comme dans OBS), ses sources Display
 /// (la vidéo, dans l'ordre : la 1re en grand), la disposition, la synchro du son et le dossier.
 /// </summary>
 public sealed class EnregistrementWindow : FenetreDestination
 {
     readonly RecordingProfile? existant;
     readonly TextBox nom;
-    readonly List<(CheckBox Case, string Id)> audio;
+    readonly ComboBox piste;
     readonly List<(CheckBox Case, string Id, Border Pastille, TextBlock Rang)> display = new();
     readonly List<string> ordre = new();
-    readonly CheckBox couper;
     readonly StackPanel optionsVideo = new(), optionsSon = new(), disposition = new();
     readonly RadioButton incrustation, cote, wav, flac;
     readonly Slider synchro;
@@ -140,14 +133,14 @@ public sealed class EnregistrementWindow : FenetreDestination
 
     public EnregistrementWindow(RecordingProfile? p) : base(
         p == null ? "Créer un enregistrement" : $"Modifier « {p.Name} »",
-        "Choisissez ce que ce fichier garde : des sources du mélangeur et, pour une vidéo, des sources Display. Jusqu'à 5 enregistrements, qui peuvent tourner en même temps.",
+        "Comme dans OBS, un enregistrement garde une piste audio (1 à 6) ; avec des sources Display, c'est une vidéo. Jusqu'à 5 enregistrements, qui peuvent tourner en même temps.",
         p != null, p == null ? "Créer" : "Enregistrer")
     {
         existant = p;
         bool tourne = p != null && (A.Recorder.Active(p.Id) || A.Recorder.Busy(p.Id));
         if (tourne)
         {
-            var info = Note("Cet enregistrement tourne : les sources audio et « couper les autres » changent tout de suite ; la vidéo, le format et le dossier au prochain démarrage.", 0);
+            var info = Note("Cet enregistrement tourne : la piste audio change tout de suite ; la vidéo, le format et le dossier au prochain démarrage.", 0);
             info.Foreground = Pinceau("Or");
             info.FontWeight = FontWeights.SemiBold;
             Corps.Children.Add(info);
@@ -157,11 +150,8 @@ public sealed class EnregistrementWindow : FenetreDestination
         nom = new TextBox { Style = Style_("Champ"), FontSize = 15, Text = p?.Name ?? $"Enregistrement {C.Profiles.Count + 1}" };
         Corps.Children.Add(nom);
 
-        Corps.Children.Add(Libelle("SOURCES AUDIO ENREGISTRÉES"));
-        audio = SourcesAudio(p?.SourceIds ?? new List<string>());
-        couper = new CheckBox { Content = "Couper les autres sources pendant cet enregistrement", FontSize = 14.5, IsChecked = p?.MuteOthers ?? false, Margin = new Thickness(0, 4, 0, 0) };
-        Corps.Children.Add(couper);
-        Corps.Children.Add(Note("Tant qu'il tourne, les sources non cochées sont coupées partout : casque, Zoom et autres enregistrements. Exemple : « Prédication » (pasteur seul) coupe la guitare, le piano et le chanteur."));
+        Corps.Children.Add(Libelle("PISTE AUDIO"));
+        piste = ChoixPiste(p?.Track ?? 1);
 
         Corps.Children.Add(Libelle("SOURCES DISPLAY FILMÉES (FACULTATIF)"));
         Corps.Children.Add(Note("Sans source Display, le fichier garde le son seul. Avec, c'est une vidéo MKV : cochez dans l'ordre, la 1re est en grand.", 0));
@@ -284,14 +274,11 @@ public sealed class EnregistrementWindow : FenetreDestination
     {
         string n = nom.Text.Trim();
         if (n.Length == 0) { Erreur("Donnez un nom à l'enregistrement."); nom.Focus(); return; }
-        var sources = audio.Where(x => x.Case.IsChecked == true).Select(x => x.Id).ToList();
-        if (sources.Count == 0 && ordre.Count == 0) { Erreur("Choisissez au moins une source audio (ou une source Display pour une vidéo)."); return; }
         if (existant == null && C.Profiles.Count >= AudioConfiguration.MaxEnregistrements) { Erreur($"{AudioConfiguration.MaxEnregistrements} enregistrements au plus."); return; }
         if (C.Profiles.Any(x => x != existant && string.Equals(x.Name, n, StringComparison.OrdinalIgnoreCase))) { Erreur($"Un autre enregistrement s'appelle déjà « {n} »."); return; }
         var p = existant ?? new RecordingProfile();
         p.Name = n;
-        p.SourceIds = sources;
-        p.MuteOthers = couper.IsChecked == true;
+        p.Track = piste.SelectedIndex + 1;
         p.DisplayIds = ordre.ToList();
         p.Layout = cote.IsChecked == true ? "cote" : "incrustation";
         p.AudioDelayMs = (int)Math.Round(synchro.Value);
@@ -305,20 +292,20 @@ public sealed class EnregistrementWindow : FenetreDestination
 }
 
 /// <summary>
-/// Créer ou modifier une sortie MyVirtualSound : son nom, le câble virtuel (ou la sortie) où elle joue, ses sources,
-/// « couper les autres sources ». Plusieurs sorties peuvent être actives en même temps.
+/// Créer ou modifier une sortie MyVirtualSound : son nom, le câble virtuel (ou la sortie) où elle joue et sa piste audio, comme dans OBS.
+/// Plusieurs sorties peuvent être actives en même temps.
 /// </summary>
 public sealed class SortieWindow : FenetreDestination
 {
     readonly VirtualSoundSettings? existant;
     readonly TextBox nom;
     readonly ComboBox peripherique = new() { MinHeight = 40 };
-    readonly List<(CheckBox Case, string Id)> audio;
-    readonly CheckBox couper, activer;
+    readonly ComboBox piste;
+    readonly CheckBox activer;
 
     public SortieWindow(VirtualSoundSettings? v) : base(
         v == null ? "Créer une sortie MyVirtualSound" : $"Modifier « {v.Name} »",
-        "Le mélange de ses sources, envoyé vers un câble audio virtuel : Zoom, Teams, OBS ou un navigateur le reçoivent comme un micro. Plusieurs sorties peuvent être actives en même temps.",
+        "Une piste audio (1 à 6), envoyée vers un câble audio virtuel : Zoom, Teams, OBS ou un navigateur la reçoivent comme un micro. Plusieurs sorties peuvent être actives en même temps.",
         v != null, v == null ? "Créer" : "Enregistrer")
     {
         existant = v;
@@ -341,11 +328,8 @@ public sealed class SortieWindow : FenetreDestination
             ? $"Câble détecté : {trouve.Nom}. Dans Zoom, choisissez « CABLE Output » comme microphone."
             : "Aucun câble audio virtuel détecté : installez VB-CABLE dans Réglages › MyVirtualSound (sur clic), ou choisissez une sortie."));
 
-        Corps.Children.Add(Libelle("SOURCES ENVOYÉES"));
-        audio = SourcesAudio(v?.SourceIds ?? new List<string>());
-        couper = new CheckBox { Content = "Couper les autres sources tant que cette sortie est active", FontSize = 14.5, IsChecked = v?.MuteOthers ?? false, Margin = new Thickness(0, 4, 0, 0) };
-        Corps.Children.Add(couper);
-        Corps.Children.Add(Note("Les sources non cochées sont alors coupées partout (casque, enregistrements, autres sorties) tant que la sortie est active."));
+        Corps.Children.Add(Libelle("PISTE AUDIO"));
+        piste = ChoixPiste(v?.Track ?? 1);
 
         activer = new CheckBox { Content = "Activer cette sortie", FontSize = 14.5, FontWeight = FontWeights.SemiBold, IsChecked = v?.Enabled ?? true, Margin = new Thickness(0, 18, 0, 0) };
         Corps.Children.Add(activer);
@@ -366,13 +350,10 @@ public sealed class SortieWindow : FenetreDestination
     {
         string n = nom.Text.Trim();
         if (n.Length == 0) { Erreur("Donnez un nom à la sortie (par exemple « Zoom »)."); nom.Focus(); return; }
-        var sources = audio.Where(x => x.Case.IsChecked == true).Select(x => x.Id).ToList();
-        if (sources.Count == 0) { Erreur("Choisissez au moins une source à envoyer."); return; }
         if (existant == null && C.VirtualSounds.Count >= AudioConfiguration.MaxSortiesVirtuelles) { Erreur($"{AudioConfiguration.MaxSortiesVirtuelles} sorties au plus."); return; }
         var v = existant ?? new VirtualSoundSettings();
         v.Name = n;
-        v.SourceIds = sources;
-        v.MuteOthers = couper.IsChecked == true;
+        v.Track = piste.SelectedIndex + 1;
         v.Enabled = activer.IsChecked == true;
         if (peripherique.SelectedItem is ComboBoxItem { Tag: string id } item)
         {

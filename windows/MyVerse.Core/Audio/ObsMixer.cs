@@ -67,8 +67,6 @@ public sealed class ObsMixer : IDisposable
         public readonly List<string> Ordre = new();
         public volatile float PeakL = float.NegativeInfinity, PeakR = float.NegativeInfinity;
         public long Vu;
-        /// <summary>Sourdine des réglages (sourdines forcées comprises), sans celle des raccourcis.</summary>
-        public bool Muet;
         public double Balance = double.NaN;
         public long Synchro = long.MinValue;
     }
@@ -113,15 +111,11 @@ public sealed class ObsMixer : IDisposable
     IntPtr audio;
     bool ancienMonitoring;
     string moniteur = "";
-    int typeCrete;
-    /// <summary>Sources coupées en ce moment par « appuyer pour parler » ou « appuyer pour couper le son ».</summary>
-    readonly HashSet<string> coupeesRaccourci = new();
 
     public bool Running { get; private set; }
-    /// <summary>Le format du moteur en marche (Réglages › Audio › Général d'OBS) : fréquence, « speaker_layout », faible latence.</summary>
+    /// <summary>Le format du moteur : 48 kHz stéréo, les réglages par défaut d'OBS.</summary>
     public int SampleRate { get; private set; } = 48000;
     public int Speakers { get; private set; } = LibObs.SpeakersStereo;
-    public bool LowLatency { get; private set; }
     /// <summary>Les six pistes sont mélangées (le moteur vidéo interne d'OBS a démarré : il porte l'arbre de mélange).</summary>
     public bool TracksActive { get; private set; }
     public string Version { get; private set; } = "";
@@ -192,11 +186,11 @@ public sealed class ObsMixer : IDisposable
     }
 
     /// <summary>
-    /// Démarre libobs comme OBS : fréquence (44,1 ou 48 kHz) et canaux du moteur, mise en mémoire tampon à faible latence au besoin,
-    /// modules (périphériques, filtres, média), six pistes. Les pistes sont toujours remises en stéréo à l'enregistrement et aux sorties.
+    /// Démarre libobs avec les réglages audio par défaut d'OBS (48 kHz, stéréo) : modules (périphériques, filtres, média) et six pistes.
     /// </summary>
-    public void Start(ObsPaths p, int rate = 48000, int speakers = LibObs.SpeakersStereo, bool lowLatency = false)
+    public void Start(ObsPaths p)
     {
+        const int rate = 48000, speakers = LibObs.SpeakersStereo;
         if (Running) return;
         if (!p.Present) throw new FileNotFoundException("Le moteur audio OBS (libobs) est absent : " + p.Library);
         chemins = p;
@@ -208,24 +202,21 @@ public sealed class ObsMixer : IDisposable
         Version = LibObs.Str(LibObs.obs_get_version_string()) ?? "";
         if (LibObs.Has("obs_add_data_path")) LibObs.obs_add_data_path(p.DataPath);
         AudioBlock.Configurer(rate);
-        if (speakers is < LibObs.SpeakersMono or > 8 or 7) speakers = LibObs.SpeakersStereo;
         blocs = Enumerable.Range(0, LibObs.Mixes).Select(_ => new float[AudioBlock.Samples]).ToArray();
         Array.Clear(rempli);
         bool audioOk;
         if (LibObs.Has("obs_reset_audio2"))
         {
-            // comme OBS : faible latence = 20 ms de tampon, fixe
-            var ai2 = new LibObs.AudioInfo2 { SamplesPerSec = (uint)AudioBlock.Rate, Speakers = speakers, MaxBufferingMs = lowLatency ? 20u : 0u, FixedBuffering = lowLatency };
+            var ai2 = new LibObs.AudioInfo2 { SamplesPerSec = (uint)AudioBlock.Rate, Speakers = speakers, MaxBufferingMs = 0u, FixedBuffering = false };
             audioOk = LibObs.obs_reset_audio2(ref ai2);
         }
         else
         {
             var ai = new LibObs.AudioInfo { SamplesPerSec = (uint)AudioBlock.Rate, Speakers = speakers };
             audioOk = LibObs.obs_reset_audio(ref ai);
-            lowLatency = false;
         }
         if (!audioOk) { Arreter(); throw new InvalidOperationException("libobs : audio refusé (obs_reset_audio)."); }
-        SampleRate = AudioBlock.Rate; Speakers = speakers; LowLatency = lowLatency;
+        SampleRate = AudioBlock.Rate; Speakers = speakers;
         // Le mélange des pistes est porté par le « canvas » principal d'OBS : une image minuscule suffit.
         try
         {
@@ -256,14 +247,7 @@ public sealed class ObsMixer : IDisposable
         entreesPossibles = EnregistrerEntree();
         ancienMonitoring = !LibObs.Has("obs_source_set_monitoring_enabled");
         audio = LibObs.obs_get_audio();
-        // 2.1 à 7.1 : OBS ramène chaque piste en stéréo pour l'enregistrement et MyVirtualSound
-        var stereo = new LibObs.AudioConvertInfo { SamplesPerSec = (uint)AudioBlock.Rate, Format = LibObs.AudioFormatFloatPlanar, Speakers = LibObs.SpeakersStereo };
-        for (int i = 0; i < LibObs.Mixes; i++)
-        {
-            if (Speakers > LibObs.SpeakersStereo) LibObs.audio_output_connect_converti(audio, (UIntPtr)i, ref stereo, sortie, (IntPtr)i);
-            else LibObs.audio_output_connect(audio, (UIntPtr)i, IntPtr.Zero, sortie, (IntPtr)i);
-        }
-        typeCrete = 0;
+        for (int i = 0; i < LibObs.Mixes; i++) LibObs.audio_output_connect(audio, (UIntPtr)i, IntPtr.Zero, sortie, (IntPtr)i);
         Running = true;
     }
 
@@ -394,7 +378,12 @@ public sealed class ObsMixer : IDisposable
             LibObs.obs_data_set_bool(d, "close_when_inactive", false);
             LibObs.obs_data_set_bool(d, "hw_decode", false);
         }
-        else LibObs.obs_data_set_string(d, "device_id", string.IsNullOrEmpty(s.DeviceId) ? "default" : s.DeviceId);
+        else
+        {
+            LibObs.obs_data_set_string(d, "device_id", string.IsNullOrEmpty(s.DeviceId) ? "default" : s.DeviceId);
+            // « Utiliser l'horodatage du périphérique » des propriétés d'OBS
+            LibObs.obs_data_set_bool(d, "use_device_timing", s.Horodatage);
+        }
     });
     static string TypeFiltre(AudioFilterKind k)
     {
@@ -431,7 +420,7 @@ public sealed class ObsMixer : IDisposable
         }
     });
     static string Signature(AudioFilter f) => string.Join("|", f.Kind, f.Ratio, f.ThresholdDb, f.AttackMs, f.ReleaseMs, f.OutputGainDb, f.OpenDb, f.CloseDb, f.HoldMs, f.Method, f.SuppressDb);
-    static string Signature(AudioSource s) => s.Kind == AudioInputKind.Media ? s.MediaPath + "|" + s.Loop : s.DeviceId;
+    static string Signature(AudioSource s) => s.Kind == AudioInputKind.Media ? s.MediaPath + "|" + s.Loop : s.DeviceId + "|" + s.Horodatage;
 
     /// <summary>Les trois choix d'OBS. Depuis libobs 33 l'écoute est un simple oui/non : « écoute seule » y revient
     /// à écouter la source sans l'envoyer dans aucune piste, ce que fait Apply en vidant ses pistes.</summary>
@@ -448,12 +437,6 @@ public sealed class ObsMixer : IDisposable
     public void Apply(AudioConfiguration c)
     {
         if (!Running) return;
-        int crete = c.TypeCrete;
-        if (crete != typeCrete && LibObs.Has("obs_volmeter_set_peak_meter_type"))
-        {
-            typeCrete = crete;
-            foreach (var b in bandes.Values) LibObs.obs_volmeter_set_peak_meter_type(b.Volmeter, crete);
-        }
         string cible = string.IsNullOrEmpty(c.MonitorDeviceId) ? "default" : c.MonitorDeviceId;
         if (cible != moniteur)
         {
@@ -479,7 +462,6 @@ public sealed class ObsMixer : IDisposable
                 parCanal[canal] = b; bandes[s.Id] = b;
                 if (type == TypeEntree) lock (verrouEntrees) entrees[s.Id] = (source, IntPtr.Zero, 0);
                 b.Volmeter = LibObs.obs_volmeter_create(LibObs.FaderLog);
-                if (typeCrete != 0 && LibObs.Has("obs_volmeter_set_peak_meter_type")) LibObs.obs_volmeter_set_peak_meter_type(b.Volmeter, typeCrete);
                 LibObs.obs_volmeter_add_callback(b.Volmeter, vumetre, (IntPtr)canal);
                 LibObs.obs_volmeter_attach_source(b.Volmeter, source);
                 LibObs.obs_set_output_source(canal, source);
@@ -492,8 +474,7 @@ public sealed class ObsMixer : IDisposable
                 b.Signature = signature;
             }
             LibObs.obs_source_set_volume(b.Source, (float)AudioMath.Linear(s.VolumeDb));
-            b.Muet = s.Muted;
-            LibObs.obs_source_set_muted(b.Source, s.Muted || coupeesRaccourci.Contains(s.Id));
+            LibObs.obs_source_set_muted(b.Source, s.Muted);
             if (b.Balance != s.Balance && LibObs.Has("obs_source_set_balance_value")) { LibObs.obs_source_set_balance_value(b.Source, (float)s.Balance); b.Balance = s.Balance; }
             long synchro = s.SyncOffsetMs * 1_000_000L;
             if (b.Synchro != synchro && LibObs.Has("obs_source_set_sync_offset")) { LibObs.obs_source_set_sync_offset(b.Source, synchro); b.Synchro = synchro; }
@@ -585,15 +566,6 @@ public sealed class ObsMixer : IDisposable
         return (b.PeakL, b.PeakR);
     }
     public bool Has(string id) => bandes.ContainsKey(id);
-
-    /// <summary>« Appuyer pour parler » / « appuyer pour couper le son » : coupe ou rétablit la source sans toucher à sa sourdine.</summary>
-    public void Raccourci(string id, bool coupee)
-    {
-        if (coupee ? !coupeesRaccourci.Add(id) : !coupeesRaccourci.Remove(id)) return;
-        if (Running && bandes.TryGetValue(id, out var b)) LibObs.obs_source_set_muted(b.Source, b.Muet || coupee);
-    }
-    /// <summary>La source est coupée en ce moment par ses raccourcis.</summary>
-    public bool CoupeeParRaccourci(string id) => coupeesRaccourci.Contains(id);
     /// <summary>Crête d'une piste (0 à 5) en dBFS.</summary>
     public float TrackLevel(int piste)
     {

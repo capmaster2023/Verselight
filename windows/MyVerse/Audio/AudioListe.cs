@@ -9,8 +9,8 @@ namespace MyVerse.Ui.Audio;
 
 /// <summary>
 /// Colonne de contrôle (design « Pupitre », MyChurch 3.2) : l'audio en bref. Une ligne par source du mélangeur
-/// (nom, entrée de la carte son, vumètre, sourdine M) et « + Micros » pour ajouter une bande par entrée.
-/// Le mélangeur complet (volumes, filtres, écoute) reste dans Display.
+/// (nom, vumètre, sourdine M) et « + Source » pour en ajouter une, comme dans OBS.
+/// Le mélangeur complet (volumes, filtres, monitoring, pistes) reste dans Display.
 /// </summary>
 public sealed class AudioListe : Border
 {
@@ -29,19 +29,19 @@ public sealed class AudioListe : Border
     {
         Style = S("Carte");
         Padding = new Thickness(14, 12, 12, 6);
-        var micros = new Button
+        var plus = new Button
         {
-            Style = S("BtnPlat"), Content = "+ Micros", FontSize = 13, FontWeight = FontWeights.Bold, Foreground = P("Or"), Padding = new Thickness(6, 2, 6, 2),
-            ToolTip = "Ajouter les micros de la carte son : une bande par entrée, comme une source dans OBS",
+            Style = S("BtnPlat"), Content = "+ Source", FontSize = 13, FontWeight = FontWeights.Bold, Foreground = P("Or"), Padding = new Thickness(6, 2, 6, 2),
+            ToolTip = "Ajouter une capture audio (entrée ou sortie) ou un média, comme dans OBS",
         };
-        micros.Click += (_, _) => (Application.Current.MainWindow as MainWindow)?.AjouterMicros();
+        plus.Click += (_, _) => (Application.Current.MainWindow as MainWindow)?.AjouterSource(plus);
         var tete = new DockPanel { Margin = new Thickness(0, 0, 0, 6) };
-        DockPanel.SetDock(micros, Dock.Right);
-        tete.Children.Add(micros);
+        DockPanel.SetDock(plus, Dock.Right);
+        tete.Children.Add(plus);
         tete.Children.Add(new TextBlock { Text = "Audio", FontSize = 15, FontWeight = FontWeights.ExtraBold, VerticalAlignment = VerticalAlignment.Center });
         vide = new TextBlock
         {
-            Text = "Aucune source audio. « + Micros » ajoute les micros de la carte son, une bande par entrée.", Style = S("Muet"), FontSize = 12.5, Margin = new Thickness(0, 2, 0, 8),
+            Text = "Aucune source audio. « + Source » ajoute une capture audio (entrée ou sortie) ou un média.", Style = S("Muet"), FontSize = 12.5, Margin = new Thickness(0, 2, 0, 8),
         };
         var pile = new StackPanel();
         pile.Children.Add(tete);
@@ -55,11 +55,11 @@ public sealed class AudioListe : Border
         Maj();
     }
 
-    /// <summary>Reconstruit les lignes si les sources ont changé (ajout, nom, entrée, sourdine) : les mêmes que le mélangeur, dans le même ordre (OBS 32.1).</summary>
+    /// <summary>Reconstruit les lignes si les sources ont changé (ajout, nom, sourdine) : les mêmes que le mélangeur, dans le même ordre.</summary>
     void Maj()
     {
-        var visibles = C.Affichage(A.Inactive);
-        string sig = string.Join("|", visibles.Select(s => $"{s.Id}/{s.Name}/{s.Kind}/{s.Channel}/{s.DeviceId}/{s.DeviceName}/{s.Muted}/{s.Global}/{s.Pinned}"));
+        var visibles = C.Sources.ToList();
+        string sig = string.Join("|", visibles.Select(s => $"{s.Id}/{s.Name}/{s.Muted}/{A.Inactive(s)}"));
         if (sig == signature) return;
         signature = sig;
         lignes.Children.Clear();
@@ -74,19 +74,11 @@ public sealed class AudioListe : Border
         g.ColumnDefinitions.Add(new ColumnDefinition());
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(76) });
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var nom = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
-        nom.Children.Add(new TextBlock { Text = s.Name, FontSize = 13, FontWeight = FontWeights.Bold, TextTrimming = TextTrimming.CharacterEllipsis });
-        var sous = new TextBlock { FontSize = 11, Foreground = P("Brume2"), TextTrimming = TextTrimming.CharacterEllipsis };
-        string peripherique = s.DeviceId == "default" || s.DeviceName.Length == 0 ? "Windows" : AudioPanel.NomCourt(s.DeviceName);
-        if (s.Kind == AudioInputKind.Microphone && s.Channel > 0)
+        var nom = new TextBlock
         {
-            // « Entrée 1 · UMC404HD » : le numéro de l'entrée en ambre, comme dans le mélangeur
-            sous.Inlines.Add(new Run("Entrée "));
-            sous.Inlines.Add(new Run(s.Channel.ToString()) { Foreground = P("Or"), FontWeight = FontWeights.ExtraBold });
-            sous.Inlines.Add(new Run(" · " + peripherique));
-        }
-        else sous.Text = s.Kind switch { AudioInputKind.Microphone => "Micro · " + peripherique, AudioInputKind.Sortie => "Sortie audio · " + peripherique, _ => "Média" };
-        nom.Children.Add(sous);
+            Text = s.Name, FontSize = 13, FontWeight = FontWeights.Bold, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 8, 0), ToolTip = AudioPanel.Description(s), Opacity = A.Inactive(s) ? 0.55 : 1,
+        };
         g.Children.Add(nom);
         var vu = new Vumetre(6) { VerticalAlignment = VerticalAlignment.Center, Gris = s.Muted, ToolTip = "Niveau de la source (après volume et filtres)" };
         Grid.SetColumn(vu, 1);

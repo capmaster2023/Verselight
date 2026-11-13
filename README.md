@@ -1,6 +1,10 @@
-# MyChurch 3.2.0
+# MyChurch 4.2.0
 
-Logiciel Windows autonome de projection pour l'église, avec télécommande Android. Bible, chants et sources Display partent directement sur l'écran choisi dans **Projection**. Depuis la 3.0, le son passe par le moteur audio d'OBS Studio (libobs).
+Logiciel Windows autonome de projection pour l'église, avec télécommande Android. Bible, chants et sources Display partent directement sur l'écran choisi dans **Projection**. Le son passe par le moteur audio d'OBS Studio (libobs), avec un mélangeur simplifié comme celui d'OBS.
+
+## Premier lancement
+
+MyChurch démarre **vide** : aucun chant, aucune source audio, aucun enregistrement. Seules deux Bibles libres de droits sont livrées : **Louis Segond 1910** (français) et **King James** (anglais). Les chants s'ajoutent avec **+ Importer chants ou recueil** ou **+ Nouveau chant**, les autres Bibles avec **+ Importer une Bible**.
 
 MyChurch est un logiciel libre sous licence **GNU GPL version 2 ou ultérieure** (voir [Licence et code source](#licence-et-code-source)).
 
@@ -8,7 +12,7 @@ MyChurch est un logiciel libre sous licence **GNU GPL version 2 ou ultérieure**
 
 - **Barre de gauche** : **Culte**, **Bible**, **Chants**, **Display**, **Duo**, puis en bas **Sombre / Clair** et **Réglages**.
 - **Page Culte** : le déroulé en cartes à gauche (un trait de couleur par type, « ● DIRECT » sur l'élément à l'écran) et, au centre, **toutes les diapositives du culte en vignettes**, dessinées comme à l'écran et groupées par élément. La vignette à l'écran est encadrée de rouge (« À L'ÉCRAN »), la suivante d'ambre (« SUIVANT »). Un clic affiche une vignette.
-- **Colonne de contrôle à droite, sur toutes les pages** : un petit écran **EN DIRECT**, la diapositive **SUIVANT** en plus petit, **◀ / Suivant ▶**, **Noir / Retirer de l'écran**, puis l'**audio en bref** (une ligne par micro avec son vumètre et sa sourdine **M**, et **+ Micros**). Duo et habillage sont dessous.
+- **Colonne de contrôle à droite, sur toutes les pages** : un petit écran **EN DIRECT**, la diapositive **SUIVANT** en plus petit, **◀ / Suivant ▶**, **Noir / Retirer de l'écran**, puis l'**audio en bref** (une ligne par source avec son vumètre et sa sourdine **M**, et **+ Source**). Duo et habillage sont dessous.
 - **Barre du bas** : les enregistrements (un clic : ● démarrer, ■ arrêter, avec le chrono), les sorties MyVirtualSound (« A · Zoom »), l'écran de projection, les téléphones, l'écran de scène et l'heure.
 - Thème **clair** par défaut (crème), **sombre** au choix d'un clic. Police Manrope.
 
@@ -34,20 +38,20 @@ Textes, versets, chants, images, caméras et fenêtres peuvent être épinglés.
 - Un clic sur une vignette l'envoie immédiatement sur l'écran choisi.
 - Clic droit : Afficher puis épingler, Modifier, Retirer de la grille, Ajouter au déroulé du culte ou Supprimer.
 
-## Audio (moteur OBS)
+## Audio (moteur OBS, simplifié comme OBS)
 
-Le panneau **Audio** se trouve dans l'onglet **Display**, sous la grille. Tout le son est traité par **libobs**, la bibliothèque d'OBS Studio 33.0.1, livrée dans le dossier `obs` à côté de `MyChurch.exe`.
+Le panneau **Audio** se trouve dans l'onglet **Display**, sous la grille. Tout le son est traité par **libobs**, la bibliothèque d'OBS Studio 33.0.1, livrée dans le dossier `obs` à côté de `MyChurch.exe`, avec les réglages par défaut d'OBS (48 kHz, stéréo).
 
-- **Un micro par bande.** **+ Source audio › Micros (une bande par entrée)…** montre chaque micro de Windows avec ses entrées : une carte son à 4 entrées (Behringer, Focusrite…) donne 4 cases, et chaque entrée cochée devient sa propre bande, comme une source dans OBS. Clic droit sur une bande › **Entrée** : une autre entrée, ou toutes ensemble.
-- **Mélangeur vertical, comme OBS.** Il démarre vide : **+ Source audio** ajoute des micros, le son d'une sortie (son de l'ordinateur), un fichier audio ou vidéo, ou le son de la vidéo projetée depuis Display. Chaque bande verticale a son volume en dB, une échelle de 0 à −60 dB, deux vumètres avec repère de crête, un fader de −60 à +6 dB, **M** (sourdine), le **casque** (écoute coupée, seule, ou écoute et sortie) et **Filtres**. Clic droit : renommer, changer de périphérique ou de fichier, mono, déplacer, supprimer.
-- **Pastilles** sous chaque bande : **1 à 5** = enregistrements, **A à D** = sorties MyVirtualSound. Un clic envoie la source dans cette destination ou l'en retire.
+- **+ Source audio**, comme le « + » des sources d'OBS : **Capture audio (entrée)**, **Capture audio (sortie)**, **Média**, ou le son de la vidéo projetée depuis Display.
+- **Propriétés** d'une capture audio, comme dans OBS : **Périphérique** (« Par défaut » ou un périphérique) et **Utiliser l'horodatage du périphérique**. Une carte son à plusieurs entrées (Behringer, Focusrite…) propose aussi **Entrée** : toutes, ou une seule (un micro par source).
+- **Mélangeur** : une bande par source avec son volume, deux vumètres, un fader de −60 à +6 dB, **M** (sourdine), le **casque** (monitoring) et **⋮** (Propriétés, Filtres, Renommer, Propriétés audio avancées, déplacer, Supprimer).
+- **⚙ Propriétés audio avancées**, comme dans OBS : état, volume (dB ou %), mono, balance, décalage de synchronisation, monitoring audio et **pistes 1 à 6**. Une nouvelle source va dans les 6 pistes.
 - **Filtres d'OBS** : réduction du bruit (RNNoise ou Speex), noise gate, compresseur, limiteur, en direct.
-- **Enregistrements** (rien de préréglé, 5 au plus, qui peuvent tourner en même temps) : **+ Créer un enregistrement** choisit ses sources audio, l'option **Couper les autres sources pendant cet enregistrement**, et ses sources **Display** (projection, caméras, fenêtres, images, textes, dossiers Duo) pour une vidéo MKV, la disposition (incrustation ou côte à côte), la synchro du son et le dossier. Sans source Display : WAV ou FLAC. FFmpeg 8.0.1 est inclus (dossier `ffmpeg`).
-- **MyVirtualSound** (4 sorties au plus, actives en même temps) : **+ Créer une sortie** choisit ses sources et son câble audio virtuel ; Zoom ou un navigateur le reçoivent comme un micro (« CABLE Output »). VB-CABLE (VB-Audio Software, www.vb-cable.com, donationware) n'est pas inclus : **Réglages › MyVirtualSound › Installer VB-CABLE** télécharge le paquet officiel, seulement sur clic.
-- Les pistes d'OBS sont données automatiquement : une par mélange différent en cours (6 au plus).
+- **Enregistrements** (5 au plus, qui peuvent tourner en même temps) : comme dans OBS, chacun garde **une piste** (1 à 6). Avec des sources **Display** (projection, caméras, fenêtres, images, textes, dossiers Duo), c'est une vidéo MKV (incrustation ou côte à côte, synchro du son) ; sinon WAV ou FLAC. FFmpeg 8.0.1 est inclus (dossier `ffmpeg`).
+- **MyVirtualSound** (4 sorties au plus, actives en même temps) : chacune envoie **une piste** vers un câble audio virtuel ; Zoom ou un navigateur la reçoivent comme un micro (« CABLE Output »). VB-CABLE (VB-Audio Software, www.vb-cable.com, donationware) n'est pas inclus : **Réglages › MyVirtualSound › Installer VB-CABLE** télécharge le paquet officiel, seulement sur clic.
+- **Réglages › Audio** : seulement le périphérique de monitoring audio (casque de la régie).
+- Une source dont le périphérique est débranché devient « Inactif » et revient quand il est rebranché ; rien n'est ajouté tout seul.
 - Si le dossier `obs` manque, le panneau propose **Réparer le moteur audio** (réinstallation, données gardées).
-
-Le mixage audio local de la 1.2 bêta et le minuteur de prédication ont été retirés.
 
 ## Projection et caméra virtuelle
 
@@ -59,10 +63,10 @@ La capture de fenêtre nécessite une fenêtre ouverte et non réduite. Certains
 
 ## Installation et mises à jour
 
-[Téléchargements de la 3.2.0](https://github.com/capmaster2023/Verselight/releases/tag/v3.2.0) :
+[Téléchargements de la 4.2.0](https://github.com/capmaster2023/Verselight/releases/tag/v4.2.0) :
 
-- `MyChurch-Setup-3.2.0.exe` : installateur Windows.
-- `MyChurch-3.2.0-Windows.zip` : version portable.
+- `MyChurch-Setup-4.2.0.exe` : installateur Windows.
+- `MyChurch-4.2.0-Windows.zip` : version portable.
 - `MyChurch.apk` : télécommande Android.
 
 Aucun jeton GitHub n'est intégré dans l'application.
@@ -88,7 +92,7 @@ Le dossier `obs` livré avec MyChurch contient les bibliothèques du paquet offi
 - `windows/MyVerse.Tests` : tests du cœur et du protocole téléphone, dont Duo, et du mélangeur sur la vraie libobs (groupe « Audio OBS »).
 - `windows/MyVirtualCam` : composant vidéo DirectShow 32 et 64 bits.
 - `android` : télécommande Kotlin / Compose.
-- `windows/NOTES-3.0.1.md` : notes de version (et `NOTES-3.0.0.md`).
+- `windows/NOTES-<version>.md` : notes de version (la dernière : `NOTES-4.2.0.md`).
 
 Tests locaux : `dotnet run --project windows/MyVerse.Tests -c Release -- windows/MyVerse/Ressources [groupe]`. Les essais de libobs utilisent le dossier OBS donné par la variable `MYCHURCH_OBS` sous Windows, ou le paquet `obs-studio` sous Linux (avec `xvfb`). Les essais FLAC et MKV (dont la synchro son/image mesurée) utilisent le `ffmpeg` donné par `MYCHURCH_FFMPEG`.
 
