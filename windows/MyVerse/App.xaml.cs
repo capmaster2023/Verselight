@@ -13,7 +13,7 @@ public partial class App : Application
         var v = System.Reflection.CustomAttributeExtensions.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(typeof(App).Assembly)?.InformationalVersion ?? "";
         int plus = v.IndexOf('+');
         if (plus >= 0) v = v[..plus];
-        return v.Trim().Length > 0 ? v.Trim() : "4.0.0";
+        return v.Trim().Length > 0 ? v.Trim() : "4.0.1";
     }
 
     /// <summary>

@@ -15,6 +15,16 @@ public sealed class Rendu : Grid
 {
     readonly Border fond = new();
     readonly Image media = new() { Stretch = Stretch.Uniform, Visibility = Visibility.Collapsed };
+    /// <summary>
+    /// Derrière une caméra en hauteur (MyCam tenu à la verticale) ou en 4:3 : la même image, agrandie et floutée, remplit les côtés
+    /// au lieu de bandes noires, comme à la télé. Effet de la carte graphique.
+    /// </summary>
+    readonly Image mediaFlou = new()
+    {
+        Stretch = Stretch.UniformToFill, Visibility = Visibility.Collapsed, Opacity = 0.5, IsHitTestVisible = false,
+        RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = new ScaleTransform(1.12, 1.12),
+        Effect = new BlurEffect { Radius = 56, KernelType = KernelType.Gaussian, RenderingBias = RenderingBias.Performance },
+    };
     readonly Border scene = new();
     readonly StackPanel pile = new();
     readonly TextBlock texte = new(), texte2 = new(), refT = new();
@@ -24,6 +34,9 @@ public sealed class Rendu : Grid
 
     /// <summary>Fondu entre deux diapositives (fenêtre de projection) ; sans fondu pour l'aperçu.</summary>
     public bool Transitions { get; set; } = true;
+
+    /// <summary>Fond flou derrière une caméra en hauteur ou en 4:3 (coupé pour la caméra virtuelle, dessinée sans carte graphique).</summary>
+    public bool FondFlou { get; set; } = true;
 
     static readonly SolidColorBrush Blanc = Gele(new SolidColorBrush(Color.FromRgb(0xF7, 0xF4, 0xEC)));
     static readonly SolidColorBrush Or2 = Gele(new SolidColorBrush(Color.FromRgb(0xF6, 0xD6, 0x8A)));
@@ -52,6 +65,7 @@ public sealed class Rendu : Grid
         SnapsToDevicePixels = true;
         Children.Add(fond);
         Children.Add(scene);
+        Children.Add(mediaFlou);
         Children.Add(media);
         scene.Child = pile;
         pile.VerticalAlignment = VerticalAlignment.Center;
@@ -78,7 +92,18 @@ public sealed class Rendu : Grid
         SizeChanged += (_, _) => { Placer(); Ajuster(); PlacerDuo(); };
     }
 
-    public void ImageDisplay(ImageSource? image) { media.Source = image; if (gauche != null) gauche.media.Source = image; }
+    public void ImageDisplay(ImageSource? image) { media.Source = image; if (gauche != null) gauche.media.Source = image; MajFlou(); }
+
+    /// <summary>Le fond flou ne sert qu'aux caméras (MyCam, caméra USB) plus étroites que l'écran : une image ou une vidéo garde ses bandes.</summary>
+    void MajFlou()
+    {
+        bool flou = FondFlou && etat.Mode == "media" && (etat.Media?.Type is "mycam" or "camera")
+            && media.Source is System.Windows.Media.Imaging.BitmapSource b && b.PixelHeight > 0 && b.PixelWidth / (double)b.PixelHeight < 1.6;
+        var source = flou ? media.Source : null;
+        if (!ReferenceEquals(mediaFlou.Source, source)) mediaFlou.Source = source;
+        var v = flou ? Visibility.Visible : Visibility.Collapsed;
+        if (mediaFlou.Visibility != v) mediaFlou.Visibility = v;
+    }
 
     // ------------------------------------------------------------ Duo : un second contenu dans un coin, ou côte à côte
     Rendu? gauche, epingle;
@@ -235,6 +260,7 @@ public sealed class Rendu : Grid
             Placer();
         }
         media.Visibility = e.Mode == "media" ? Visibility.Visible : Visibility.Collapsed;
+        MajFlou();
         if (e.Mode == "media")
         {
             version++; cle = "media";

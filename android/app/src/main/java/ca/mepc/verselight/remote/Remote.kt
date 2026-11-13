@@ -92,10 +92,13 @@ class Remote(private val context: Context, val store: Store) {
     private var updateChecked = false
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // MyCam : un petit tampon d'envoi (256 Ko) garde le direct (sinon Android empile des secondes d'images quand le Wi-Fi faiblit),
+    // et le ping laisse 20 s au PC pour répondre quand le Wi-Fi est chargé (moins de fausses coupures)
     private val client = OkHttpClient.Builder()
-        .pingInterval(10, TimeUnit.SECONDS)
+        .pingInterval(20, TimeUnit.SECONDS)
         .connectTimeout(3, TimeUnit.SECONDS)
         .readTimeout(0, TimeUnit.SECONDS)
+        .socketFactory(PetitTamponEnvoi())
         .build()
     private val wake = Channel<Unit>(Channel.CONFLATED)
     private val random = SecureRandom()
@@ -573,4 +576,23 @@ class Remote(private val context: Context, val store: Store) {
     }
 
     private fun hmac(key: ByteArray, msg: String) = b64(hmacRaw(key, msg))
+}
+
+/** Prises TCP au tampon d'envoi réduit (256 Ko) : les images MyCam ne s'empilent pas des secondes durant dans le téléphone. */
+private class PetitTamponEnvoi : javax.net.SocketFactory() {
+    private val defaut: javax.net.SocketFactory = javax.net.SocketFactory.getDefault()
+    private fun regler(s: java.net.Socket): java.net.Socket = s.apply {
+        try {
+            sendBufferSize = 256 * 1024
+            tcpNoDelay = true
+        } catch (e: Exception) {
+        }
+    }
+    override fun createSocket(): java.net.Socket = regler(defaut.createSocket())
+    override fun createSocket(host: String?, port: Int): java.net.Socket = regler(defaut.createSocket(host, port))
+    override fun createSocket(host: String?, port: Int, localHost: java.net.InetAddress?, localPort: Int): java.net.Socket =
+        regler(defaut.createSocket(host, port, localHost, localPort))
+    override fun createSocket(host: java.net.InetAddress?, port: Int): java.net.Socket = regler(defaut.createSocket(host, port))
+    override fun createSocket(address: java.net.InetAddress?, port: Int, localAddress: java.net.InetAddress?, localPort: Int): java.net.Socket =
+        regler(defaut.createSocket(address, port, localAddress, localPort))
 }

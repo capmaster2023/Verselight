@@ -556,6 +556,35 @@ public static class AutoTest
                 Ok(R.TemoinMyCam("autotest-cam") == "live", "MyCam : témoin rouge pour le téléphone");
                 Capture(w, "21d-mycam-direct.png");
                 if (w.Ecran != null) Capture(w.Ecran, "21e-mycam-ecran.png");
+                // 4.0.1 : OBS lit display.jpg pendant qu'on le remplace (Windows : « accès refusé ») ; la caméra ne doit ni s'arrêter ni passer au noir
+                string jpgObs = Path.Combine(App.SortieObs.Dossier, "display.jpg");
+                if (File.Exists(jpgObs))
+                {
+                    var avantVerrou = App.Sources.Image;
+                    using (var verrou = new FileStream(jpgObs, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    {
+                        for (int k = 0; k < 12; k++)
+                        {
+                            cams.Recevoir("autotest-cam", "Téléphone test", msg, msg.Length);
+                            await Attendre(120);
+                        }
+                    }
+                    await Attendre(300);
+                    Ok(App.Sources.Image != null && !ReferenceEquals(App.Sources.Image, avantVerrou) && App.Sources.Statut == "En direct",
+                        "4.0.1 : display.jpg tenu ouvert par OBS (accès refusé) : MyCam continue (" + App.Sources.Statut + ")");
+                }
+                else Note("display.jpg absent : essai du fichier tenu par OBS non fait");
+                // téléphone tenu à la verticale, image entière : en hauteur, avec un fond flou sur l'écran
+                var debout = (byte[])msg.Clone();
+                debout[3] = 1;
+                for (int k = 0; k < 6; k++)
+                {
+                    cams.Recevoir("autotest-cam", "Téléphone test", debout, debout.Length);
+                    await Attendre(80);
+                }
+                await Attendre(500);
+                Ok(App.Sources.Image is { PixelWidth: 360, PixelHeight: 640 }, "MyCam en hauteur : image tournée d'un quart de tour (" + App.Sources.Image?.PixelWidth + " × " + App.Sources.Image?.PixelHeight + ")");
+                if (w.Ecran != null) Capture(w.Ecran, "21f-mycam-en-hauteur.png");
                 R.Effacer();
                 await Attendre(500);
                 Ok(R.TemoinMyCam("autotest-cam") == "off", "MyCam retirée : témoin éteint");

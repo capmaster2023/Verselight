@@ -86,14 +86,22 @@ public sealed class SourcesDisplay : IDisposable
                     try
                     {
                         long dernier = -1;
-                        bool attente = false;
+                        bool attente = false, erreurSignalee = false;
                         var depuis = Stopwatch.StartNew();
                         while (!token.IsCancellationRequested)
                         {
                             if (cams.Dernier(nouvelle.Peripherique) is { } c && c.Numero != dernier)
                             {
                                 dernier = c.Numero;
-                                if (DecoderMyCam(c) is { } b) { await Publier(b, g, token.Token); attente = false; }
+                                // une image ratée ne coupe pas la caméra : l'image suivante arrive dans quelques millisecondes
+                                try
+                                {
+                                    if (DecoderMyCam(c) is { } b) { await Publier(b, g, token.Token); attente = false; }
+                                }
+                                catch (Exception ex) when (ex is not OperationCanceledException)
+                                {
+                                    if (!erreurSignalee) { erreurSignalee = true; Journal.Erreur("MyCam (image sautée)", ex); }
+                                }
                                 depuis.Restart();
                             }
                             else if (!attente && depuis.ElapsedMilliseconds > (dernier < 0 ? 300 : 2500))
@@ -198,6 +206,16 @@ public sealed class SourcesDisplay : IDisposable
         });
         if (export.Length == 0 || g != generation || !App.SortieObs.Prete || Environment.TickCount64 - dernierExport < 100) return;
         dernierExport = Environment.TickCount64;
+        await Exporter(b, g);
+    }
+
+    /// <summary>
+    /// L'image de la page OBS (display.jpg), écrite à côté puis mise à la place. OBS (ou l'antivirus) tient parfois le fichier ouvert
+    /// au moment du remplacement : Windows répond « accès refusé ». On réessaie un instant, sinon cette image est sautée ;
+    /// la source, elle, continue (avant la 4.0.1, cette erreur arrêtait la caméra : écran noir ou image figée).
+    /// </summary>
+    async Task Exporter(BitmapSource b, int g)
+    {
         try
         {
             BitmapSource sortie = b.PixelWidth > 1280 ? new TransformedBitmap(b, new ScaleTransform(1280.0 / b.PixelWidth, 1280.0 / b.PixelWidth)) : b;
@@ -205,9 +223,13 @@ public sealed class SourcesDisplay : IDisposable
             encoder.Frames.Add(BitmapFrame.Create(sortie));
             var path = Path.Combine(App.SortieObs.Dossier, export);
             using (var file = File.Create(path + ".tmp")) encoder.Save(file);
-            if (g == generation) File.Move(path + ".tmp", path, true);
+            for (int essai = 0; essai < 3 && g == generation; essai++)
+            {
+                try { File.Move(path + ".tmp", path, true); return; }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException) { await Task.Delay(10); }
+            }
         }
-        catch (IOException) { }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or NotSupportedException or InvalidOperationException or ArgumentException) { }
     }
 
     void ViderExport()
@@ -222,7 +244,7 @@ public sealed class SourcesDisplay : IDisposable
             using (var f = File.Create(path + ".blank")) encoder.Save(f);
             File.Move(path + ".blank", path, true);
         }
-        catch (IOException) { }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or NotSupportedException or InvalidOperationException) { }
     }
 
     public void Reconnecter(EtatEcran e) { source = null; Choisir(e); }

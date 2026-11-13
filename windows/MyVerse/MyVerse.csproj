@@ -11,13 +11,13 @@
     <AssemblyName>MyChurch</AssemblyName>
     <ApplicationIcon>myverse.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>4.0.0</Version>
-    <FileVersion>4.0.0.0</FileVersion>
+    <Version>4.0.1</Version>
+    <FileVersion>4.0.1.0</FileVersion>
     <Product>MyChurch</Product>
     <AssemblyTitle>MyChurch</AssemblyTitle>
     <Company>MEPC Montréal</Company>
     <Copyright>MEPC Montréal</Copyright>
-    <Description>MyChurch 4.0.0 : projection d église (Bible, chants, Display, Duo, MyCam) et audio comme OBS 32</Description>
+    <Description>MyChurch 4.0.1 : projection d église (Bible, chants, Display, Duo, MyCam) et audio comme OBS 32</Description>
     <NeutralLanguage>fr</NeutralLanguage>
     <SatelliteResourceLanguages>fr</SatelliteResourceLanguages>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>

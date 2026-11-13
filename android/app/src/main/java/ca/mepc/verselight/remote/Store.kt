@@ -79,6 +79,11 @@ class Store(context: Context) {
         get() = prefs.getBoolean("camMessages", true)
         set(v) = prefs.edit().putBoolean("camMessages", v).apply()
 
+    /** Téléphone tenu à la verticale : image 16:9 recadrée comme le viseur (sinon l'image entière, en hauteur). */
+    var camRemplir: Boolean
+        get() = prefs.getBoolean("camRemplir", true)
+        set(v) = prefs.edit().putBoolean("camRemplir", v).apply()
+
     /** Grille des tiers sur le viseur. */
     var camGrille: Boolean
         get() = prefs.getBoolean("camGrille", true)

@@ -30,6 +30,7 @@ import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -71,6 +72,10 @@ object MyCam {
     val enDirectDepuis = MutableStateFlow(0L)
     val batterie = MutableStateFlow(-1)
     val temperature = MutableStateFlow(0.0)
+    /** Le téléphone est tenu à la verticale (l'image est alors recadrée en 16:9, comme le viseur). */
+    val portrait = MutableStateFlow(true)
+    /** Qualité JPEG du moment (elle baisse quand le Wi-Fi ne suit pas, puis remonte). */
+    val qualiteImage = MutableStateFlow(0)
 
     private var activite: ComponentActivity? = null
     private var remote: Remote? = null
@@ -87,6 +92,14 @@ object MyCam {
     @Volatile private var dernierEnvoi = 0L
     @Volatile private var envoyees = 0
     @Volatile private var infoDemandee = false
+    /** Dernière image donnée par la caméra (même sautée) : la caméra vit. */
+    @Volatile private var dernierCadre = 0L
+    @Volatile private var ouverteDepuis = 0L
+    @Volatile private var qualite = 0
+    private var bonnes = 0
+    private var derniereBaisse = 0L
+    /** Octets en attente d'envoi au-delà desquels une image est sautée : au plus ~1 image d'avance, pour un retard minimal. */
+    private const val SEUIL_FILE = 150_000L
 
     private class Tampon : ByteArrayOutputStream(256 * 1024) {
         val octets: ByteArray get() = buf
@@ -116,6 +129,7 @@ object MyCam {
                 if (rot != rotationCible) {
                     rotationCible = rot
                     analyse?.setTargetRotation(rot)
+                    portrait.value = rot == Surface.ROTATION_0 || rot == Surface.ROTATION_180
                 }
             }
         }.also { it.enable() }
@@ -284,6 +298,8 @@ object MyCam {
         try {
             val cam = p.bindToLifecycle(a, selecteur, prev, an)
             camera = cam
+            ouverteDepuis = SystemClock.elapsedRealtime()
+            dernierCadre = ouverteDepuis
             apercu = prev
             analyse = an
             vueApercu?.let { prev.setSurfaceProvider(it.surfaceProvider) }
@@ -339,24 +355,49 @@ object MyCam {
 
     private fun traiter(img: ImageProxy) {
         try {
+            val maintenant = SystemClock.elapsedRealtime()
+            dernierCadre = maintenant
             val r = remote ?: return
             if (!diffuse.value) return
-            val maintenant = SystemClock.elapsedRealtime()
             val intervalle = 1000L / r.store.camFps.coerceIn(5, 30)
             if (maintenant - dernierEnvoi < intervalle - 4) return
-            if (!r.pret() || r.fileEnvoi() > 600_000L) return
-            val rotation = (img.imageInfo.rotationDegrees / 90) and 3
+            if (!r.pret()) return
             val w = img.width
             val h = img.height
+            val max = if (h >= 1080 || w >= 1920) 70 else 76
+            if (qualite == 0 || qualite > max) qualite = max
+            // le Wi-Fi ne suit pas (plus d'une image en attente) : cette image est sautée et la qualité baisse, pour garder le direct
+            if (r.fileEnvoi() > SEUIL_FILE) {
+                if (maintenant - derniereBaisse > 400) {
+                    qualite = (qualite - 6).coerceAtLeast(40)
+                    derniereBaisse = maintenant
+                    bonnes = 0
+                }
+                return
+            }
+            val rotation = (img.imageInfo.rotationDegrees / 90) and 3
+            // téléphone à la verticale : la bande 16:9 du milieu, comme le viseur (l'image debout est en hauteur ;
+            // sa bande horizontale est une bande verticale du capteur)
+            val zone = if (rotation % 2 == 1 && r.store.camRemplir) {
+                val bw = (h * 9 / 16) and 1.inv()
+                val x0 = ((w - bw) / 2) and 1.inv()
+                Rect(x0, 0, x0 + bw, h)
+            } else Rect(0, 0, w, h)
             val yuv = versNv21(img)
             tampon.reset()
             tampon.write(byteArrayOf('M'.code.toByte(), 'C'.code.toByte(), 1, rotation.toByte()))
-            YuvImage(yuv, ImageFormat.NV21, w, h, null).compressToJpeg(Rect(0, 0, w, h), if (h >= 1080) 70 else 76, tampon)
+            YuvImage(yuv, ImageFormat.NV21, w, h, null).compressToJpeg(zone, qualite, tampon)
             if (r.sendBinary(tampon.octets, tampon.longueur)) {
                 dernierEnvoi = maintenant
                 envoyees++
+                // tout passe : la qualité remonte doucement
+                if (++bonnes >= 45 && qualite < max) {
+                    qualite = (qualite + 3).coerceAtMost(max)
+                    bonnes = 0
+                }
             }
-            val t = if (rotation % 2 == 1) "$h × $w" else "$w × $h"
+            if (qualiteImage.value != qualite) qualiteImage.value = qualite
+            val t = if (rotation % 2 == 1) "${zone.height()} × ${zone.width()}" else "${zone.width()} × ${zone.height()}"
             if (taille.value != t) taille.value = t
         } catch (e: Exception) {
             erreur.value = "Image : ${e.message ?: e.javaClass.simpleName}"
@@ -425,6 +466,14 @@ object MyCam {
             delay(1000)
             fps.value = if (diffuse.value) envoyees else 0
             envoyees = 0
+            // caméra bloquée : plus aucune image depuis 3 s pendant la diffusion (application au premier plan) → on la rouvre
+            val maintenant = SystemClock.elapsedRealtime()
+            val active = activite?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.STARTED) == true
+            if (diffuse.value && active && camera != null && maintenant - dernierCadre > 3000 && maintenant - ouverteDepuis > 4000) {
+                erreur.value = ""
+                fermer()
+                appliquer()
+            }
         }
     }
 

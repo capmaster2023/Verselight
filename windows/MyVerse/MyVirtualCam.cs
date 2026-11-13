@@ -13,7 +13,7 @@ public sealed class MyVirtualCam : IDisposable
 {
     public const string Clsid = "{A9D47A18-C751-4BDE-AB6B-A3D13F090501}";
     public const int Width = 1280, Height = 720, Stride = Width * 3, Bytes = Stride * Height;
-    readonly Rendu rendu = new() { Transitions = false, Width = Width, Height = Height, Background = Brushes.Black };
+    readonly Rendu rendu = new() { Transitions = false, FondFlou = false, Width = Width, Height = Height, Background = Brushes.Black };
     readonly DispatcherTimer timer = new(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(33) };
     readonly MemoryMappedFile fichier;
     readonly MemoryMappedViewAccessor vue;

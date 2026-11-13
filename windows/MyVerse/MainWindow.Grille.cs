@@ -143,12 +143,15 @@ public partial class MainWindow
         }
         else
         {
-            vue.Children.Add(new TextBlock
+            var attente = new TextBlock
             {
                 Text = type == "camera" ? "Caméra" : type == "mycam" ? "MyCam · en attente du téléphone" : type == "fenetre" ? "Fenêtre" : type == "video" ? "Vidéo" : "Image", FontSize = 15,
-                Foreground = TexteTuile, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
-            });
+                Foreground = TexteTuile, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, Margin = new Thickness(8, 0, 8, 0),
+            };
+            vue.Children.Add(attente);
             image = new Image { Stretch = Stretch.Uniform };
+            // le texte d'attente disparaît dès qu'il y a une image (une image en hauteur ne le laisse plus dépasser sur les côtés)
+            attente.SetBinding(UIElement.VisibilityProperty, new System.Windows.Data.Binding(nameof(Image.Source)) { Source = image, Converter = SansImage.Instance });
             if (type == "image" && a.Source?.Chemin is { Length: > 0 } chemin) image.Source = ImageFichier(chemin, 360);
             if (type == "mycam" && a.Source is { } sm) tuilesMyCam.Add((image, sm.Peripherique, a.Id));
             vue.Children.Add(image);
@@ -297,4 +300,12 @@ public partial class MainWindow
         m.Items.Add(arret);
         Ouvrir(m, ProjectionBtn, PlacementMode.Top);
     }
+}
+
+/// <summary>Visible tant que l'image n'a pas de source (texte d'attente d'une tuile).</summary>
+sealed class SansImage : System.Windows.Data.IValueConverter
+{
+    public static readonly SansImage Instance = new();
+    public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture) => value == null ? Visibility.Visible : Visibility.Collapsed;
+    public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture) => throw new NotSupportedException();
 }

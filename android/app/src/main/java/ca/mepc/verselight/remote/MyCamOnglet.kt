@@ -308,6 +308,7 @@ fun MyCamOnglet(remote: Remote) {
     val fps by MyCam.fps.collectAsState()
     val taille by MyCam.taille.collectAsState()
     val batterie by MyCam.batterie.collectAsState()
+    val portrait by MyCam.portrait.collectAsState()
     val messages by remote.messagesCam.collectAsState()
     val pc by remote.pcName.collectAsState()
     var grille by remember { mutableStateOf(remote.store.camGrille) }
@@ -365,6 +366,12 @@ fun MyCamOnglet(remote: Remote) {
                         }
                     }
                 }
+
+                if (diffuse && portrait) T(
+                    if (remote.store.camRemplir) "Téléphone à la verticale : l’écran de l’église reçoit le cadre 16:9 du viseur. Tournez-le à l’horizontale pour l’image la plus nette."
+                    else "Téléphone à la verticale : l’écran de l’église reçoit l’image en hauteur. Tournez-le à l’horizontale pour remplir l’écran.",
+                    taille = 12.sp, couleur = C.CamBrume, interligne = 17.sp,
+                )
 
                 // zoom : 0,5× (grand-angle si le téléphone en a un), 1×, 2×, 3×
                 val niveaux = buildList {
@@ -595,6 +602,7 @@ private fun MyCamReglages(remote: Remote, fermer: () -> Unit) {
     var vibrer by remember { mutableStateOf(store.camVibrer) }
     var messages by remember { mutableStateOf(store.camMessages) }
     var grille by remember { mutableStateOf(store.camGrille) }
+    var remplir by remember { mutableStateOf(store.camRemplir) }
     BackHandler { fermer() }
     fun enregistrerNom() {
         store.camNom = nom
@@ -654,7 +662,11 @@ private fun MyCamReglages(remote: Remote, fermer: () -> Unit) {
                     store.camFps = fps
                     MyCam.reconfigurer()
                 }
-                T("720p à 30 i/s : le bon choix sur le Wi-Fi de l’église. 1080p demande un Wi-Fi 5 GHz ou le câble.", taille = 12.sp, couleur = C.CamBrume, interligne = 17.sp)
+                T("720p à 30 i/s : le bon choix sur le Wi-Fi de l’église. 1080p demande un Wi-Fi 5 GHz ou le câble. Si le Wi-Fi faiblit, la qualité baisse un moment pour garder le direct.", taille = 12.sp, couleur = C.CamBrume, interligne = 17.sp)
+                LigneReglage("Toujours en 16:9, comme le viseur", "Téléphone à la verticale : l’image est recadrée pour remplir l’écran de l’église", remplir, sombre = true) {
+                    remplir = it
+                    store.camRemplir = it
+                }
             }
 
             TitreSection("Connexion")
